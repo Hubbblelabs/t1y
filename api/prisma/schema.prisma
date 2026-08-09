@@ -1,0 +1,1202 @@
+// Digital Diabetes Management Platform — database schema
+//
+// Design notes
+// ------------
+// * Physiological measurements are stored as `Float` (PostgreSQL `double precision`).
+//   The clinically relevant ranges (glucose 20–600 mg/dL, HbA1c 3–20 %, weight, etc.)
+//   are represented exactly enough by IEEE-754 doubles, and it keeps aggregation
+//   (avg/min/max) and JSON serialisation straightforward.
+// * There is exactly one identity table (`User`). Role-specific detail lives in
+//   `Profile` (patients) and `AdminUser` (staff). User data is never duplicated
+//   across domain tables — they reference `userId`.
+// * Every table that is queried by "participant + date range" carries a composite
+//   index in that order, because health history grows without bound.
+// * Clinically meaningful thresholds are NOT hard-coded anywhere in the product.
+//   They live in `ClinicalThreshold` and must be configured by a clinician.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  PATIENT
+  ADMIN
+  SUPER_ADMIN
+  RESEARCHER
+  CLINICAL_REVIEWER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum DiabetesType {
+  TYPE_1
+  TYPE_2
+  GESTATIONAL
+  PREDIABETES
+  MODY
+  OTHER
+  UNSPECIFIED
+}
+
+enum TreatmentModality {
+  LIFESTYLE_ONLY
+  ORAL_MEDICATION
+  INSULIN
+  ORAL_AND_INSULIN
+  NON_INSULIN_INJECTABLE
+  OTHER
+  UNSPECIFIED
+}
+
+enum Sex {
+  FEMALE
+  MALE
+  INTERSEX
+  PREFER_NOT_TO_SAY
+  UNSPECIFIED
+}
+
+enum GlucoseUnit {
+  MG_DL
+  MMOL_L
+}
+
+enum GlucoseContext {
+  FASTING
+  PRE_MEAL
+  POST_MEAL
+  BEDTIME
+  OVERNIGHT
+  PRE_EXERCISE
+  POST_EXERCISE
+  RANDOM
+}
+
+enum DataSource {
+  MANUAL
+  DEVICE
+  IMPORT
+  CLINICIAN
+}
+
+enum MedicationForm {
+  TABLET
+  CAPSULE
+  LIQUID
+  INJECTION
+  PATCH
+  INHALER
+  OTHER
+}
+
+enum MedicationLogStatus {
+  PENDING
+  TAKEN
+  MISSED
+  SKIPPED
+}
+
+enum InsulinType {
+  RAPID_ACTING
+  SHORT_ACTING
+  INTERMEDIATE_ACTING
+  LONG_ACTING
+  ULTRA_LONG_ACTING
+  PREMIXED
+  OTHER
+}
+
+enum InjectionSite {
+  ABDOMEN
+  LEFT_ARM
+  RIGHT_ARM
+  LEFT_THIGH
+  RIGHT_THIGH
+  LEFT_BUTTOCK
+  RIGHT_BUTTOCK
+  OTHER
+}
+
+enum MealAssociation {
+  BEFORE_MEAL
+  WITH_MEAL
+  AFTER_MEAL
+  BEDTIME
+  CORRECTION
+  NONE
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACK
+  OTHER
+}
+
+enum ExerciseCategory {
+  AEROBIC
+  STRENGTH
+  FLEXIBILITY
+  BALANCE
+  BREATHING
+  WALKING
+  YOGA
+  OTHER
+}
+
+enum ExerciseIntensity {
+  LIGHT
+  MODERATE
+  VIGOROUS
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum HbA1cSource {
+  LABORATORY
+  POINT_OF_CARE
+  SELF_REPORTED
+}
+
+enum MetricValueType {
+  NUMERIC
+  COMPOSITE
+  TEXT
+}
+
+enum EducationCategory {
+  DIABETES_BASICS
+  GLUCOSE_MANAGEMENT
+  MEDICATION
+  INSULIN
+  NUTRITION
+  EXERCISE
+  LIFESTYLE
+  STRESS_MANAGEMENT
+  GENERAL_WELLNESS
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaType {
+  NONE
+  IMAGE
+  VIDEO
+  PDF
+  AUDIO
+}
+
+enum NotificationType {
+  MEDICATION_REMINDER
+  GLUCOSE_REMINDER
+  EXERCISE_REMINDER
+  HBA1C_REMINDER
+  EDUCATION
+  GENERAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+  FAILED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum CampaignTargetType {
+  ALL_PARTICIPANTS
+  ROLE
+  STUDY
+  SPECIFIC_USERS
+}
+
+enum ReminderRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum StudyStatus {
+  DRAFT
+  RECRUITING
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  INVITED
+  ENROLLED
+  ACTIVE
+  WITHDRAWN
+  COMPLETED
+}
+
+enum StudyAccessRole {
+  LEAD_INVESTIGATOR
+  ANALYST
+  VIEWER
+}
+
+enum ExportFormat {
+  CSV
+  XLSX
+  PDF
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ThresholdScope {
+  GLOBAL
+  STUDY
+  PARTICIPANT
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  PDF
+  AUDIO
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Identity — Better Auth core tables plus platform fields
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  emailVerified Boolean    @default(false)
+  image         String?
+  role          UserRole   @default(PATIENT)
+  status        UserStatus @default(PENDING)
+  timezone      String     @default("UTC")
+  locale        String     @default("en")
+  lastLoginAt   DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  profile   Profile?
+  adminUser AdminUser?
+
+  glucoseReadings GlucoseReading[]
+  medications     Medication[]
+  medicationLogs  MedicationLog[]
+  insulinLogs     InsulinLog[]
+  meals           Meal[]
+  exerciseLogs    ExerciseLog[]
+  hba1cRecords    HbA1cRecord[]
+  healthMetrics   HealthMetric[]
+  reminders       Reminder[]
+  notifications   Notification[]
+  deviceTokens    DeviceToken[]
+
+  studyEnrollments StudyParticipant[]
+  studyAccess      StudyAccess[]      @relation("StudyAccessUser")
+
+  auditLogsAsActor   AuditLog[] @relation("AuditActor")
+  auditLogsAsSubject AuditLog[] @relation("AuditSubject")
+
+  authoredEducation EducationContent[] @relation("EducationAuthor")
+  authoredExercises ExerciseContent[]  @relation("ExerciseAuthor")
+  createdCampaigns  NotificationCampaign[] @relation("CampaignCreator")
+  createdStudies    ResearchStudy[]        @relation("StudyCreator")
+  dataExports       DataExport[]
+  uploadedAssets    MediaAsset[]
+  customExercises   Exercise[]             @relation("ExerciseCreator")
+
+  @@index([role, status])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+/// Better Auth database-backed rate limiting (shared across serverless instances).
+model RateLimit {
+  id          String @id @default(cuid())
+  key         String @unique
+  count       Int    @default(0)
+  lastRequest BigInt @default(0)
+
+  @@index([key])
+}
+
+/// Rate limiting for the platform's own REST endpoints.
+model ApiRateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
+// ---------------------------------------------------------------------------
+// Participant and staff profiles
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  /// Stable pseudonymous identifier used in research exports (e.g. "P001").
+  participantCode String @unique
+
+  firstName   String
+  lastName    String
+  dateOfBirth DateTime?
+  sex         Sex       @default(UNSPECIFIED)
+  phone       String?
+  city        String?
+  country     String?
+
+  diabetesType      DiabetesType      @default(UNSPECIFIED)
+  diagnosisYear     Int?
+  treatmentModality TreatmentModality @default(UNSPECIFIED)
+  heightCm          Float?
+  baselineWeightKg  Float?
+  primaryClinician  String?
+
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  /// Maintained on every health-data write so participant lists stay cheap to query.
+  lastActivityAt DateTime?
+  onboardedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([diabetesType])
+  @@index([lastActivityAt])
+  @@index([lastName, firstName])
+}
+
+/// Staff-specific metadata. Authorisation always derives from `User.role`.
+model AdminUser {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  jobTitle     String?
+  department   String?
+  organization String?
+  phone        String?
+  invitedById  String?
+  invitedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Glucose
+// ---------------------------------------------------------------------------
+
+model GlucoseReading {
+  id     String @id @default(cuid())
+  userId String
+
+  value      Float
+  unit       GlucoseUnit    @default(MG_DL)
+  context    GlucoseContext @default(RANDOM)
+  measuredAt DateTime
+  source     DataSource     @default(MANUAL)
+  deviceId   String?
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, measuredAt])
+  @@index([userId, context, measuredAt])
+  @@index([measuredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Medications
+// ---------------------------------------------------------------------------
+
+model Medication {
+  id     String @id @default(cuid())
+  userId String
+
+  name        String
+  genericName String?
+  dosageText  String
+  form        MedicationForm @default(TABLET)
+  route       String?
+  frequency   String
+  timesPerDay Int            @default(1)
+  /// Local times of day ("08:00"), interpreted in the participant's timezone.
+  scheduleTimes String[]
+  instructions  String?
+  prescribedBy  String?
+  reason        String?
+  startDate     DateTime
+  endDate       DateTime?
+  isActive      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs MedicationLog[]
+  reminders Reminder[]
+
+  @@index([userId, isActive])
+  @@index([userId, startDate])
+}
+
+model MedicationLog {
+  id           String @id @default(cuid())
+  userId       String
+  medicationId String
+
+  scheduledFor DateTime?
+  takenAt      DateTime?
+  status       MedicationLogStatus @default(PENDING)
+  doseAmount   Float?
+  doseUnit     String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medication Medication @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  /// Prevents duplicate entries for the same scheduled dose.
+  @@unique([medicationId, scheduledFor])
+  @@index([userId, scheduledFor])
+  @@index([userId, status, scheduledFor])
+  @@index([medicationId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Insulin — recorded administrations only. The platform never recommends doses.
+// ---------------------------------------------------------------------------
+
+model InsulinLog {
+  id     String @id @default(cuid())
+  userId String
+
+  insulinName     String
+  insulinType     InsulinType
+  doseUnits       Float
+  unit            String          @default("IU")
+  administeredAt  DateTime
+  injectionSite   InjectionSite?
+  mealAssociation MealAssociation @default(NONE)
+  mealId          String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  meal Meal? @relation(fields: [mealId], references: [id], onDelete: SetNull)
+
+  @@index([userId, administeredAt])
+  @@index([userId, insulinType, administeredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Nutrition — values are participant-reported unless `nutritionSource` says otherwise.
+// ---------------------------------------------------------------------------
+
+model Meal {
+  id     String @id @default(cuid())
+  userId String
+
+  name       String?
+  mealType   MealType
+  consumedAt DateTime
+
+  totalCarbsGrams   Float?
+  totalCalories     Float?
+  totalProteinGrams Float?
+  totalFatGrams     Float?
+  totalFiberGrams   Float?
+
+  /// Name of the validated nutrition database the values came from, if any.
+  nutritionSource String?
+  photoUrl        String?
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       MealItem[]
+  insulinLogs InsulinLog[]
+
+  @@index([userId, consumedAt])
+  @@index([userId, mealType, consumedAt])
+}
+
+model MealItem {
+  id     String @id @default(cuid())
+  mealId String
+
+  name          String
+  quantity      Float  @default(1)
+  unit          String @default("serving")
+  carbsGrams    Float?
+  calories      Float?
+  proteinGrams  Float?
+  fatGrams      Float?
+  fiberGrams    Float?
+  /// Identifier within the external food database, when one was used.
+  referenceCode String?
+
+  createdAt DateTime @default(now())
+
+  meal Meal @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@index([mealId])
+}
+
+// ---------------------------------------------------------------------------
+// Exercise
+// ---------------------------------------------------------------------------
+
+/// Catalogue of activity types. System entries are shared; participants may add their own.
+model Exercise {
+  id       String           @id @default(cuid())
+  name     String
+  category ExerciseCategory @default(OTHER)
+  /// Metabolic equivalent, when a referenced value is available.
+  metValue    Float?
+  description String?
+  isSystem    Boolean @default(true)
+  isActive    Boolean @default(true)
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User?         @relation("ExerciseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  logs      ExerciseLog[]
+
+  @@unique([name, createdById])
+  @@index([category, isActive])
+}
+
+model ExerciseLog {
+  id     String @id @default(cuid())
+  userId String
+
+  exerciseId      String?
+  programId       String?
+  activityName    String
+  category        ExerciseCategory  @default(OTHER)
+  durationMinutes Int
+  intensity       ExerciseIntensity @default(MODERATE)
+  caloriesBurned  Float?
+  distanceKm      Float?
+  steps           Int?
+  performedAt     DateTime
+  notes           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise?        @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
+  program  ExerciseContent? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  @@index([userId, performedAt])
+  @@index([userId, category, performedAt])
+}
+
+// ---------------------------------------------------------------------------
+// HbA1c
+// ---------------------------------------------------------------------------
+
+model HbA1cRecord {
+  id     String @id @default(cuid())
+  userId String
+
+  valuePercent  Float
+  valueMmolMol  Float?
+  measuredAt    DateTime
+  source        HbA1cSource @default(LABORATORY)
+  laboratoryName String?
+  orderedBy      String?
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, measuredAt])
+  @@index([userId, measuredAt])
+  @@index([measuredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Health metrics — extensible without schema changes
+// ---------------------------------------------------------------------------
+
+/// A metric that can be tracked. New metrics are added as rows, not columns.
+model HealthMetricDefinition {
+  id  String @id @default(cuid())
+  key String @unique
+
+  label          String
+  description    String?
+  unit           String
+  valueType      MetricValueType @default(NUMERIC)
+  /// Populated for COMPOSITE metrics such as blood pressure (systolic / diastolic).
+  primaryLabel   String?
+  secondaryLabel String?
+  /// Plausibility bounds used for input validation only — not a clinical judgement.
+  minValue  Float?
+  maxValue  Float?
+  precision Int     @default(1)
+  isSystem  Boolean @default(true)
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  measurements HealthMetric[]
+  thresholds   ClinicalThreshold[]
+
+  @@index([isActive, sortOrder])
+}
+
+model HealthMetric {
+  id           String @id @default(cuid())
+  userId       String
+  definitionId String
+
+  value          Float?
+  secondaryValue Float?
+  textValue      String?
+  unit           String
+  measuredAt     DateTime
+  source         DataSource @default(MANUAL)
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  definition HealthMetricDefinition @relation(fields: [definitionId], references: [id], onDelete: Restrict)
+
+  @@index([userId, definitionId, measuredAt])
+  @@index([userId, measuredAt])
+}
+
+/// Clinician-configured thresholds. Nothing in the product invents these values.
+model ClinicalThreshold {
+  id    String @id @default(cuid())
+  key   String
+  scope ThresholdScope @default(GLOBAL)
+
+  studyId String?
+  userId  String?
+
+  /// Domain the threshold applies to: "glucose", "hba1c", or a health metric key.
+  domain       String
+  context      String?
+  definitionId String?
+
+  unit      String
+  lowValue  Float?
+  highValue Float?
+  label     String
+  /// Provenance — the guideline or clinician that defined the value.
+  source    String
+  isActive  Boolean @default(true)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  study      ResearchStudy?          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  definition HealthMetricDefinition? @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+
+  @@unique([key, scope, studyId, userId])
+  @@index([domain, isActive])
+  @@index([scope, studyId])
+}
+
+// ---------------------------------------------------------------------------
+// Reminders and notifications
+// ---------------------------------------------------------------------------
+
+model Reminder {
+  id     String @id @default(cuid())
+  userId String
+
+  type       NotificationType
+  title      String
+  body       String?
+  /// Local time of day ("08:00"), interpreted in `timezone`.
+  timeOfDay  String?
+  recurrence ReminderRecurrence @default(DAILY)
+  /// ISO weekday numbers (1 = Monday) for WEEKLY recurrence.
+  daysOfWeek Int[]
+  dayOfMonth Int?
+  timezone   String             @default("UTC")
+  startsAt   DateTime?
+  endsAt     DateTime?
+  enabled    Boolean            @default(true)
+
+  medicationId    String?
+  lastTriggeredAt DateTime?
+  nextTriggerAt   DateTime?
+  metadata        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medication Medication? @relation(fields: [medicationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+  @@index([enabled, nextTriggerAt])
+}
+
+model NotificationCampaign {
+  id     String           @id @default(cuid())
+  title  String
+  body   String
+  type   NotificationType @default(GENERAL)
+  status CampaignStatus   @default(DRAFT)
+
+  targetType    CampaignTargetType @default(ALL_PARTICIPANTS)
+  targetRole    UserRole?
+  targetStudyId String?
+  targetUserIds String[]
+
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  cancelledAt   DateTime?
+  cancelledById String?
+
+  totalRecipients Int @default(0)
+  deliveredCount  Int @default(0)
+  failedCount     Int @default(0)
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy     User           @relation("CampaignCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  targetStudy   ResearchStudy? @relation(fields: [targetStudyId], references: [id], onDelete: SetNull)
+  notifications Notification[]
+
+  @@index([status, scheduledAt])
+  @@index([createdAt])
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+
+  campaignId String?
+  type       NotificationType
+  title      String
+  /// Kept free of specific health values — previews surface on lock screens.
+  body       String
+  data       Json?
+  status     DeliveryStatus   @default(PENDING)
+  sentAt     DateTime?
+  readAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  campaign NotificationCampaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@index([campaignId])
+}
+
+model DeviceToken {
+  id     String @id @default(cuid())
+  userId String
+
+  token      String         @unique
+  platform   DevicePlatform
+  appVersion String?
+  isActive   Boolean        @default(true)
+  lastSeenAt DateTime       @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Content
+// ---------------------------------------------------------------------------
+
+model EducationContent {
+  id    String @id @default(cuid())
+  slug  String @unique
+  title String
+
+  description String?
+  excerpt     String?
+  category    EducationCategory
+  /// Rich text stored as sanitised HTML.
+  body        String
+
+  mediaType          MediaType @default(NONE)
+  mediaUrl           String?
+  mediaKey           String?
+  thumbnailUrl       String?
+  durationMinutes    Int?
+  readingTimeMinutes Int?
+
+  /// External references / citations backing the content.
+  externalReferences String[]
+  tags               String[]
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  version     Int           @default(1)
+  viewCount   Int           @default(0)
+  sortOrder   Int           @default(0)
+
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation("EducationAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([status, category])
+  @@index([status, publishedAt])
+  @@index([category])
+}
+
+model ExerciseContent {
+  id    String @id @default(cuid())
+  slug  String @unique
+  title String
+
+  description  String
+  category     ExerciseCategory
+  difficulty   Difficulty       @default(BEGINNER)
+  durationMinutes Int
+  /// Rich text stored as sanitised HTML.
+  instructions String
+  equipment    String[]
+  precautions  String?
+
+  videoUrl String?
+  videoKey String?
+  imageUrl String?
+  imageKey String?
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  sortOrder   Int           @default(0)
+
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User          @relation("ExerciseAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  logs   ExerciseLog[]
+
+  @@index([status, category])
+  @@index([status, difficulty])
+}
+
+model MediaAsset {
+  id     String @id @default(cuid())
+  key    String @unique
+  bucket String
+  url    String
+
+  contentType String
+  sizeBytes   Int
+  kind        AssetKind @default(OTHER)
+  purpose     String
+  checksum    String?
+
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([uploadedById, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Research
+// ---------------------------------------------------------------------------
+
+model ResearchStudy {
+  id    String @id @default(cuid())
+  code  String @unique
+  title String
+
+  description String?
+  objective   String?
+  status      StudyStatus @default(DRAFT)
+
+  principalInvestigator String?
+  irbNumber             String?
+  consentVersion        String?
+  startDate             DateTime?
+  endDate               DateTime?
+  targetEnrollment      Int?
+
+  /// Health domains in scope for this study, e.g. ["glucose","hba1c","exercise"].
+  dataPoints String[]
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy    User                   @relation("StudyCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  participants StudyParticipant[]
+  access       StudyAccess[]
+  exports      DataExport[]
+  thresholds   ClinicalThreshold[]
+  campaigns    NotificationCampaign[]
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model StudyParticipant {
+  id      String @id @default(cuid())
+  studyId String
+  userId  String
+
+  /// Study-scoped pseudonym used in exports.
+  studyParticipantCode String
+  enrollmentStatus     EnrollmentStatus @default(INVITED)
+  armOrGroup           String?
+  consentGivenAt       DateTime?
+  enrolledAt           DateTime?
+  withdrawnAt          DateTime?
+  withdrawalReason     String?
+  notes                String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, userId])
+  @@unique([studyId, studyParticipantCode])
+  @@index([studyId, enrollmentStatus])
+  @@index([userId])
+}
+
+/// Grants a researcher or reviewer access to a specific study's data.
+model StudyAccess {
+  id      String @id @default(cuid())
+  studyId String
+  userId  String
+
+  role      StudyAccessRole @default(VIEWER)
+  canExport Boolean         @default(false)
+
+  grantedById String?
+  grantedAt   DateTime @default(now())
+
+  study ResearchStudy @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user  User          @relation("StudyAccessUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([studyId, userId])
+  @@index([userId])
+}
+
+model DataExport {
+  id      String @id @default(cuid())
+  studyId String?
+
+  datasetType String
+  format      ExportFormat
+  filters     Json
+  status      ExportStatus @default(PENDING)
+
+  rowCount    Int?
+  fileKey     String?
+  fileUrl     String?
+  errorReason String?
+  expiresAt   DateTime?
+  completedAt DateTime?
+
+  requestedById String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  study       ResearchStudy? @relation(fields: [studyId], references: [id], onDelete: SetNull)
+  requestedBy User           @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+
+  @@index([requestedById, createdAt])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// Audit and settings
+// ---------------------------------------------------------------------------
+
+/// Append-only record of sensitive operations. Never updated or deleted by the app.
+model AuditLog {
+  id String @id @default(cuid())
+
+  actorId    String?
+  actorEmail String?
+  actorRole  UserRole?
+
+  action       String
+  resourceType String
+  resourceId   String?
+  /// The participant whose data was involved, when applicable.
+  participantId String?
+  studyId       String?
+
+  description String?
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  requestId   String?
+  success     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  actor   User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  subject User? @relation("AuditSubject", fields: [participantId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+  @@index([participantId, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([action, createdAt])
+}
+
+model SystemSetting {
+  key         String  @id
+  value       Json
+  category    String  @default("general")
+  description String?
+
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+}

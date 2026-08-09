@@ -1,26 +1,164 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Design tokens.
+ *
+ * A restrained clinical palette: warm-neutral surfaces, a deep teal primary,
+ * and colour reserved for meaning. Status hues (success / warning / danger)
+ * are used only where the colour itself carries information — never as
+ * decoration, and never to imply a clinical judgement about a measurement.
+ */
+
+@theme {
+  /* Surfaces */
+  --color-canvas: oklch(98.4% 0.002 106);
+  --color-surface: oklch(100% 0 0);
+  --color-surface-sunken: oklch(97% 0.003 106);
+  --color-surface-hover: oklch(96.5% 0.004 106);
+
+  /* Text */
+  --color-ink: oklch(21% 0.008 250);
+  --color-ink-muted: oklch(48% 0.011 250);
+  --color-ink-subtle: oklch(62% 0.011 250);
+  --color-ink-inverse: oklch(99% 0 0);
+
+  /* Lines */
+  --color-line: oklch(91.5% 0.005 250);
+  --color-line-strong: oklch(85% 0.008 250);
+
+  /* Brand */
+  --color-primary: oklch(48% 0.086 192);
+  --color-primary-hover: oklch(42% 0.088 192);
+  --color-primary-soft: oklch(96% 0.021 192);
+  --color-primary-border: oklch(86% 0.045 192);
+
+  /* Status */
+  --color-success: oklch(52% 0.104 152);
+  --color-success-soft: oklch(96% 0.028 152);
+  --color-warning: oklch(63% 0.132 74);
+  --color-warning-soft: oklch(96.5% 0.038 84);
+  --color-danger: oklch(52% 0.176 26);
+  --color-danger-soft: oklch(96% 0.024 26);
+  --color-info: oklch(52% 0.11 250);
+  --color-info-soft: oklch(96% 0.026 250);
+
+  /* Chart series — distinguishable in both themes and for common CVD types */
+  --color-chart-1: oklch(52% 0.098 192);
+  --color-chart-2: oklch(58% 0.112 252);
+  --color-chart-3: oklch(60% 0.108 152);
+  --color-chart-4: oklch(66% 0.126 74);
+  --color-chart-5: oklch(56% 0.128 320);
+  --color-chart-6: oklch(50% 0.09 30);
+
+  --radius-card: 0.5rem;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/*
+ * Dark theme.
+ *
+ * The dashboard displays dense tabular data for long stretches, so the dark
+ * surfaces stay slightly warm and low-contrast-shifted rather than pure black,
+ * which reduces halation on thin type.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-canvas: oklch(17% 0.006 250);
+    --color-surface: oklch(21% 0.007 250);
+    --color-surface-sunken: oklch(19% 0.007 250);
+    --color-surface-hover: oklch(25% 0.008 250);
+
+    --color-ink: oklch(96% 0.003 250);
+    --color-ink-muted: oklch(72% 0.008 250);
+    --color-ink-subtle: oklch(58% 0.009 250);
+    --color-ink-inverse: oklch(17% 0.006 250);
+
+    --color-line: oklch(29% 0.008 250);
+    --color-line-strong: oklch(37% 0.01 250);
+
+    --color-primary: oklch(72% 0.098 192);
+    --color-primary-hover: oklch(79% 0.09 192);
+    --color-primary-soft: oklch(27% 0.036 192);
+    --color-primary-border: oklch(38% 0.056 192);
+
+    --color-success: oklch(72% 0.126 152);
+    --color-success-soft: oklch(26% 0.042 152);
+    --color-warning: oklch(78% 0.13 84);
+    --color-warning-soft: oklch(28% 0.05 74);
+    --color-danger: oklch(69% 0.156 26);
+    --color-danger-soft: oklch(27% 0.056 26);
+    --color-info: oklch(72% 0.108 250);
+    --color-info-soft: oklch(26% 0.044 250);
+
+    --color-chart-1: oklch(72% 0.104 192);
+    --color-chart-2: oklch(72% 0.114 252);
+    --color-chart-3: oklch(74% 0.116 152);
+    --color-chart-4: oklch(78% 0.128 74);
+    --color-chart-5: oklch(72% 0.13 320);
+    --color-chart-6: oklch(70% 0.1 30);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Tabular data reads better with slightly tightened tracking. */
+    letter-spacing: -0.006em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* A single, consistent focus treatment across every interactive element. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Numeric columns must align digit-for-digit. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::placeholder {
+    color: var(--color-ink-subtle);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Visible only to screen readers, until focused. */
+  .sr-only-focusable:not(:focus):not(:focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
 }
