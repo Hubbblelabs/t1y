@@ -332,8 +332,13 @@ function timezoneOffsetMs(instant: Date, timezone: string): number {
  * 243 mg/dL" is a disclosure. Reminders should say what to do, not what the
  * numbers are.
  */
+/**
+ * The trailing assertion is `(?!\w)` rather than `\b`: a word boundary cannot
+ * match after a non-word character, so `\b` silently failed to catch units
+ * like `%` — "Latest HbA1c: 9.8%" would have passed straight through.
+ */
 const HEALTH_VALUE_PATTERN =
-  /\b\d{1,4}(\.\d+)?\s?(mg\/dl|mmol\/l|mmol|%|units?|iu|kg|lbs?|bpm|mmhg)\b/i;
+  /\b\d{1,4}(?:\.\d+)?\s?(?:mg\/dl|mmol\/l|mmol|%|units?|iu|kg|lbs?|bpm|mmhg)(?!\w)/i;
 
 export function assertNoHealthValues(...texts: Array<string | null | undefined>): void {
   for (const text of texts) {

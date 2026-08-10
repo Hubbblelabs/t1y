@@ -469,15 +469,15 @@ export const createThresholdSchema = z
     isActive: z.boolean().default(true),
   })
   .refine(
-    (value) => value.lowValue !== null || value.highValue !== null,
+    // `!= null` is deliberate: it rejects both an explicit null and an omitted
+    // field. A threshold with neither bound could never classify a value.
+    (value) => value.lowValue != null || value.highValue != null,
     { message: "Provide a lower bound, an upper bound, or both.", path: ["lowValue"] },
   )
   .refine(
     (value) =>
-      value.lowValue === null ||
-      value.lowValue === undefined ||
-      value.highValue === null ||
-      value.highValue === undefined ||
+      value.lowValue == null ||
+      value.highValue == null ||
       value.lowValue <= value.highValue,
     { message: "The lower bound must not exceed the upper bound.", path: ["lowValue"] },
   )

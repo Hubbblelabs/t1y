@@ -13,8 +13,38 @@ import { env, isProduction } from "@/lib/env";
  * development does not open a new connection pool on every edit.
  */
 
+/**
+ * Pool tuning.
+ *
+ * Managed Postgres (Neon, and the local `prisma dev` server) closes idle
+ * server-side connections after a short period. A pooled client that keeps
+ * handles around for longer than that will eventually hand out a dead socket
+ * and fail the query with P1017 "Server has closed the connection".
+ *
+ * Recycling our own idle connections well before the server does avoids that,
+ * and TCP keep-alive stops an idle-but-live connection from being dropped by
+ * an intermediate NAT.
+ */
+const POOL_CONFIG = {
+  // Serverless runs many small instances; a large per-instance pool would
+  // exhaust the database's connection limit rather than help throughput.
+  // Development is deliberately smaller still: the local `prisma dev` server
+  // caps the whole machine at 10 connections, which the dev server, the test
+  // runner and any ad-hoc script have to share.
+  max: isProduction() ? 5 : 3,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 15_000,
+  // Recycle connections periodically so none is reused indefinitely.
+  maxLifetimeSeconds: 1_800,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 5_000,
+} as const;
+
 function createClient(): PrismaClient {
-  const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+  const adapter = new PrismaPg({
+    connectionString: env.DATABASE_URL,
+    ...POOL_CONFIG,
+  });
 
   return new PrismaClient({
     adapter,
