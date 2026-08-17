@@ -1,0 +1,16 @@
+# Local development Postgres — used only until a hosted DATABASE_URL
+# (Neon/Supabase) is supplied for the real environment. Data volume lives on
+# the Crucial SSD, not the internal disk.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: t1dpe-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: t1dpe
+      POSTGRES_PASSWORD: t1dpe_dev_only
+      POSTGRES_DB: t1dpe
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - /Volumes/Crucial/devtools/postgres-data:/var/lib/postgresql/data

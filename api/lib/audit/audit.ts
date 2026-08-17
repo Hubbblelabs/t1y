@@ -49,6 +49,11 @@ export const AuditAction = {
   EXERCISE_CONTENT_CREATED: "exercise_content.created",
   EXERCISE_CONTENT_UPDATED: "exercise_content.updated",
   EXERCISE_CONTENT_DELETED: "exercise_content.deleted",
+  QUIZ_CREATED: "quiz.created",
+  QUIZ_UPDATED: "quiz.updated",
+  QUIZ_DELETED: "quiz.deleted",
+  QUIZ_PUBLISHED: "quiz.published",
+  FEATURE_FLAG_TOGGLED: "feature_flag.toggled",
 
   // Notifications
   CAMPAIGN_CREATED: "notification_campaign.created",

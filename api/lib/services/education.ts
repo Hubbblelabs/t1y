@@ -1,23 +1,32 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
-import type { ContentStatus, EducationCategory } from "@/generated/prisma/enums";
+import type { ContentLocale, ContentStatus, EducationCategory } from "@/generated/prisma/enums";
 import { ConflictError, NotFoundError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
+import { renderMarkdown } from "@/lib/utils/markdown";
 import { sanitizeRichText } from "@/lib/utils/sanitize";
 
 /**
  * Education content management.
  *
+ * Content is bilingual: each topic is a `slug` shared by an EN and a TA row
+ * (`ContentLocale`) — the shared slug IS the translation pairing, and is also
+ * the language-independent "topic" identity referenced by quizzes and
+ * progress tracking. A missing translation must never make a topic disappear
+ * from a participant's curriculum, so every locale-aware read here falls back
+ * to English and reports `isFallback` rather than 404ing.
+ *
  * Two audiences: participants read published content only, administrators see
- * everything. `body` is rich text supplied by an administrator and is
- * sanitised on write — the mobile client and the dashboard both render it as
- * HTML, so an unsanitised value would be a stored-XSS vector.
+ * everything. `body` is derived from `bodySource` (Markdown by default) and
+ * is sanitised on every write — the mobile client and the dashboard both
+ * render it as HTML, so an unsanitised value would be a stored-XSS vector.
  */
 
 const PUBLIC_SELECT = {
   id: true,
   slug: true,
+  locale: true,
   title: true,
   description: true,
   excerpt: true,
@@ -36,24 +45,32 @@ const PUBLIC_SELECT = {
 
 const ADMIN_SELECT = {
   ...PUBLIC_SELECT,
+  bodySource: true,
+  bodyFormat: true,
   mediaKey: true,
   status: true,
   viewCount: true,
   sortOrder: true,
+  importedAt: true,
   createdAt: true,
   updatedAt: true,
   author: { select: { id: true, name: true } },
 } satisfies Prisma.EducationContentSelect;
 
-/** Listing for participants: published content only. */
+type PublicEducation = Prisma.EducationContentGetPayload<{ select: typeof PUBLIC_SELECT }>;
+
+/** Listing for participants: published content only, requested locale preferred. */
 export async function listPublishedEducation(params: {
+  locale?: ContentLocale;
   category?: EducationCategory;
   search?: string;
   skip: number;
   take: number;
 }) {
+  const locale = params.locale ?? "EN";
   const where: Prisma.EducationContentWhereInput = {
     status: "PUBLISHED",
+    locale: locale === "EN" ? "EN" : { in: [locale, "EN"] },
     ...(params.category ? { category: params.category } : {}),
     ...(params.search
       ? {
@@ -66,28 +83,73 @@ export async function listPublishedEducation(params: {
       : {}),
   };
 
-  const [items, total] = await Promise.all([
-    prisma.educationContent.findMany({
-      where,
-      // `body` is omitted from list responses — it can be large.
-      select: { ...PUBLIC_SELECT, body: false },
-      orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
-      skip: params.skip,
-      take: params.take,
-    }),
-    prisma.educationContent.count({ where }),
-  ]);
+  // Over-fetched then collapsed by slug (preferring the requested locale) so
+  // pagination reflects distinct topics, not language variants. Fine at this
+  // content volume (a few dozen rows); revisit with a SQL DISTINCT ON if the
+  // library grows well past what a study curriculum needs.
+  const rows = await prisma.educationContent.findMany({
+    where,
+    select: { ...PUBLIC_SELECT, body: false },
+    orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
+  });
 
-  return { items, total };
+  const bySlug = new Map<string, (typeof rows)[number] & { isFallback: boolean }>();
+  for (const row of rows) {
+    const existing = bySlug.get(row.slug);
+    const isPreferred = row.locale === locale;
+    if (!existing || (isPreferred && existing.locale !== locale)) {
+      bySlug.set(row.slug, { ...row, isFallback: row.locale !== locale });
+    }
+  }
+
+  const collapsed = [...bySlug.values()];
+  const total = collapsed.length;
+  const items = collapsed.slice(params.skip, params.skip + params.take);
+
+  return { items, total, requestedLocale: locale };
 }
 
-export async function getPublishedEducationBySlug(slug: string) {
-  const content = await prisma.educationContent.findFirst({
-    where: { slug, status: "PUBLISHED" },
+export async function getPublishedEducationBySlug(slug: string, locale: ContentLocale = "EN") {
+  const preferred = await prisma.educationContent.findFirst({
+    where: { slug, locale, status: "PUBLISHED" },
     select: PUBLIC_SELECT,
   });
-  if (!content) throw new NotFoundError("Article");
-  return content;
+  if (preferred) {
+    return { ...preferred, requestedLocale: locale, isFallback: false };
+  }
+
+  const fallback =
+    locale === "EN"
+      ? null
+      : await prisma.educationContent.findFirst({
+          where: { slug, locale: "EN", status: "PUBLISHED" },
+          select: PUBLIC_SELECT,
+        });
+  if (!fallback) throw new NotFoundError("Article");
+
+  return { ...fallback, requestedLocale: locale, isFallback: true };
+}
+
+/**
+ * Every published topic, in the requested locale with English fallback —
+ * the one-shot payload the mobile client downloads at onboarding / refresh
+ * instead of issuing one request per topic over a slow connection.
+ */
+export async function listPublishedEducationBundle(locale: ContentLocale = "EN") {
+  const { items } = await listPublishedEducation({ locale, skip: 0, take: 1000 });
+  return items as (PublicEducation & { isFallback: boolean })[];
+}
+
+/** The EN/TA pair for a topic slug, for the admin translation-pair view. */
+export async function getEducationTranslations(slug: string) {
+  const rows = await prisma.educationContent.findMany({
+    where: { slug },
+    select: ADMIN_SELECT,
+  });
+  return {
+    en: rows.find((r) => r.locale === "EN") ?? null,
+    ta: rows.find((r) => r.locale === "TA") ?? null,
+  };
 }
 
 /** Fire-and-forget view counter; never blocks the response. */
@@ -104,6 +166,7 @@ export async function incrementViewCount(id: string): Promise<void> {
 export async function listEducationForAdmin(params: {
   status?: ContentStatus;
   category?: EducationCategory;
+  locale?: ContentLocale;
   search?: string;
   skip: number;
   take: number;
@@ -111,6 +174,7 @@ export async function listEducationForAdmin(params: {
   const where: Prisma.EducationContentWhereInput = {
     ...(params.status ? { status: params.status } : {}),
     ...(params.category ? { category: params.category } : {}),
+    ...(params.locale ? { locale: params.locale } : {}),
     ...(params.search
       ? {
           OR: [
@@ -124,7 +188,7 @@ export async function listEducationForAdmin(params: {
   const [items, total] = await Promise.all([
     prisma.educationContent.findMany({
       where,
-      select: { ...ADMIN_SELECT, body: false },
+      select: { ...ADMIN_SELECT, body: false, bodySource: false },
       orderBy: { updatedAt: "desc" },
       skip: params.skip,
       take: params.take,
@@ -146,11 +210,14 @@ export async function getEducationById(id: string) {
 
 export interface EducationInput {
   slug: string;
+  locale?: ContentLocale;
   title: string;
   description?: string;
   excerpt?: string;
   category: EducationCategory;
   body: string;
+  bodySource?: string;
+  bodyFormat?: "MARKDOWN" | "HTML";
   mediaType?: "NONE" | "IMAGE" | "VIDEO" | "PDF" | "AUDIO";
   mediaUrl?: string | null;
   mediaKey?: string | null;
@@ -162,31 +229,53 @@ export interface EducationInput {
   sortOrder?: number;
 }
 
-/** Rough reading time at 200 words per minute, from the sanitised text. */
-function estimateReadingTime(html: string): number {
+/**
+ * Renders `body` from `bodySource` when the format is Markdown, otherwise
+ * sanitises the supplied HTML directly. Tamil articles use ~120 wpm rather
+ * than the English 200 — Tamil is agglutinative, so English-rate estimates
+ * read as implausibly short on a 12-minute article.
+ */
+function renderBody(input: {
+  body: string;
+  bodySource?: string;
+  bodyFormat?: "MARKDOWN" | "HTML";
+}): string {
+  if (input.bodyFormat === "MARKDOWN" && input.bodySource) {
+    return renderMarkdown(input.bodySource);
+  }
+  return sanitizeRichText(input.body);
+}
+
+function estimateReadingTime(html: string, locale: ContentLocale): number {
   const words = html
     .replace(/<[^>]*>/g, " ")
     .split(/\s+/)
     .filter(Boolean).length;
-  return Math.max(1, Math.round(words / 200));
+  const wordsPerMinute = locale === "TA" ? 120 : 200;
+  return Math.max(1, Math.round(words / wordsPerMinute));
 }
 
 export async function createEducation(authorId: string, input: EducationInput) {
+  const locale = input.locale ?? "EN";
   const existing = await prisma.educationContent.findUnique({
-    where: { slug: input.slug },
+    where: { slug_locale: { slug: input.slug, locale } },
     select: { id: true },
   });
-  if (existing) throw new ConflictError("An article with this slug already exists.");
+  if (existing) {
+    throw new ConflictError(`A ${locale} article with this slug already exists.`);
+  }
 
-  const body = sanitizeRichText(input.body);
+  const body = renderBody(input);
 
   return prisma.educationContent.create({
     data: {
       ...input,
+      locale,
       body,
+      bodyFormat: input.bodyFormat ?? "MARKDOWN",
       tags: input.tags?.map((tag) => tag.toLowerCase()) ?? [],
       externalReferences: input.externalReferences ?? [],
-      readingTimeMinutes: estimateReadingTime(body),
+      readingTimeMinutes: estimateReadingTime(body, locale),
       publishedAt: input.status === "PUBLISHED" ? new Date() : null,
       authorId,
     },
@@ -194,14 +283,21 @@ export async function createEducation(authorId: string, input: EducationInput) {
   });
 }
 
-export async function updateEducation(id: string, input: Partial<EducationInput>) {
+export async function updateEducation(id: string, input: Partial<Omit<EducationInput, "locale">>) {
   const current = await prisma.educationContent.findUnique({
     where: { id },
-    select: { status: true, publishedAt: true },
+    select: { status: true, publishedAt: true, locale: true, body: true, bodyFormat: true },
   });
   if (!current) throw new NotFoundError("Article");
 
-  const body = input.body !== undefined ? sanitizeRichText(input.body) : undefined;
+  const body =
+    input.body !== undefined || input.bodySource !== undefined
+      ? renderBody({
+          body: input.body ?? current.body,
+          bodySource: input.bodySource,
+          bodyFormat: input.bodyFormat ?? current.bodyFormat,
+        })
+      : undefined;
 
   // Stamp the publication date the first time an article goes live.
   const publishedAt =
@@ -215,7 +311,9 @@ export async function updateEducation(id: string, input: Partial<EducationInput>
     where: { id },
     data: {
       ...input,
-      ...(body !== undefined ? { body, readingTimeMinutes: estimateReadingTime(body) } : {}),
+      ...(body !== undefined
+        ? { body, readingTimeMinutes: estimateReadingTime(body, current.locale) }
+        : {}),
       ...(input.tags ? { tags: input.tags.map((tag) => tag.toLowerCase()) } : {}),
       ...(publishedAt !== undefined ? { publishedAt } : {}),
       version: { increment: 1 },
@@ -248,15 +346,27 @@ export async function deleteEducation(id: string): Promise<void> {
 
 export async function getEducationStats() {
   const grouped = await prisma.educationContent.groupBy({
-    by: ["status"],
+    by: ["status", "locale"],
     _count: { _all: true },
   });
-  const counts = new Map(grouped.map((row) => [row.status, row._count._all]));
+
+  const byLocale: Record<ContentLocale, { total: number; published: number }> = {
+    EN: { total: 0, published: 0 },
+    TA: { total: 0, published: 0 },
+  };
+  const counts = new Map<ContentStatus, number>();
+
+  for (const row of grouped) {
+    counts.set(row.status, (counts.get(row.status) ?? 0) + row._count._all);
+    byLocale[row.locale].total += row._count._all;
+    if (row.status === "PUBLISHED") byLocale[row.locale].published += row._count._all;
+  }
 
   return {
     total: grouped.reduce((sum, row) => sum + row._count._all, 0),
     published: counts.get("PUBLISHED") ?? 0,
     draft: counts.get("DRAFT") ?? 0,
     archived: counts.get("ARCHIVED") ?? 0,
+    byLocale,
   };
 }

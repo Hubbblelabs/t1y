@@ -3,10 +3,43 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import {
+  Activity,
+  BookOpen,
+  ChevronDown,
+  ClipboardList,
+  Cog,
+  Dumbbell,
+  FileBarChart,
+  FlaskConical,
+  LayoutDashboard,
+  ScrollText,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 
-import { isActivePath, type NavSection } from "@/lib/navigation";
+import { isActivePath, type IconName, type NavSection } from "@/lib/navigation";
 import { cn } from "@/lib/utils/cn";
+
+/**
+ * Resolves the icon *names* `NAVIGATION` carries (see lib/navigation.ts) back
+ * to actual components — done here, in a Client Component, because a Lucide
+ * icon can't cross the Server->Client prop boundary as a value.
+ */
+const ICON_MAP: Record<IconName, LucideIcon> = {
+  Activity,
+  BookOpen,
+  ClipboardList,
+  Cog,
+  Dumbbell,
+  FileBarChart,
+  FlaskConical,
+  LayoutDashboard,
+  ScrollText,
+  ShieldCheck,
+  Users,
+};
 
 /**
  * Sidebar navigation.
@@ -29,6 +62,7 @@ export function SidebarNav({
       {sections.map((section) => {
         if (section.href) {
           const active = isActivePath(pathname, section.href, section.matchPrefix);
+          const Icon = ICON_MAP[section.icon];
           return (
             <Link
               key={section.href}
@@ -42,7 +76,7 @@ export function SidebarNav({
                   : "text-ink-muted hover:bg-surface-hover hover:text-ink",
               )}
             >
-              <section.icon className="size-4 shrink-0" aria-hidden="true" />
+              <Icon className="size-4 shrink-0" aria-hidden="true" />
               <span className="truncate">{section.label}</span>
             </Link>
           );
@@ -82,6 +116,7 @@ function NavGroup({
   }, [containsActive]);
 
   const panelId = `nav-${section.label?.toLowerCase().replace(/\s+/g, "-")}`;
+  const Icon = ICON_MAP[section.icon];
 
   return (
     <div>
@@ -97,7 +132,7 @@ function NavGroup({
             : "text-ink-muted hover:bg-surface-hover hover:text-ink",
         )}
       >
-        <section.icon className="size-4 shrink-0" aria-hidden="true" />
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
         <span className="flex-1 truncate text-left">{section.label}</span>
         <ChevronDown
           aria-hidden="true"

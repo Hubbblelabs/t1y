@@ -1,19 +1,25 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  Activity,
-  BookOpen,
-  ClipboardList,
-  Cog,
-  Dumbbell,
-  FileBarChart,
-  FlaskConical,
-  LayoutDashboard,
-  ScrollText,
-  ShieldCheck,
-  Users,
-} from "lucide-react";
-
 import { Capability, type CapabilityValue } from "@/lib/permissions/roles";
+
+/**
+ * Icon *names*, not component references. `NAVIGATION` is built in a Server
+ * Component (app/admin/(dashboard)/layout.tsx) and passed as a prop into
+ * `AdminShell`, a Client Component — and a Lucide icon is a forwardRef
+ * component (a function under the hood), which cannot cross that boundary.
+ * `sidebar-nav.tsx` (itself a Client Component) resolves these names back to
+ * the actual components via `ICON_MAP`.
+ */
+export type IconName =
+  | "Activity"
+  | "BookOpen"
+  | "ClipboardList"
+  | "Cog"
+  | "Dumbbell"
+  | "FileBarChart"
+  | "FlaskConical"
+  | "LayoutDashboard"
+  | "ScrollText"
+  | "ShieldCheck"
+  | "Users";
 
 /**
  * The admin sidebar.
@@ -36,7 +42,7 @@ export interface NavItem {
 
 export interface NavSection {
   label?: string;
-  icon: LucideIcon;
+  icon: IconName;
   /** A section either links directly or expands into children, never both. */
   href?: string;
   capability: CapabilityValue;
@@ -47,20 +53,20 @@ export interface NavSection {
 export const NAVIGATION: NavSection[] = [
   {
     label: "Dashboard",
-    icon: LayoutDashboard,
+    icon: "LayoutDashboard",
     href: "/admin/dashboard",
     capability: Capability.ADMIN_AREA_ACCESS,
   },
   {
     label: "Participants",
-    icon: Users,
+    icon: "Users",
     href: "/admin/participants",
     capability: Capability.PARTICIPANTS_VIEW,
     matchPrefix: true,
   },
   {
     label: "Health data",
-    icon: Activity,
+    icon: "Activity",
     capability: Capability.HEALTH_DATA_VIEW,
     items: [
       { label: "Glucose", href: "/admin/health/glucose", capability: Capability.HEALTH_DATA_VIEW },
@@ -82,7 +88,7 @@ export const NAVIGATION: NavSection[] = [
   },
   {
     label: "Research",
-    icon: FlaskConical,
+    icon: "FlaskConical",
     capability: Capability.RESEARCH_VIEW,
     items: [
       { label: "Studies", href: "/admin/research/studies", capability: Capability.RESEARCH_VIEW, matchPrefix: true },
@@ -95,7 +101,7 @@ export const NAVIGATION: NavSection[] = [
   },
   {
     label: "Content",
-    icon: BookOpen,
+    icon: "BookOpen",
     capability: Capability.EDUCATION_MANAGE,
     items: [
       {
@@ -110,46 +116,63 @@ export const NAVIGATION: NavSection[] = [
         capability: Capability.EXERCISE_CONTENT_MANAGE,
         matchPrefix: true,
       },
+      {
+        label: "Quizzes",
+        href: "/admin/content/quizzes",
+        capability: Capability.EDUCATION_MANAGE,
+        matchPrefix: true,
+      },
     ],
   },
   {
     label: "Notifications",
-    icon: ClipboardList,
+    icon: "ClipboardList",
     href: "/admin/notifications",
     capability: Capability.NOTIFICATIONS_MANAGE,
     matchPrefix: true,
   },
   {
     label: "Reports",
-    icon: FileBarChart,
+    icon: "FileBarChart",
     href: "/admin/reports",
     capability: Capability.REPORTS_VIEW,
   },
   {
     label: "Audit logs",
-    icon: ScrollText,
+    icon: "ScrollText",
     href: "/admin/audit-logs",
     capability: Capability.AUDIT_VIEW,
   },
   {
     label: "Administrators",
-    icon: ShieldCheck,
+    icon: "ShieldCheck",
     href: "/admin/administrators",
     capability: Capability.ADMINS_MANAGE,
     matchPrefix: true,
   },
   {
     label: "Settings",
-    icon: Cog,
-    href: "/admin/settings",
+    icon: "Cog",
     capability: Capability.SETTINGS_MANAGE,
+    items: [
+      {
+        label: "Settings",
+        href: "/admin/settings",
+        capability: Capability.SETTINGS_MANAGE,
+      },
+      {
+        label: "Feature flags",
+        href: "/admin/settings/feature-flags",
+        capability: Capability.FEATURE_FLAGS_MANAGE,
+      },
+    ],
   },
 ];
 
 /** Secondary entry used by clinical reviewers who manage thresholds. */
 export const THRESHOLDS_NAV: NavSection = {
   label: "Clinical thresholds",
-  icon: Dumbbell,
+  icon: "Dumbbell",
   href: "/admin/thresholds",
   capability: Capability.THRESHOLDS_MANAGE,
 };

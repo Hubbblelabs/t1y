@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { BookOpen } from "lucide-react";
+import Link from "next/link";
+import { BookOpen, Plus } from "lucide-react";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Pagination } from "@/components/admin/pagination";
 import { SearchBox } from "@/components/admin/search-box";
 import { StatCard } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import {
@@ -51,6 +53,14 @@ export default async function EducationPage(
         title="Education"
         description="Articles and media shown to participants in the mobile application"
         breadcrumbs={[{ label: "Content" }, { label: "Education" }]}
+        actions={
+          <Button asChild variant="primary">
+            <Link href="/admin/content/education/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New article
+            </Link>
+          </Button>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -82,6 +92,7 @@ export default async function EducationPage(
                 <TableHeader>
                   <TableRow>
                     <TableHead>Title</TableHead>
+                    <TableHead>Lang</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Media</TableHead>
@@ -92,14 +103,20 @@ export default async function EducationPage(
                 </TableHeader>
                 <TableBody>
                   {items.map((article) => (
-                    <TableRow key={article.id}>
+                    <TableRow key={article.id} className="hover:bg-surface-hover">
                       <TableCell className="max-w-72">
-                        <span className="text-ink block truncate font-medium">
-                          {article.title}
-                        </span>
+                        <Link
+                          href={`/admin/content/education/${article.id}`}
+                          className="text-ink hover:underline"
+                        >
+                          <span className="block truncate font-medium">{article.title}</span>
+                        </Link>
                         <span className="text-ink-subtle block truncate text-xs">
                           /{article.slug}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge tone="neutral">{article.locale}</Badge>
                       </TableCell>
                       <TableCell className="text-ink-muted whitespace-nowrap">
                         {humaniseEnum(article.category)}

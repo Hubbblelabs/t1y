@@ -67,6 +67,10 @@ describe("role capability matrix", () => {
       expect(roleHas("ADMIN", Capability.SETTINGS_MANAGE)).toBe(false);
     });
 
+    it("may not toggle feature flags — two of them gate clinical dose calculators", () => {
+      expect(roleHas("ADMIN", Capability.FEATURE_FLAGS_MANAGE)).toBe(false);
+    });
+
     it("may not define clinical thresholds", () => {
       // Threshold authorship belongs to clinical reviewers and super admins.
       expect(roleHas("ADMIN", Capability.THRESHOLDS_MANAGE)).toBe(false);

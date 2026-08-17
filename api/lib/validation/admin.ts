@@ -51,7 +51,13 @@ export const educationCategorySchema = z.enum([
   "LIFESTYLE",
   "STRESS_MANAGEMENT",
   "GENERAL_WELLNESS",
+  "HYPOGLYCAEMIA",
+  "SCHOOL_MANAGEMENT",
+  "TRAVEL",
+  "DIABAG",
 ]);
+export const contentLocaleSchema = z.enum(["EN", "TA"]);
+export const contentBodyFormatSchema = z.enum(["MARKDOWN", "HTML"]);
 export const difficultySchema = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 export const studyStatusSchema = z.enum([
   "DRAFT",
@@ -69,7 +75,7 @@ export const enrollmentStatusSchema = z.enum([
   "COMPLETED",
 ]);
 
-const slugSchema = z
+export const slugSchema = z
   .string()
   .trim()
   .min(3)
@@ -159,18 +165,24 @@ export const educationListQuerySchema = z
   .object({
     status: contentStatusSchema.optional(),
     category: educationCategorySchema.optional(),
+    locale: contentLocaleSchema.optional(),
     search: searchSchema,
   })
   .and(paginationSchema);
 
 export const createEducationSchema = z.object({
   slug: slugSchema,
+  locale: contentLocaleSchema.default("EN"),
   title: shortTextSchema(200),
   description: z.string().trim().max(500).optional(),
   excerpt: z.string().trim().max(300).optional(),
   category: educationCategorySchema,
   /** Rich text; sanitised server-side before storage. */
   body: z.string().min(1).max(200_000),
+  /** Author-editable source. When bodyFormat is MARKDOWN, `body` above is
+   *  derived from this on save — see lib/utils/markdown.ts. */
+  bodySource: z.string().max(200_000).optional(),
+  bodyFormat: contentBodyFormatSchema.default("MARKDOWN"),
   mediaType: z.enum(["NONE", "IMAGE", "VIDEO", "PDF", "AUDIO"]).default("NONE"),
   mediaUrl: z.url().max(2000).nullish(),
   mediaKey: z.string().trim().max(500).nullish(),
@@ -182,7 +194,9 @@ export const createEducationSchema = z.object({
   sortOrder: z.number().int().min(0).max(10_000).default(0),
 });
 
-export const updateEducationSchema = createEducationSchema.partial();
+/** `locale` is immutable after creation — changing it would silently
+ *  re-pair two unrelated topics. */
+export const updateEducationSchema = createEducationSchema.partial().omit({ locale: true });
 
 // ---------------------------------------------------------------------------
 // Exercise programmes

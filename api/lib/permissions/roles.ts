@@ -37,6 +37,11 @@ export const Capability = {
   SETTINGS_MANAGE: "settings:manage",
   THRESHOLDS_MANAGE: "thresholds:manage",
   STORAGE_UPLOAD: "storage:upload",
+
+  /// Two of the registered flags gate clinical dose calculators, so this
+  /// gets the same SUPER_ADMIN-only posture as SETTINGS_MANAGE rather than
+  /// riding along with EDUCATION_MANAGE.
+  FEATURE_FLAGS_MANAGE: "feature-flags:manage",
 } as const;
 
 export type CapabilityValue = (typeof Capability)[keyof typeof Capability];
@@ -113,6 +118,7 @@ const MATRIX: Record<UserRole, readonly CapabilityValue[]> = {
     Capability.SETTINGS_MANAGE,
     Capability.THRESHOLDS_MANAGE,
     Capability.STORAGE_UPLOAD,
+    Capability.FEATURE_FLAGS_MANAGE,
   ],
 };
 
