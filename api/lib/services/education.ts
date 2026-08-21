@@ -66,6 +66,13 @@ export async function listPublishedEducation(params: {
   search?: string;
   skip: number;
   take: number;
+  /**
+   * Include the rendered article body. Off for the paginated browse list
+   * (where it would be dead weight), on for the offline bundle — which is
+   * the whole point of the bundle, since the device has to be able to open
+   * a topic with no connectivity.
+   */
+  includeBody?: boolean;
 }) {
   const locale = params.locale ?? "EN";
   const where: Prisma.EducationContentWhereInput = {
@@ -89,7 +96,7 @@ export async function listPublishedEducation(params: {
   // library grows well past what a study curriculum needs.
   const rows = await prisma.educationContent.findMany({
     where,
-    select: { ...PUBLIC_SELECT, body: false },
+    select: { ...PUBLIC_SELECT, body: params.includeBody === true },
     orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
   });
 
@@ -136,7 +143,16 @@ export async function getPublishedEducationBySlug(slug: string, locale: ContentL
  * instead of issuing one request per topic over a slow connection.
  */
 export async function listPublishedEducationBundle(locale: ContentLocale = "EN") {
-  const { items } = await listPublishedEducation({ locale, skip: 0, take: 1000 });
+  const { items } = await listPublishedEducation({
+    locale,
+    skip: 0,
+    take: 1000,
+    // Bodies included: this payload IS the offline copy. Without them the
+    // device caches a list of titles and every topic opens blank as soon as
+    // it is read from cache. ~160 KB of HTML per locale for the eight study
+    // topics — a one-off daily download, not a per-screen cost.
+    includeBody: true,
+  });
   return items as (PublicEducation & { isFallback: boolean })[];
 }
 

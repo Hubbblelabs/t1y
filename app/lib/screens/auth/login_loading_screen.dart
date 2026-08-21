@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/profile_service.dart';
 import '../home/home_shell.dart';
 import 'auth_loading_screen.dart';
 
@@ -32,8 +33,15 @@ class LoginLoadingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AuthLoadingScreen(
-      task: () => AuthService.instance.signIn(email: email, password: password),
+      task: () async {
+        await AuthService.instance.signIn(email: email, password: password);
+        // First authenticated moment — send any child details captured during
+        // sign-up, which had no session to be saved with at the time.
+        await ProfileService.instance.flushPendingProfile();
+      },
       onSuccess: (_) => const HomeShell(),
+      // Signed in — the email/password screens must not remain behind Home.
+      clearStack: true,
       steps: _steps,
     );
   }

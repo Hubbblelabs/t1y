@@ -18,11 +18,20 @@ class AuthLoadingScreen extends StatefulWidget {
   final WidgetBuilder onSuccess;
   final List<({String title, String subtitle})> steps;
 
+  /// Replace the whole navigation stack rather than just this screen.
+  ///
+  /// Sign-in must do this: `pushReplacement` alone would swap the loader for
+  /// Home but leave the email and password screens underneath, so the first
+  /// back press from Home landed the user back on "enter your password"
+  /// while already signed in.
+  final bool clearStack;
+
   const AuthLoadingScreen({
     super.key,
     required this.task,
     required this.onSuccess,
     required this.steps,
+    this.clearStack = false,
   });
 
   @override
@@ -59,9 +68,12 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
       final remaining = const Duration(seconds: 3) - elapsed;
       if (remaining > Duration.zero) await Future.delayed(remaining);
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: widget.onSuccess));
+      final route = MaterialPageRoute(builder: widget.onSuccess);
+      if (widget.clearStack) {
+        Navigator.of(context).pushAndRemoveUntil(route, (_) => false);
+      } else {
+        Navigator.of(context).pushReplacement(route);
+      }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {

@@ -16,6 +16,37 @@ class ContentService {
   static final ContentService instance = ContentService._();
 
   String _cacheKey(String locale) => 'content_bundle_$locale';
+  String _syncedAtKey(String locale) => 'content_synced_at_$locale';
+
+  /// How often content re-syncs on its own. The curriculum is fixed for the
+  /// study, so corrections are rare — a daily check is plenty, and the
+  /// Profile screen's "Check for new content" covers the impatient case.
+  static const syncInterval = Duration(hours: 24);
+
+  /// Refreshes any locale whose cache is older than [syncInterval].
+  /// Called on app start and resume; safe to call often — it no-ops when the
+  /// cache is fresh, so it costs nothing on a phone opened twenty times a day.
+  Future<void> syncIfStale({List<String> locales = const ['en', 'ta']}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    for (final locale in locales) {
+      final raw = prefs.getString(_syncedAtKey(locale));
+      final last = raw == null ? null : DateTime.tryParse(raw);
+      if (last != null && now.difference(last) < syncInterval) continue;
+      try {
+        await _refresh(locale);
+      } catch (_) {
+        // Offline — keep the existing cache and retry on the next resume.
+      }
+    }
+  }
+
+  /// When the given locale's content was last successfully downloaded.
+  Future<DateTime?> lastSyncedAt(String locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_syncedAtKey(locale));
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
 
   Future<List<Topic>> getTopics(String locale, {bool forceRefresh = false}) async {
     if (!forceRefresh) {
@@ -55,5 +86,6 @@ class ContentService {
   Future<void> _writeCache(String locale, List<Topic> topics) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cacheKey(locale), jsonEncode(topics.map((t) => t.toJson()).toList()));
+    await prefs.setString(_syncedAtKey(locale), DateTime.now().toIso8601String());
   }
 }

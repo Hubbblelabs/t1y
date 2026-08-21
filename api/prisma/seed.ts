@@ -641,20 +641,44 @@ async function main() {
     await prisma.healthMetric.createMany({ data: metricRows });
 
     // --- Reminders ----------------------------------------------------------
-    await prisma.reminder.create({
-      data: {
-        userId: user.id,
-        type: "MEDICATION_REMINDER",
-        title: "Time for your medication",
-        // No measurement in the body — push previews show on lock screens.
-        body: "Open the app to record this dose.",
-        timeOfDay: "08:00",
-        recurrence: "DAILY",
-        daysOfWeek: [],
-        timezone: "Europe/London",
-        medicationId: medication.id,
-        enabled: true,
-      },
+    //
+    // The previous "Time for your medication" reminder was removed: nothing
+    // in the study's source documents covers a scheduled oral-medication
+    // dose (the only occurrence of "medication" across all eight documents
+    // is incidental — terbutaline raising blood glucose). It pointed at the
+    // Medication model, which api/docs/UNUSED-BACKEND.md already flags as a
+    // Type 2 concept wrong for a Type 1 paediatric app, and told the parent
+    // to "record this dose" in a logging screen that does not exist in v1.
+    //
+    // These two are grounded in the curriculum instead: self-monitoring of
+    // blood glucose (the SMBG document) and HbA1c, which the annual check-up
+    // document says should be tested 3–4 times a year.
+    await prisma.reminder.createMany({
+      data: [
+        {
+          userId: user.id,
+          type: "GLUCOSE_REMINDER",
+          title: "Check blood glucose",
+          body: "Record today's reading before breakfast.",
+          timeOfDay: "08:00",
+          recurrence: "DAILY",
+          daysOfWeek: [],
+          timezone: "Asia/Kolkata",
+          enabled: true,
+        },
+        {
+          userId: user.id,
+          type: "HBA1C_REMINDER",
+          title: "HbA1c test due",
+          body: "HbA1c is checked 3–4 times a year. Ask your diabetes team.",
+          timeOfDay: "09:00",
+          recurrence: "MONTHLY",
+          daysOfWeek: [],
+          dayOfMonth: 1,
+          timezone: "Asia/Kolkata",
+          enabled: true,
+        },
+      ],
     });
 
     // Keep participant lists sortable by recency.
@@ -692,6 +716,19 @@ async function main() {
   // -------------------------------------------------------------------------
   // Education content
   // -------------------------------------------------------------------------
+  //
+  // DISABLED — these six generic placeholder articles predate the study and
+  // are English-only. Because the Help Book collapses by slug and falls back
+  // to English for any topic with no Tamil row, seeding them made the Tamil
+  // Help Book render as an alternating EN/TA list: the eight real curriculum
+  // topics in Tamil, interleaved (by sortOrder 0-5) with these six stuck in
+  // English. The real content comes from `scripts/import-content.ts`, which
+  // imports all eight topics in both locales from `content/docx/`.
+  //
+  // Kept rather than deleted so the shape is on record if a future non-study
+  // deployment ever wants demo articles — but it must not run for this study.
+  const SEED_PLACEHOLDER_ARTICLES = false;
+
   const articles = [
     {
       slug: "understanding-blood-glucose",
@@ -737,23 +774,26 @@ async function main() {
     },
   ];
 
-  for (const [index, article] of articles.entries()) {
-    await prisma.educationContent.create({
-      data: {
-        ...article,
-        body: article.body,
-        externalReferences: [],
-        tags: [article.category.toLowerCase().replace(/_/g, "-")],
-        status: index < 5 ? "PUBLISHED" : "DRAFT",
-        publishedAt: index < 5 ? daysAgo(60 - index * 5) : null,
-        readingTimeMinutes: 3,
-        sortOrder: index,
-        authorId: admin.id,
-      },
-    });
+  if (SEED_PLACEHOLDER_ARTICLES) {
+    for (const [index, article] of articles.entries()) {
+      await prisma.educationContent.create({
+        data: {
+          ...article,
+          body: article.body,
+          externalReferences: [],
+          tags: [article.category.toLowerCase().replace(/_/g, "-")],
+          status: index < 5 ? "PUBLISHED" : "DRAFT",
+          publishedAt: index < 5 ? daysAgo(60 - index * 5) : null,
+          readingTimeMinutes: 3,
+          sortOrder: index,
+          authorId: admin.id,
+        },
+      });
+    }
+    console.log(`  ✓ ${articles.length} education articles`);
+  } else {
+    console.log("  – placeholder education articles skipped (study uses import-content.ts)");
   }
-
-  console.log(`  ✓ ${articles.length} education articles`);
 
   // -------------------------------------------------------------------------
   // Exercise programmes

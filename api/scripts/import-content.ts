@@ -217,6 +217,13 @@ async function importOne(entry: ManifestEntry, locale: "en" | "ta", authorId: st
     return;
   }
 
+  // First figure in the article doubles as its Help Book card thumbnail —
+  // real curriculum artwork beats a generic icon, and it costs nothing since
+  // the images are already extracted. Topics whose source docx has no figures
+  // (insulin-pump, exercise, school-travel) leave this null and the client
+  // falls back to a per-category icon.
+  const firstImage = /<img[^>]+src="([^"]+)"/.exec(bodyHtml)?.[1] ?? null;
+
   const data = {
     title,
     description: excerpt,
@@ -225,6 +232,7 @@ async function importOne(entry: ManifestEntry, locale: "en" | "ta", authorId: st
     body: bodyHtml,
     bodySource: markdown,
     bodyFormat: "MARKDOWN" as const,
+    thumbnailUrl: firstImage,
     tags: entry.tags,
     sortOrder: entry.sortOrder,
     status: "DRAFT" as const,

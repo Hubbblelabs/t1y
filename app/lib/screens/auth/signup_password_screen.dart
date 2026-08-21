@@ -8,12 +8,10 @@ import 'signup_chat_screen.dart';
 /// New-user branch: set a password, confirm it, then move into the
 /// conversational detail-collection step.
 ///
-/// Client-side rule (per product request): 8+ characters with at least one
-/// uppercase letter, one digit, and one special character. NOTE: the
-/// backend's `minPasswordLength` is still 12 (see api/lib/auth/auth.ts) —
-/// this screen no longer matches it, so an 8-11 character password that
-/// passes here will still be rejected by the server. Worth reconciling
-/// before this ships; flagging rather than silently changing the backend.
+/// Client-side length rule mirrors the backend's actual constraint
+/// (`emailAndPassword.minPasswordLength`/`maxPasswordLength`, see
+/// api/lib/auth/auth.ts) so a password accepted here is never rejected by
+/// the server, and vice versa.
 class SignupPasswordScreen extends StatefulWidget {
   final String email;
   const SignupPasswordScreen({super.key, required this.email});
@@ -27,10 +25,8 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
   final _confirmController = TextEditingController();
   String? _error;
 
-  static const _minLength = 8;
-  static final _upperCase = RegExp(r'[A-Z]');
-  static final _digit = RegExp(r'[0-9]');
-  static final _special = RegExp(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]/\\;]');
+  static const _minLength = 12;
+  static const _maxLength = 128;
 
   void _continue() {
     FocusScope.of(context).unfocus();
@@ -43,12 +39,9 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
       );
       return;
     }
-    if (!_upperCase.hasMatch(password) ||
-        !_digit.hasMatch(password) ||
-        !_special.hasMatch(password)) {
+    if (password.length > _maxLength) {
       setState(
-        () => _error =
-            'Password needs an uppercase letter, a number, and a special character.',
+        () => _error = 'Password must be at most $_maxLength characters.',
       );
       return;
     }
@@ -105,7 +98,7 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                       LabeledField(
                         icon: Icons.lock_outline,
                         label: 'New password',
-                        hint: '8+ chars, 1 uppercase, 1 number, 1 symbol',
+                        hint: 'Set your password',
                         controller: _passwordController,
                         obscureText: true,
                         autofocus: true,
@@ -114,7 +107,7 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                       LabeledField(
                         icon: Icons.lock_outline,
                         label: 'Confirm password',
-                        hint: 'Re-enter your password',
+                        hint: 'Re-type your password',
                         controller: _confirmController,
                         obscureText: true,
                         onSubmitted: (_) => _continue(),

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../models/signup_question.dart';
-import '../../models/terms_content.dart';
+import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/infinite_grid_background.dart';
-import 'get_started_screen.dart';
 import 'signup_loading_screen.dart';
 import 'terms_screen.dart';
 
@@ -42,14 +40,13 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   int _index = 0;
   String? _error;
   bool _showingTerms = false;
-  bool _termsDeclined = false;
 
   @override
   void initState() {
     super.initState();
     _messages.add(
       _ChatMessage(
-        "A few details about the child before we start — this helps your care team, and stays private to this study.",
+        "Before we begin, a few details about the child can help your care team better understand their needs. Your information will remain private to this study.",
         isUser: false,
       ),
     );
@@ -60,44 +57,31 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   bool get _isLastQuestion => _index == signupQuestions.length - 1;
 
   void _askTerms() {
-    final bullets = termsSummary.map((t) => '• $t').join('\n');
     _messages.add(
-      _ChatMessage(
-        'One last thing — please review and accept these terms before we create the account:\n\n$bullets',
+      const _ChatMessage(
+        'One last thing — please read our Terms & Conditions and tap "I Agree" to create the account.',
         isUser: false,
       ),
     );
   }
 
-  void _respondToTerms(bool accepted) {
+  Future<void> _openTerms() async {
+    final agreed = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const TermsScreen()));
+    if (agreed == true) _respondToTerms();
+  }
+
+  Future<void> _respondToTerms() async {
     setState(() {
-      _messages.add(
-        _ChatMessage(accepted ? 'I Accept' : 'I Do Not Accept', isUser: true),
-      );
+      _messages.add(const _ChatMessage('I Agree', isUser: true));
     });
     _scrollToEnd();
 
-    if (!accepted) {
-      setState(() {
-        _termsDeclined = true;
-        _messages.add(
-          _ChatMessage(
-            "You can't create an account without accepting the terms, so we can't continue right now. "
-            "You're welcome to come back any time.",
-            isUser: false,
-          ),
-        );
-      });
-      _scrollToEnd();
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const GetStartedScreen()),
-          (route) => false,
-        );
-      });
-      return;
-    }
+    // Sign-up itself can't persist these (no session yet — the backend runs
+    // autoSignIn: false), so they're stashed and flushed on first sign-in.
+    await ProfileService.instance.stashSignupAnswers(_answers);
+    if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -163,50 +147,43 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
       appBar: AppBar(title: const Text('A few details before we start')),
       body: DecoratedBox(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [AppTheme.lightest, AppTheme.accent],
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 1.2,
+            colors: [AppTheme.primary, AppTheme.accent, AppTheme.lightest],
+            stops: [0.0, 0.55, 1.0],
           ),
         ),
-        child: Stack(
+        child: Column(
           children: [
-            const Positioned.fill(child: InfiniteGridBackground()),
-            Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, i) =>
-                        _ChatBubble(message: _messages[i]),
-                  ),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(16),
+                itemCount: _messages.length,
+                itemBuilder: (context, i) => _ChatBubble(message: _messages[i]),
+              ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
                 ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ),
-                SafeArea(
-                  top: false,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: _termsDeclined
-                        ? const SizedBox.shrink()
-                        : _showingTerms
-                        ? _TermsResponseInput(onRespond: _respondToTerms)
-                        : _AnswerInput(
-                            question: _current,
-                            controller: _controller,
-                            onSubmit: _submitAnswer,
-                          ),
-                  ),
-                ),
-              ],
+              ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: _showingTerms
+                    ? _TermsPromptInput(onOpenTerms: _openTerms)
+                    : _AnswerInput(
+                        question: _current,
+                        controller: _controller,
+                        onSubmit: _submitAnswer,
+                      ),
+              ),
             ),
           ],
         ),
@@ -358,52 +335,19 @@ class _AnswerInput extends StatelessWidget {
   }
 }
 
-/// Read-more link plus Accept/Decline chips, shown once all questions are
-/// answered — the final gate before the account is actually created.
-class _TermsResponseInput extends StatelessWidget {
-  final void Function(bool accepted) onRespond;
-  const _TermsResponseInput({required this.onRespond});
+/// Single "read the terms" prompt shown once all questions are answered —
+/// tapping it opens [TermsScreen], whose own "I Agree" button is the actual
+/// gate before the account is created (see [SignupChatScreen._openTerms]).
+class _TermsPromptInput extends StatelessWidget {
+  final VoidCallback onOpenTerms;
+  const _TermsPromptInput({required this.onOpenTerms});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const TermsScreen())),
-            icon: const Icon(Icons.menu_book_outlined, size: 18),
-            label: const Text('Read more — full Terms & Conditions'),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.primary),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => onRespond(false),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.deep,
-                  side: const BorderSide(color: AppTheme.accent),
-                ),
-                child: const Text('I Do Not Accept'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: () => onRespond(true),
-                child: const Text('I Accept'),
-              ),
-            ),
-          ],
-        ),
-      ],
+    return FilledButton.icon(
+      onPressed: onOpenTerms,
+      icon: const Icon(Icons.menu_book_outlined, size: 18),
+      label: const Text('Read Terms & Conditions'),
     );
   }
 }

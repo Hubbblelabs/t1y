@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../../providers/app_state.dart';
 import '../../widgets/animated_nav_icon.dart';
 import '../calculations/calculations_list_screen.dart';
@@ -42,9 +43,13 @@ class _HomeShellState extends State<HomeShell> {
       const QuizListScreen(),
     ];
 
-    return Scaffold(
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) => Scaffold(
       body: IndexedStack(index: _index, children: screens),
       bottomNavigationBar: NavigationBar(
+        height: 68,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         selectedIndex: _index,
         onDestinationSelected: _goTo,
         destinations: [
@@ -54,33 +59,34 @@ class _HomeShellState extends State<HomeShell> {
               activeIcon: Icons.home,
               isSelected: _index == HomeShell.homeTabIndex,
             ),
-            label: 'Home',
+            label: S.home,
           ),
           NavigationDestination(
             icon: AnimatedNavIcon(
-              icon: Icons.menu_book_outlined,
-              activeIcon: Icons.menu_book,
+              icon: Icons.auto_stories_outlined,
+              activeIcon: Icons.auto_stories_rounded,
               isSelected: _index == HomeShell.helpBookTabIndex,
             ),
-            label: 'Help Book',
+            label: S.helpBook,
           ),
           NavigationDestination(
             icon: AnimatedNavIcon(
               icon: Icons.calculate_outlined,
-              activeIcon: Icons.calculate,
+              activeIcon: Icons.calculate_rounded,
               isSelected: _index == HomeShell.calculationsTabIndex,
             ),
-            label: 'Calculations',
+            label: S.calculations,
           ),
           NavigationDestination(
             icon: AnimatedNavIcon(
-              icon: Icons.quiz_outlined,
-              activeIcon: Icons.quiz,
+              icon: Icons.emoji_objects_outlined,
+              activeIcon: Icons.emoji_objects_rounded,
               isSelected: _index == HomeShell.quizzesTabIndex,
             ),
-            label: 'Quizzes',
+            label: S.quizzes,
           ),
         ],
+      ),
       ),
     );
   }

@@ -73,6 +73,10 @@ class Quiz {
   final int? passingScore;
   final List<QuizQuestion> questions;
 
+  /// True when the requested locale had no quiz for this topic and the
+  /// English one is being shown instead.
+  final bool isFallback;
+
   Quiz({
     required this.id,
     required this.slug,
@@ -82,6 +86,7 @@ class Quiz {
     required this.description,
     required this.passingScore,
     required this.questions,
+    this.isFallback = false,
   });
 
   factory Quiz.fromJson(Map<String, dynamic> json) => Quiz(
@@ -95,5 +100,6 @@ class Quiz {
         questions: (json['questions'] as List)
             .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
             .toList(),
+        isFallback: json['isFallback'] as bool? ?? false,
       );
 }

@@ -58,7 +58,7 @@ String? validateSignupAnswer(SignupQuestion question, String rawValue) {
     case SignupAnswerType.text:
       if (value.length < 2) return 'Enter at least 2 characters.';
       if (value.length > 80) return 'Keep it under 80 characters.';
-      if (!RegExp(r"^[a-zA-Z\s\-']+$").hasMatch(value)) {
+      if (!RegExp(r"^[a-zA-Z஀-௿\s\-']+$").hasMatch(value)) {
         return 'Letters only, please.';
       }
       return null;
@@ -80,7 +80,7 @@ String? validateSignupAnswer(SignupQuestion question, String rawValue) {
       final year = int.tryParse(value);
       final currentYear = DateTime.now().year;
       if (year == null) return 'Enter a valid year, e.g. $currentYear.';
-      if (year < 1990 || year > currentYear) return 'Enter a year between 1990 and $currentYear.';
+      if (year < 1900 || year > currentYear) return 'Enter a year between 1900 and $currentYear.';
       return null;
   }
 }

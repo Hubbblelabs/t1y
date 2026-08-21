@@ -27,7 +27,7 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
   Future<void> _continue() async {
     FocusScope.of(context).unfocus();
     final email = _emailController.text.trim();
-    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
       setState(() => _error = 'Enter a valid email address.');
       return;
     }

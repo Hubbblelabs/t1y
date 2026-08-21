@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'providers/app_state.dart';
 import 'screens/auth/get_started_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/auth_service.dart';
+import 'services/content_service.dart';
+import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // The Android system navigation bar defaults to an opaque white strip
   // that isn't part of any screen's own background — left unstyled it
@@ -22,11 +25,49 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Restore the saved language before the first frame. Without this the app
+  // always started in English and silently discarded the participant's
+  // choice on every cold start.
+  await AppState.instance.load();
+
   runApp(const T1dpeApp());
 }
 
-class T1dpeApp extends StatelessWidget {
+class T1dpeApp extends StatefulWidget {
   const T1dpeApp({super.key});
+
+  @override
+  State<T1dpeApp> createState() => _T1dpeAppState();
+}
+
+class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _backgroundSync();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _backgroundSync();
+  }
+
+  /// Pulls fresh content when the local copy is over a day old, and pushes
+  /// any progress events queued while offline. Both no-op when there is
+  /// nothing to do, so running this on every resume is cheap.
+  Future<void> _backgroundSync() async {
+    if (!await AuthService.instance.isSignedIn) return;
+    await ProgressService.instance.flush();
+    await ContentService.instance.syncIfStale();
+  }
 
   @override
   Widget build(BuildContext context) {

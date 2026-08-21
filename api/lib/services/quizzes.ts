@@ -109,13 +109,40 @@ export async function getPublishedQuizBySlug(slug: string, locale: ContentLocale
   return quiz;
 }
 
-/** Every published quiz, for the mobile client's one-shot offline download. */
+/**
+ * Every published quiz, for the mobile client's one-shot offline download.
+ *
+ * Falls back to English per topic, exactly as education content does. A hard
+ * locale filter here meant a Tamil participant saw an empty Quizzes tab —
+ * the study's quizzes are currently English-only, so `locale=TA` matched
+ * nothing at all. An untranslated quiz should degrade to English with a
+ * flag, never vanish: a missing translation must not silently remove a piece
+ * of the curriculum from a participant's app.
+ *
+ * Quizzes are paired to topics by `topicSlug` (the language-independent
+ * topic identity), so that — not the quiz's own slug — is what collapses.
+ */
 export async function listPublishedQuizBundle(locale: ContentLocale = "EN") {
-  return prisma.quiz.findMany({
-    where: { status: "PUBLISHED", locale },
+  const rows = await prisma.quiz.findMany({
+    where: {
+      status: "PUBLISHED",
+      ...(locale === "EN" ? { locale: "EN" } : { locale: { in: [locale, "EN"] } }),
+    },
     select: PUBLIC_SELECT,
     orderBy: { sortOrder: "asc" },
   });
+
+  const byTopic = new Map<string, (typeof rows)[number] & { isFallback: boolean }>();
+  for (const row of rows) {
+    const key = row.topicSlug ?? row.slug;
+    const existing = byTopic.get(key);
+    const isPreferred = row.locale === locale;
+    if (!existing || (isPreferred && existing.locale !== locale)) {
+      byTopic.set(key, { ...row, isFallback: row.locale !== locale });
+    }
+  }
+
+  return [...byTopic.values()];
 }
 
 /** Shape consumed directly by lib/quizzes/grading.ts. */
