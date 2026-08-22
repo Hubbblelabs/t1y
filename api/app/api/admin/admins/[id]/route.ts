@@ -5,7 +5,7 @@ import { AuditAction, actorFromPrincipal, recordAudit } from "@/lib/audit/audit"
 import { assertCanAssignRole } from "@/lib/permissions/policies";
 import { Capability } from "@/lib/permissions/roles";
 import {
-  assertNotLastSuperAdmin,
+  assertNotLastAdmin,
   deactivateStaffMember,
   getStaffMember,
   updateStaffMember,
@@ -25,15 +25,18 @@ export const PATCH = defineRoute({
   params: idParamSchema,
   body: updateStaffSchema,
   handler: async ({ principal, params, body, audit }) => {
-    // Nobody may change their own role or lock out the last super admin.
+    // Nobody may change their own role or lock out the last administrator.
+    // ADMIN is the only staff role now, so a role "change" can only ever be
+    // a no-op re-assertion of ADMIN — kept as a guard anyway in case the
+    // schema grows a second staff role again later.
     if (body.role || body.status) {
       assertCanAssignRole(principal, params.id);
     }
-    if (body.role && body.role !== "SUPER_ADMIN") {
-      await assertNotLastSuperAdmin(params.id);
+    if (body.role) {
+      await assertNotLastAdmin(params.id);
     }
     if (body.status && body.status !== "ACTIVE") {
-      await assertNotLastSuperAdmin(params.id);
+      await assertNotLastAdmin(params.id);
     }
 
     const staff = await updateStaffMember(params.id, body);
@@ -63,7 +66,7 @@ export const DELETE = defineRoute({
   params: idParamSchema,
   handler: async ({ principal, params, audit }) => {
     assertCanAssignRole(principal, params.id);
-    await assertNotLastSuperAdmin(params.id);
+    await assertNotLastAdmin(params.id);
 
     const result = await deactivateStaffMember(params.id);
 

@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../home/home_shell.dart';
 import 'auth_loading_screen.dart';
+import 'change_password_screen.dart';
 
 /// Loader shown while signing in — see [AuthLoadingScreen] for the actual
 /// ring + rotating-message UI, shared with the sign-up loader.
@@ -32,14 +33,20 @@ class LoginLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Captured by both closures below, which are built in this same call —
+    // set inside `task`, read by `onSuccess` once `task` has completed.
+    var mustChangePassword = false;
+
     return AuthLoadingScreen(
       task: () async {
-        await AuthService.instance.signIn(email: email, password: password);
+        mustChangePassword = await AuthService.instance.signIn(email: email, password: password);
         // First authenticated moment — send any child details captured during
         // sign-up, which had no session to be saved with at the time.
         await ProfileService.instance.flushPendingProfile();
       },
-      onSuccess: (_) => const HomeShell(),
+      onSuccess: (_) => mustChangePassword
+          ? ChangePasswordScreen(currentPassword: password)
+          : const HomeShell(),
       // Signed in — the email/password screens must not remain behind Home.
       clearStack: true,
       steps: _steps,

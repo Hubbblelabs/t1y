@@ -8,8 +8,11 @@ import '../../widgets/auth_background.dart';
 
 /// Shared full-screen loader for both sign-up and sign-in: runs [task],
 /// cycling through [steps] every 3s while it's in flight, then hands off to
-/// [onSuccess]. Surfaces a real error with a retry instead of spinning
-/// forever if the network call fails or times out.
+/// [onSuccess]. If the network call fails or times out, "Try again" pops
+/// this screen and returns the error message to whichever screen pushed it
+/// (email/password entry, or the sign-up chat) — so the failure is shown
+/// back where the person can actually act on it (fix a typo'd password,
+/// retry the connection) rather than retried blindly in place here.
 ///
 /// Light theme throughout — matches the rest of the auth flow rather than
 /// standing out as a separate dark screen.
@@ -168,10 +171,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
         ),
         const SizedBox(height: 24),
         OutlinedButton(
-          onPressed: () {
-            setState(() => _error = null);
-            _run();
-          },
+          onPressed: () => Navigator.of(context).pop(_error),
           child: const Text('Try again'),
         ),
       ],

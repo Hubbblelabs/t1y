@@ -71,18 +71,37 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'T1D Prajana Yandra',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      // The app has no considered dark-mode design — AppTheme.dark() is a
-      // stub with a near-black scaffold background, which was flashing
-      // briefly on screen transitions for anyone with system dark mode on
-      // (the new route's dark Scaffold canvas painting before its own
-      // light gradient content did). Lock to light until dark mode is
-      // actually designed.
-      themeMode: ThemeMode.light,
-      home: const _StartupGate(),
+    // Listens to AppState so a language switch re-applies the Tamil text
+    // scale below immediately, not just on the next cold start.
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) => MaterialApp(
+        title: 'T1D Prajana Yandra',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light(),
+        // The app has no considered dark-mode design — AppTheme.dark() is a
+        // stub with a near-black scaffold background, which was flashing
+        // briefly on screen transitions for anyone with system dark mode on
+        // (the new route's dark Scaffold canvas painting before its own
+        // light gradient content did). Lock to light until dark mode is
+        // actually designed.
+        themeMode: ThemeMode.light,
+        builder: (context, child) {
+          // Tamil script reads smaller than Latin at the same point size —
+          // a small app-wide bump, on top of whatever text-scale the device
+          // accessibility settings already apply (never replacing it).
+          final media = MediaQuery.of(context);
+          const tamilBump = 1.08;
+          final scale = AppState.instance.isTamil
+              ? media.textScaler.scale(1.0) * tamilBump
+              : media.textScaler.scale(1.0);
+          return MediaQuery(
+            data: media.copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          );
+        },
+        home: const _StartupGate(),
+      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
+import '../../providers/app_state.dart';
 import '../../widgets/calculator_disclaimer.dart';
 
 /// From the source curriculum's hypoglycaemia article: "eat 15-gram carbs,
@@ -24,60 +26,61 @@ class _RuleOf15ScreenState extends State<RuleOf15Screen> {
   void _calculate() {
     final bg = int.tryParse(_bgController.text);
     if (bg == null) {
-      setState(() => _result = 'Enter a valid blood glucose value.');
+      setState(() => _result = S.enterValidGlucose);
       return;
     }
 
     if (bg >= 70) {
-      setState(() => _result = 'Blood glucose is $bg mg/dL — the Rule of 15 is for readings below 70 mg/dL.');
+      setState(() => _result = S.ruleOf15AboveRange(bg));
       return;
     }
 
     final gramsNeeded = ((_targetBg - bg) / _mgPerGram).ceil();
     setState(() {
-      _result = 'Take about $gramsNeeded g of fast-acting sugar (e.g. glucose tablets, '
-          'juice, or ${(gramsNeeded / 15).ceil()} serving(s) of 15g carbs).\n\n'
-          'Recheck blood glucose in 15 minutes. If still under 100 mg/dL, repeat with another 15g.';
+      _result = S.ruleOf15Result(gramsNeeded, (gramsNeeded / 15).ceil());
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Rule of 15')),
-      body: !_acknowledged
-          ? CalculatorDisclaimer(
-              calculatorName: 'The Rule of 15 calculator',
-              onAcknowledge: () => setState(() => _acknowledged = true),
-            )
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  TextField(
-                    controller: _bgController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Current blood glucose (mg/dL)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FilledButton(onPressed: _calculate, child: const Text('Calculate')),
-                  if (_result != null) ...[
-                    const SizedBox(height: 24),
-                    Card(
-                      color: Theme.of(context).colorScheme.primaryContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(_result!),
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(title: Text(S.ruleOf15)),
+        body: !_acknowledged
+            ? CalculatorDisclaimer(
+                calculatorName: S.ruleOf15Calculator,
+                onAcknowledge: () => setState(() => _acknowledged = true),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: _bgController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: S.currentBloodGlucose,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: _calculate, child: Text(S.calculate)),
+                    if (_result != null) ...[
+                      const SizedBox(height: 24),
+                      Card(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(_result!),
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

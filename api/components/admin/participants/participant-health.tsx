@@ -320,7 +320,7 @@ export async function ParticipantHealth({
             bucket: WEEKDAY_LABELS[entry.weekday] ?? "",
             minutes: entry.minutes,
           }))}
-          xFormatter={(value) => value}
+          xFormatter="identity"
           series={[{ key: "minutes", name: "Minutes", colour: "var(--color-chart-2)" }]}
           emptyTitle="No exercise recorded"
           emptyDescription="No sessions were logged during this period."

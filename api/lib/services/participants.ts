@@ -1,5 +1,9 @@
 import "server-only";
 
+import { randomBytes, randomUUID } from "node:crypto";
+
+import { hashPassword } from "better-auth/crypto";
+
 import { Prisma } from "@/generated/prisma/client";
 import type { DiabetesType, UserStatus } from "@/generated/prisma/enums";
 import { ConflictError, NotFoundError } from "@/lib/api/errors";
@@ -350,6 +354,183 @@ export async function createParticipant(input: CreateParticipantInput) {
       profile: { select: { participantCode: true } },
     },
   });
+}
+
+/** Characters a coordinator can read off a screen and a parent can type without
+ *  ambiguity — no 0/O, 1/I/l, no punctuation a keyboard autocorrects away. */
+const TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+
+function generateTempPassword(length = 14): string {
+  const bytes = randomBytes(length);
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += TEMP_PASSWORD_ALPHABET[bytes[i]! % TEMP_PASSWORD_ALPHABET.length];
+  }
+  return out;
+}
+
+/**
+ * Activates a PENDING participant, covering two different starting points:
+ *
+ *  - Admin-created via `createParticipant`, which deliberately leaves the
+ *    record with no credential at all — an administrator should never
+ *    choose the password a family will actually use going forward. Without
+ *    email delivery configured (no RESEND_API_KEY; see
+ *    docs/TEST-CREDENTIALS.md) the self-serve verification link that record
+ *    was meant to complete through has nowhere to send, so left alone it is
+ *    permanently stuck. This issues a one-time temporary password instead —
+ *    the interim path for this study's real operating model, a coordinator
+ *    enrolling a child in person at the clinic. Hashed the same way Better
+ *    Auth hashes any password, returned to the caller exactly once, never
+ *    logged or stored in plaintext. The family is expected to change it —
+ *    this schema has no separate "must change password" flag to enforce
+ *    that, so it's procedural, not enforced by the app.
+ *
+ *  - Self-registered through the app's own sign-up, which DOES set a real
+ *    credential — the account only sits PENDING because there's no working
+ *    verification email to click. Here, activation must NOT touch the
+ *    password that person already chose; it only flips the account to
+ *    verified/active, standing in for the email-link click that can't be
+ *    sent. Returns no tempPassword in this case — there is nothing new to
+ *    show.
+ */
+export async function activateParticipant(
+  userId: string,
+): Promise<{ tempPassword: string | null }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      accounts: { where: { providerId: "credential" }, select: { id: true } },
+    },
+  });
+  if (!user || user.role !== "PATIENT") throw new NotFoundError("Participant");
+
+  const hasCredential = user.accounts.length > 0;
+
+  if (hasCredential) {
+    // Self-registered — admin-vouching stands in for the unreachable
+    // verification email; their own password is left untouched.
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: "ACTIVE", emailVerified: true },
+    });
+    return { tempPassword: null };
+  }
+
+  const tempPassword = generateTempPassword();
+  const passwordHash = await hashPassword(tempPassword);
+
+  await prisma.$transaction([
+    prisma.account.create({
+      data: { userId, providerId: "credential", accountId: userId, password: passwordHash },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { status: "ACTIVE", emailVerified: true, mustChangePassword: true },
+    }),
+  ]);
+
+  return { tempPassword };
+}
+
+export interface BulkImportRow {
+  email: string;
+  firstName: string;
+  lastName: string;
+  participantCode?: string;
+  diabetesType?: DiabetesType;
+  diagnosisYear?: number;
+  dateOfBirth?: Date;
+  phone?: string;
+}
+
+export interface BulkImportOutcome {
+  row: number;
+  email: string;
+  participantCode?: string;
+  reason?: string;
+}
+
+/**
+ * Creates many participants from one admin-uploaded sheet, all sharing the
+ * single `dummyPassword` the admin chose for this batch and all flagged
+ * `mustChangePassword` — every one of them is forced onto their own password
+ * the first time they sign in (see `ChangePasswordScreen` on the mobile
+ * side).
+ *
+ * Rows are processed sequentially, not in parallel: participant codes are
+ * allocated from the current table max, so two rows racing each other could
+ * otherwise collide. One row failing (duplicate email, bad data) does not
+ * abort the batch — it's recorded and the rest continue, so a coordinator
+ * uploading 200 rows with three typos still gets 197 accounts made.
+ */
+export async function bulkImportParticipants(
+  rows: BulkImportRow[],
+  dummyPassword: string,
+): Promise<{ created: BulkImportOutcome[]; skipped: BulkImportOutcome[] }> {
+  const passwordHash = await hashPassword(dummyPassword);
+  const created: BulkImportOutcome[] = [];
+  const skipped: BulkImportOutcome[] = [];
+
+  for (const [index, row] of rows.entries()) {
+    const sheetRow = index + 2; // header occupies row 1
+    const email = row.email.toLowerCase();
+    try {
+      const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+      if (existing) {
+        skipped.push({ row: sheetRow, email, reason: "An account with this email already exists." });
+        continue;
+      }
+
+      const participantCode = row.participantCode ?? (await nextParticipantCode());
+
+      const user = await prisma.$transaction(async (tx) => {
+        const record = await tx.user.create({
+          data: {
+            email,
+            name: `${row.firstName} ${row.lastName}`.trim(),
+            role: "PATIENT",
+            status: "ACTIVE",
+            emailVerified: true,
+            mustChangePassword: true,
+            profile: {
+              create: {
+                participantCode,
+                firstName: row.firstName,
+                lastName: row.lastName,
+                dateOfBirth: row.dateOfBirth,
+                diabetesType: row.diabetesType ?? "UNSPECIFIED",
+                diagnosisYear: row.diagnosisYear,
+                phone: row.phone,
+              },
+            },
+          },
+          select: { id: true, email: true, profile: { select: { participantCode: true } } },
+        });
+        await tx.account.create({
+          data: {
+            userId: record.id,
+            providerId: "credential",
+            accountId: record.id,
+            password: passwordHash,
+          },
+        });
+        return record;
+      });
+
+      created.push({ row: sheetRow, email, participantCode: user.profile?.participantCode });
+    } catch (error) {
+      const reason =
+        error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002"
+          ? "That participant code is already in use."
+          : "Could not create this row.";
+      skipped.push({ row: sheetRow, email, reason });
+    }
+  }
+
+  return { created, skipped };
 }
 
 /**

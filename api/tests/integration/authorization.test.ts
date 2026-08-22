@@ -1,10 +1,9 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/prisma";
 import type { Principal } from "@/lib/auth/session";
 import type { UserRole } from "@/generated/prisma/enums";
 import {
-  accessibleStudyIds,
   canExportResearchData,
   canViewParticipant,
   canViewParticipantHealthData,
@@ -16,10 +15,15 @@ import {
 /**
  * Authorisation against the seeded development database.
  *
- * The unit tests prove the role matrix is correct in the abstract. These prove
- * the resource-scoped rules hold against real rows — in particular that a
- * researcher cannot reach a participant who is not enrolled in one of their
- * studies, which is the property that actually protects participant privacy.
+ * The unit tests prove the role matrix is correct in the abstract. This
+ * proves the resource-scoped rules hold against real rows.
+ *
+ * This deployment has one staff role (ADMIN) rather than the platform's
+ * original SUPER_ADMIN/RESEARCHER/CLINICAL_REVIEWER split — see
+ * lib/permissions/roles.ts. There is no researcher-scoped-to-their-studies
+ * behaviour left to test: ADMIN sees and can export everything, and the
+ * property that actually matters here is the one that still exists —
+ * a patient is confined to their own record.
  *
  * Run with: RUN_INTEGRATION_TESTS=1 npm test
  */
@@ -42,17 +46,14 @@ function principalFor(user: {
   };
 }
 
-let researcher: Principal;
 let admin: Principal;
-let superAdmin: Principal;
-let reviewer: Principal;
 let patient: Principal;
+let otherPatientId: string;
 
+/** A throwaway study, created and torn down here — this deployment's real
+ *  database has none seeded (see prisma/seed.ts), since the platform's
+ *  research-study scaffolding is unused by this study's actual workflow. */
 let studyId: string;
-/** A participant enrolled in the researcher's study. */
-let enrolledParticipantId: string;
-/** A participant who is not enrolled in any study. */
-let unenrolledParticipantId: string;
 
 beforeAll(async () => {
   const byRole = async (role: UserRole) => {
@@ -64,89 +65,30 @@ beforeAll(async () => {
     return principalFor(user);
   };
 
-  [researcher, admin, superAdmin, reviewer, patient] = await Promise.all([
-    byRole("RESEARCHER"),
-    byRole("ADMIN"),
-    byRole("SUPER_ADMIN"),
-    byRole("CLINICAL_REVIEWER"),
-    byRole("PATIENT"),
-  ]);
+  [admin, patient] = await Promise.all([byRole("ADMIN"), byRole("PATIENT")]);
 
-  const grant = await prisma.studyAccess.findFirst({
-    where: { userId: researcher.userId },
-    select: { studyId: true },
-  });
-  if (!grant) throw new Error("Seed data is missing a study access grant.");
-  studyId = grant.studyId;
-
-  const enrolled = await prisma.studyParticipant.findFirst({
-    where: { studyId, enrollmentStatus: { in: ["ENROLLED", "ACTIVE", "COMPLETED"] } },
-    select: { userId: true },
-  });
-  if (!enrolled) throw new Error("Seed data is missing an enrolled participant.");
-  enrolledParticipantId = enrolled.userId;
-
-  const unenrolled = await prisma.user.findFirst({
-    where: { role: "PATIENT", studyEnrollments: { none: {} } },
+  const other = await prisma.user.findFirst({
+    where: { role: "PATIENT", id: { not: patient.userId } },
     select: { id: true },
   });
-  if (!unenrolled) throw new Error("Seed data is missing an unenrolled participant.");
-  unenrolledParticipantId = unenrolled.id;
+  if (!other) throw new Error("Seed data needs at least two PATIENT users.");
+  otherPatientId = other.id;
+
+  const study = await prisma.researchStudy.create({
+    data: {
+      code: `AUTHTEST-${Date.now()}`,
+      title: "Authorization test fixture",
+      status: "ACTIVE",
+      dataPoints: [],
+      createdById: admin.userId,
+    },
+    select: { id: true },
+  });
+  studyId = study.id;
 });
 
-describe("researcher scoping", () => {
-  it("sees only the studies they were granted", async () => {
-    const ids = await accessibleStudyIds(researcher);
-    expect(ids).toContain(studyId);
-
-    const allStudies = await prisma.researchStudy.count();
-    const grantCount = await prisma.studyAccess.count({
-      where: { userId: researcher.userId },
-    });
-    expect(ids).toHaveLength(grantCount);
-    expect(ids.length).toBeLessThanOrEqual(allStudies);
-  });
-
-  it("may view a participant enrolled in their study", async () => {
-    expect(await canViewParticipant(researcher, enrolledParticipantId)).toBe(true);
-  });
-
-  it("may NOT view a participant outside their studies", async () => {
-    expect(await canViewParticipant(researcher, unenrolledParticipantId)).toBe(false);
-  });
-
-  it("may NOT read health data for a participant outside their studies", async () => {
-    expect(
-      await canViewParticipantHealthData(researcher, unenrolledParticipantId),
-    ).toBe(false);
-  });
-
-  it("produces a query filter that excludes unenrolled participants", async () => {
-    const filter = await participantScopeFilter(researcher);
-
-    const visible = await prisma.user.findMany({
-      where: { role: "PATIENT", ...filter },
-      select: { id: true },
-    });
-    const visibleIds = visible.map((row) => row.id);
-
-    expect(visibleIds).toContain(enrolledParticipantId);
-    expect(visibleIds).not.toContain(unenrolledParticipantId);
-  });
-
-  it("scopes the filter to fewer participants than exist in total", async () => {
-    const filter = await participantScopeFilter(researcher);
-    const scoped = await prisma.user.count({ where: { role: "PATIENT", ...filter } });
-    const total = await prisma.user.count({ where: { role: "PATIENT" } });
-
-    expect(scoped).toBeGreaterThan(0);
-    expect(scoped).toBeLessThan(total);
-  });
-
-  it("may view its own study but not an arbitrary one", async () => {
-    expect(await canViewStudy(researcher, studyId)).toBe(true);
-    expect(await canViewStudy(researcher, "does-not-exist")).toBe(false);
-  });
+afterAll(async () => {
+  if (studyId) await prisma.researchStudy.delete({ where: { id: studyId } }).catch(() => {});
 });
 
 describe("participant scoping", () => {
@@ -165,51 +107,30 @@ describe("participant scoping", () => {
   });
 
   it("stops a patient reading anyone else's data", async () => {
-    expect(await canViewParticipant(patient, enrolledParticipantId)).toBe(false);
-    expect(await canViewParticipantHealthData(patient, enrolledParticipantId)).toBe(
-      false,
-    );
+    expect(await canViewParticipant(patient, otherPatientId)).toBe(false);
+    expect(await canViewParticipantHealthData(patient, otherPatientId)).toBe(false);
   });
 });
 
 describe("staff scoping", () => {
-  it("does not restrict administrators", async () => {
+  it("does not restrict the administrator to a subset of participants", async () => {
     expect(await participantScopeFilter(admin)).toEqual({});
-    expect(await canViewParticipant(admin, unenrolledParticipantId)).toBe(true);
+    expect(await canViewParticipant(admin, otherPatientId)).toBe(true);
+    expect(await canViewParticipantHealthData(admin, otherPatientId)).toBe(true);
   });
 
-  it("does not restrict clinical reviewers from reading health data", async () => {
-    expect(await participantScopeFilter(reviewer)).toEqual({});
-    expect(await canViewParticipantHealthData(reviewer, unenrolledParticipantId)).toBe(
-      true,
-    );
+  it("lets the administrator view and export any study", async () => {
+    expect(await canViewStudy(admin, studyId)).toBe(true);
+    expect(await canExportResearchData(admin, studyId)).toBe(true);
   });
 
-  it("gives a clinical reviewer no export rights", async () => {
-    expect(await canExportResearchData(reviewer)).toBe(false);
-    expect(await exportableStudyIds(reviewer)).toEqual([]);
-  });
-
-  it("lets a super administrator export any study", async () => {
-    expect(await canExportResearchData(superAdmin, studyId)).toBe(true);
+  it("refuses a study that doesn't exist", async () => {
+    expect(await canViewStudy(admin, "does-not-exist")).toBe(false);
+    expect(await canExportResearchData(admin, "does-not-exist")).toBe(false);
   });
 });
 
 describe("export authorisation", () => {
-  it("permits a researcher to export only where the grant allows it", async () => {
-    const grant = await prisma.studyAccess.findUnique({
-      where: { studyId_userId: { studyId, userId: researcher.userId } },
-      select: { canExport: true },
-    });
-
-    const allowed = await canExportResearchData(researcher, studyId);
-    expect(allowed).toBe(grant?.canExport ?? false);
-  });
-
-  it("refuses a researcher export for a study they cannot see", async () => {
-    expect(await canExportResearchData(researcher, "does-not-exist")).toBe(false);
-  });
-
   it("never lets a patient export research data", async () => {
     expect(await canExportResearchData(patient)).toBe(false);
     expect(await exportableStudyIds(patient)).toEqual([]);

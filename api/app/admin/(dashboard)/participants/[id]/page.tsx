@@ -6,6 +6,7 @@ import { DateRangePicker } from "@/components/admin/date-range-picker";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { ParticipantHealth } from "@/components/admin/participants/participant-health";
 import { ParticipantProfileCard } from "@/components/admin/participants/participant-profile";
+import { ParticipantStatusControl } from "@/components/admin/participants/participant-status-control";
 import { ParticipantTimeline } from "@/components/admin/participants/participant-timeline";
 import { StatusBadge } from "@/components/admin/participants/participant-table";
 import { Card } from "@/components/ui/card";
@@ -17,7 +18,8 @@ import {
   requestContextFrom,
 } from "@/lib/audit/audit";
 import { requirePrincipal } from "@/lib/auth/session";
-import { canViewParticipant } from "@/lib/permissions/policies";
+import { can, canViewParticipant } from "@/lib/permissions/policies";
+import { Capability } from "@/lib/permissions/roles";
 import { getParticipantProfile } from "@/lib/services/participants";
 import { dateRangeSchema } from "@/lib/validation/common";
 import { headers } from "next/headers";
@@ -96,6 +98,13 @@ export default async function ParticipantDetailPage(
 
       <div className="grid gap-6 xl:grid-cols-[20rem_1fr]">
         <div className="space-y-6">
+          {(participant.status === "PENDING" ||
+            participant.status === "ACTIVE" ||
+            participant.status === "INACTIVE") &&
+          can(principal, Capability.PARTICIPANTS_EDIT) ? (
+            <ParticipantStatusControl participantId={id} status={participant.status} />
+          ) : null}
+
           <ParticipantProfileCard participant={participant} />
 
           <Card className="p-5">

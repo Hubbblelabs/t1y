@@ -53,6 +53,7 @@
     "prisma": "^7.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-transliterate": "^1.1.9",
     "recharts": "^3.10.1",
     "resend": "^6.18.1",
     "sanitize-html": "^2.17.6",

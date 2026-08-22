@@ -50,7 +50,16 @@ const List<SignupQuestion> signupQuestions = [
 /// Validates one raw answer for a question. Returns an error string, or null
 /// if valid — kept separate from the widget so it's testable without pumping
 /// a widget tree.
-String? validateSignupAnswer(SignupQuestion question, String rawValue) {
+///
+/// [priorAnswers] carries answers already given earlier in the chat, keyed by
+/// [SignupQuestion.key] — needed for cross-field checks like "diagnosis year
+/// can't be before the child was born", which no single question's answer can
+/// validate on its own.
+String? validateSignupAnswer(
+  SignupQuestion question,
+  String rawValue, {
+  Map<String, String> priorAnswers = const {},
+}) {
   final value = rawValue.trim();
   if (value.isEmpty) return 'This is required.';
 
@@ -81,6 +90,18 @@ String? validateSignupAnswer(SignupQuestion question, String rawValue) {
       final currentYear = DateTime.now().year;
       if (year == null) return 'Enter a valid year, e.g. $currentYear.';
       if (year < 1900 || year > currentYear) return 'Enter a year between 1900 and $currentYear.';
+
+      // A diagnosis year cannot precede the child's own birth year — the
+      // per-question check above had no way to catch this (DOB 2018,
+      // diagnosis 2015 passed silently) since it never saw the earlier
+      // answer.
+      if (question.key == 'diagnosisYear') {
+        final dobRaw = priorAnswers['dateOfBirth'];
+        final dob = dobRaw == null ? null : DateTime.tryParse(dobRaw);
+        if (dob != null && year < dob.year) {
+          return "That's before the date of birth you gave (${dob.year}). Check the year.";
+        }
+      }
       return null;
   }
 }

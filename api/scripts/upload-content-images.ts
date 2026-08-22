@@ -161,7 +161,7 @@ async function resolveUploaderId(): Promise<string> {
   const user = email
     ? await prisma.user.findUnique({ where: { email }, select: { id: true } })
     : await prisma.user.findFirst({
-        where: { role: { in: ["SUPER_ADMIN", "ADMIN"] } },
+        where: { role: "ADMIN" },
         select: { id: true },
         orderBy: { createdAt: "asc" },
       });

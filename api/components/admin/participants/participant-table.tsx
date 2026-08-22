@@ -15,11 +15,14 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/states";
 import type { Principal } from "@/lib/auth/session";
+import { can } from "@/lib/permissions/policies";
+import { Capability } from "@/lib/permissions/roles";
 import { listParticipants, type ParticipantRow } from "@/lib/services/participants";
 import { formatDate, formatPercent, formatRelative, humaniseEnum } from "@/lib/utils/format";
 import { buildPagination, type PaginationMeta } from "@/lib/api/response";
 import type { participantListQuerySchema } from "@/lib/validation/admin";
 import type { z } from "zod";
+import { ParticipantStatusSelect } from "@/components/admin/participants/participant-status-select";
 
 type Query = z.infer<typeof participantListQuerySchema>;
 
@@ -57,6 +60,7 @@ export async function ParticipantTable({
   });
 
   const pagination = buildPagination(query.page, query.pageSize, total);
+  const canEditStatus = can(principal, Capability.PARTICIPANTS_EDIT);
 
   if (items.length === 0) {
     return (
@@ -108,7 +112,11 @@ export async function ParticipantTable({
                   {humaniseEnum(row.diabetesType)}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={row.status} />
+                  {canEditStatus && row.status !== "SUSPENDED" ? (
+                    <ParticipantStatusSelect participantId={row.id} status={row.status} />
+                  ) : (
+                    <StatusBadge status={row.status} />
+                  )}
                 </TableCell>
                 <TableCell className="text-ink-muted whitespace-nowrap">
                   {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity"}

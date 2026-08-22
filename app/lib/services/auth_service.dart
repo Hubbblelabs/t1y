@@ -13,19 +13,13 @@ class AuthService {
   AuthService._();
   static final AuthService instance = AuthService._();
 
-  /// Emails known to already have accounts, for [checkEmailExists]'s mock —
-  /// see that method's doc for why this isn't a real check yet.
-  static const _knownTestEmails = {
-    'amara.adeyemi@example.com',
-    'bilal.haddad@example.com',
-    'chen.okafor@example.com',
-    'super.admin@example.com',
-    'admin@example.com',
-  };
-
   static const _networkTimeout = Duration(seconds: 15);
 
-  Future<void> signIn({required String email, required String password}) async {
+  /// Signs in and returns whether this account still carries a temporary
+  /// (dummy) password — set on the backend when an admin activates a
+  /// participant or bulk-imports one. When true, the caller must send the
+  /// person straight to [changePassword] before anything else in the app.
+  Future<bool> signIn({required String email, required String password}) async {
     final base = await ApiConfig.getBaseUrl();
     final response = await http
         .post(
@@ -38,8 +32,16 @@ class AuthService {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = (body['message'] as String?) ?? 'Sign-in failed.';
-      throw ApiException(response.statusCode, 'AUTH_FAILED', message);
+      // This account exists and the password is right, but the coordinator
+      // hasn't accepted the enrolment yet (see admin's Participants →
+      // Accept/Reject) — Better Auth reports this as "email not verified"
+      // because activation is what verifies it. That backend wording would
+      // read as a broken account to a parent, so it's replaced here.
+      final code = body['code'] as String?;
+      final message = code == 'EMAIL_NOT_VERIFIED'
+          ? "Your status is yet to be updated by the admin. Thank you for your patience."
+          : (body['message'] as String?) ?? 'Sign-in failed.';
+      throw ApiException(response.statusCode, code ?? 'AUTH_FAILED', message);
     }
 
     final token = body['token'] as String?;
@@ -47,25 +49,73 @@ class AuthService {
       throw ApiException(response.statusCode, 'AUTH_FAILED', 'No session token was returned.');
     }
     await ApiClient.instance.setToken(token);
+
+    final user = body['user'] as Map<String, dynamic>?;
+    return (user?['mustChangePassword'] as bool?) ?? false;
+  }
+
+  /// Calls Better Auth's built-in `/change-password` endpoint. Requires the
+  /// caller to already hold a session (the bearer token set by [signIn]).
+  ///
+  /// Better Auth itself doesn't know which password was the "dummy" one, so
+  /// the "must differ from the temporary password" rule is enforced by the
+  /// caller comparing [newPassword] to the password the person just typed to
+  /// sign in, before this is ever called.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final base = await ApiConfig.getBaseUrl();
+    final token = await ApiClient.instance.token;
+    final response = await http
+        .post(
+          Uri.parse('$base/api/auth/change-password'),
+          headers: {
+            'Content-Type': 'application/json',
+            if (token != null) 'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'currentPassword': currentPassword,
+            'newPassword': newPassword,
+            'revokeOtherSessions': true,
+          }),
+        )
+        .timeout(_networkTimeout);
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = (body['message'] as String?) ?? 'Could not change your password.';
+      throw ApiException(response.statusCode, 'CHANGE_PASSWORD_FAILED', message);
+    }
+
+    // Revoking other sessions invalidates the token this request just used
+    // too — Better Auth returns a fresh one for the still-open session.
+    final newToken = body['token'] as String?;
+    if (newToken != null) await ApiClient.instance.setToken(newToken);
   }
 
   /// Whether an account already exists for this email — decides whether the
   /// entry screen asks for a password (returning user) or starts the sign-up
   /// chat (new user).
   ///
-  /// This is a **mock**. The backend has no endpoint that answers this
-  /// question — and deliberately so: telling an unauthenticated caller
-  /// whether an email is registered is itself a (mild) information leak that
-  /// Better Auth avoids by returning a generic "invalid credentials" error
-  /// from sign-in either way. A real implementation needs a considered
-  /// design (e.g. rate-limited, generic-enough response) which is backend
-  /// work, not a UI concern — see the app's known gaps in README.md. For now
-  /// this recognises the seeded test accounts from docs/TEST-CREDENTIALS.md
-  /// so the two-path UI is demonstrable; every other address is treated as
-  /// new.
+  /// Backed by `GET /api/check-email` (see that route's doc for why this
+  /// isn't the information leak it might look like).
   Future<bool> checkEmailExists(String email) async {
-    await Future.delayed(const Duration(milliseconds: 350));
-    return _knownTestEmails.contains(email.trim().toLowerCase());
+    final base = await ApiConfig.getBaseUrl();
+    final uri = Uri.parse('$base/api/check-email').replace(
+      queryParameters: {'email': email.trim()},
+    );
+    final response = await http.get(uri).timeout(_networkTimeout);
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = (body['message'] as String?) ?? 'Could not check this email.';
+      throw ApiException(response.statusCode, 'CHECK_EMAIL_FAILED', message);
+    }
+
+    final data = body['data'] as Map<String, dynamic>;
+    return data['exists'] as bool;
   }
 
   /// Creates an account via Better Auth's `sign-up/email` endpoint.

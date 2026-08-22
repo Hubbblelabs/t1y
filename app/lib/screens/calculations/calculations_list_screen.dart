@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
+import '../../providers/app_state.dart';
 import '../../services/flags_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
@@ -24,46 +26,47 @@ class _CalculationsListScreenState extends State<CalculationsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const AppHeader(title: 'Calculations'),
-      body: FutureBuilder<Map<String, bool>>(
-        future: _flags,
-        builder: (context, snapshot) {
-          final flags = snapshot.data ?? {};
-          final icIsfEnabled = flags['ic_isf_calculator'] == true;
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) => Scaffold(
+        appBar: AppHeader(title: S.calculations),
+        body: FutureBuilder<Map<String, bool>>(
+          future: _flags,
+          builder: (context, snapshot) {
+            final flags = snapshot.data ?? {};
+            final icIsfEnabled = flags['ic_isf_calculator'] == true;
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _CalculatorCard(
-                icon: Icons.local_cafe_outlined,
-                title: 'Rule of 15',
-                subtitle: 'Hypoglycaemia — how much fast-acting sugar to take',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const RuleOf15Screen()),
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _CalculatorCard(
+                  icon: Icons.local_cafe_outlined,
+                  title: S.ruleOf15,
+                  subtitle: S.ruleOf15Subtitle,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RuleOf15Screen()),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              _CalculatorCard(
-                icon: Icons.calculate_outlined,
-                title: 'IC / ISF Calculator',
-                subtitle: icIsfEnabled
-                    ? 'Insulin-to-carb ratio and correction factor'
-                    : 'Locked — needs your care team',
-                enabled: icIsfEnabled,
-                onTap: icIsfEnabled
-                    ? () => Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const IcIsfScreen()),
-                        )
-                    : null,
-              ),
-              if (!icIsfEnabled) ...[
                 const SizedBox(height: 12),
-                const _LockExplainer(),
+                _CalculatorCard(
+                  icon: Icons.calculate_outlined,
+                  title: S.icIsf,
+                  subtitle: icIsfEnabled ? S.icIsfSubtitle : S.lockedNeedsCareTeam,
+                  enabled: icIsfEnabled,
+                  onTap: icIsfEnabled
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const IcIsfScreen()),
+                          )
+                      : null,
+                ),
+                if (!icIsfEnabled) ...[
+                  const SizedBox(height: 12),
+                  const _LockExplainer(),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -126,7 +129,7 @@ class _LockExplainer extends StatelessWidget {
               const Icon(Icons.lock_outline, size: 18, color: AppTheme.deep),
               const SizedBox(width: 8),
               Text(
-                'Why is this locked?',
+                S.whyLocked,
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -137,10 +140,7 @@ class _LockExplainer extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'The IC (insulin-to-carbohydrate) ratio and ISF (correction factor) are '
-            'different for every child, and change over time. The app has not been '
-            'given your child\'s values, and guessing them could produce a dose that '
-            'is unsafe.',
+            S.lockExplainerBody,
             style: TextStyle(
               fontSize: 13,
               height: 1.45,
@@ -149,7 +149,7 @@ class _LockExplainer extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           Text(
-            'How to unlock it',
+            S.howToUnlock,
             style: TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 14,
@@ -157,20 +157,9 @@ class _LockExplainer extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const _Step(
-            number: '1',
-            text: 'Ask your diabetes care team for your child\'s current IC ratio and ISF.',
-          ),
-          const _Step(
-            number: '2',
-            text: 'Share them with your study coordinator, who records them against '
-                'your child\'s profile.',
-          ),
-          const _Step(
-            number: '3',
-            text: 'The coordinator enables this calculator for your account. It will '
-                'appear here the next time the app refreshes.',
-          ),
+          _Step(number: '1', text: S.lockExplainerStep1),
+          _Step(number: '2', text: S.lockExplainerStep2),
+          _Step(number: '3', text: S.lockExplainerStep3),
           const SizedBox(height: 12),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,8 +172,7 @@ class _LockExplainer extends StatelessWidget {
               const SizedBox(width: 7),
               Expanded(
                 child: Text(
-                  'Rule of 15 stays available to everyone — it uses fixed amounts from '
-                  'the Help Book, not a personal prescription.',
+                  S.ruleOf15AlwaysAvailable,
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.4,

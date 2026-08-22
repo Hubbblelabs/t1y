@@ -27,12 +27,14 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
+/// This deployment serves one study with one operating team — ADMIN is the
+/// single staff role, holding every staff capability (see
+/// lib/permissions/roles.ts). The platform's original SUPER_ADMIN,
+/// RESEARCHER and CLINICAL_REVIEWER distinctions belonged to a
+/// multi-study, multi-team deployment this one isn't.
 enum UserRole {
   PATIENT
   ADMIN
-  SUPER_ADMIN
-  RESEARCHER
-  CLINICAL_REVIEWER
 }
 
 enum UserStatus {
@@ -326,19 +328,23 @@ enum AssetKind {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String     @id @default(cuid())
-  name          String
-  email         String     @unique
-  emailVerified Boolean    @default(false)
-  image         String?
-  role          UserRole   @default(PATIENT)
-  status        UserStatus @default(PENDING)
-  timezone      String     @default("UTC")
-  locale        String     @default("en")
-  lastLoginAt   DateTime?
-  deletedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                 String     @id @default(cuid())
+  name               String
+  email              String     @unique
+  emailVerified      Boolean    @default(false)
+  image              String?
+  role               UserRole   @default(PATIENT)
+  status             UserStatus @default(PENDING)
+  /// Set when a temporary/dummy password is issued (single-participant
+  /// activation or bulk import) so the app can force a change on first
+  /// sign-in. False for self-registered accounts, who chose their own.
+  mustChangePassword Boolean    @default(false)
+  timezone           String     @default("UTC")
+  locale             String     @default("en")
+  lastLoginAt        DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   sessions Session[]
   accounts Account[]

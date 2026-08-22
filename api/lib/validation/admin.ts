@@ -11,20 +11,21 @@ import {
   sortBySchema,
   sortOrderSchema,
 } from "@/lib/validation/common";
+import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
 import { exerciseCategorySchema, notificationTypeSchema } from "@/lib/validation/health";
 
 /** Input schemas for the administration and research APIs. */
 
 export const userStatusSchema = z.enum(["PENDING", "ACTIVE", "INACTIVE", "SUSPENDED"]);
-export const diabetesTypeSchema = z.enum([
-  "TYPE_1",
-  "TYPE_2",
-  "GESTATIONAL",
-  "PREDIABETES",
-  "MODY",
-  "OTHER",
-  "UNSPECIFIED",
-]);
+/**
+ * This deployment's study is Type 1 only (BRD §1.1 inclusion criteria).
+ * `Profile.diabetesType` in the schema still carries the platform's
+ * original multi-condition values (TYPE_2, GESTATIONAL, PREDIABETES, MODY,
+ * OTHER) — UNSPECIFIED stays selectable only because it's the column's
+ * default for a row that hasn't captured this field yet, not because this
+ * study has any use for it being set otherwise.
+ */
+export const diabetesTypeSchema = z.enum([STUDY_DIABETES_TYPE, "UNSPECIFIED"]);
 export const treatmentModalitySchema = z.enum([
   "LIFESTYLE_ONLY",
   "ORAL_MEDICATION",
@@ -34,12 +35,8 @@ export const treatmentModalitySchema = z.enum([
   "OTHER",
   "UNSPECIFIED",
 ]);
-export const staffRoleSchema = z.enum([
-  "ADMIN",
-  "SUPER_ADMIN",
-  "RESEARCHER",
-  "CLINICAL_REVIEWER",
-]);
+// ADMIN is the only staff role now (see lib/permissions/roles.ts).
+export const staffRoleSchema = z.enum(["ADMIN"]);
 export const contentStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 export const educationCategorySchema = z.enum([
   "DIABETES_BASICS",
@@ -124,6 +121,36 @@ export const createParticipantSchema = z.object({
   diagnosisYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   phone: z.string().trim().max(32).optional(),
   timezone: z.string().trim().max(64).optional(),
+});
+
+export const bulkParticipantRowSchema = z
+  .object({
+    email: z.email().max(254),
+    firstName: shortTextSchema(80),
+    lastName: shortTextSchema(80),
+    participantCode: z
+      .string()
+      .trim()
+      .max(32)
+      .regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, hyphens and underscores only.")
+      .optional(),
+    diabetesType: diabetesTypeSchema.optional(),
+    diagnosisYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
+    dateOfBirth: z.coerce.date().optional(),
+    phone: z.string().trim().max(32).optional(),
+  })
+  .refine(
+    (data) => {
+      if (!data.dateOfBirth || data.diagnosisYear == null) return true;
+      return data.diagnosisYear >= data.dateOfBirth.getFullYear();
+    },
+    { message: "Diagnosis year cannot be before the date of birth.", path: ["diagnosisYear"] },
+  );
+
+/** A 500-row cap keeps one import inside a single request's timeout budget. */
+export const bulkImportParticipantsSchema = z.object({
+  fileBase64: z.string().min(1),
+  dummyPassword: z.string().min(12).max(128),
 });
 
 export const updateParticipantSchema = z.object({
@@ -254,7 +281,7 @@ export const createCampaignSchema = z
       .enum(["ALL_PARTICIPANTS", "ROLE", "STUDY", "SPECIFIC_USERS"])
       .default("ALL_PARTICIPANTS"),
     targetRole: z
-      .enum(["PATIENT", "ADMIN", "SUPER_ADMIN", "RESEARCHER", "CLINICAL_REVIEWER"])
+      .enum(["PATIENT", "ADMIN"])
       .optional(),
     targetStudyId: idSchema.optional(),
     targetUserIds: z.array(idSchema).max(5000).default([]),
@@ -432,7 +459,7 @@ export const auditQuerySchema = z
     action: z.string().trim().max(80).optional(),
     resourceType: z.string().trim().max(80).optional(),
     actorRole: z
-      .enum(["PATIENT", "ADMIN", "SUPER_ADMIN", "RESEARCHER", "CLINICAL_REVIEWER"])
+      .enum(["PATIENT", "ADMIN"])
       .optional(),
     success: z
       .enum(["true", "false"])

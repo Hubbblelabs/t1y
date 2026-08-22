@@ -11,27 +11,22 @@ import { Field, Input, Textarea } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  LEGACY_EDUCATION_CATEGORIES,
+  STUDY_EDUCATION_CATEGORIES,
+} from "@/lib/config/study-scope";
 import { humaniseEnum } from "@/lib/utils/format";
+import { slugify } from "@/lib/utils/sanitize-core";
+import { TransliterateInput, TransliterateTextarea } from "./transliterate-field";
 
-const CATEGORIES = [
-  "DIABETES_BASICS",
-  "GLUCOSE_MANAGEMENT",
-  "MEDICATION",
-  "INSULIN",
-  "NUTRITION",
-  "EXERCISE",
-  "LIFESTYLE",
-  "STRESS_MANAGEMENT",
-  "GENERAL_WELLNESS",
-  "HYPOGLYCAEMIA",
-  "SCHOOL_MANAGEMENT",
-  "TRAVEL",
-  "DIABAG",
-] as const;
+const CATEGORIES = [...STUDY_EDUCATION_CATEGORIES, ...LEGACY_EDUCATION_CATEGORIES] as const;
 
 const LOCALES = ["EN", "TA"] as const;
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
@@ -56,7 +51,7 @@ const EMPTY: EducationFormValue = {
   title: "",
   description: "",
   excerpt: "",
-  category: "DIABETES_BASICS",
+  category: STUDY_EDUCATION_CATEGORIES[0],
   bodySource: "",
   status: "DRAFT",
   tags: "",
@@ -84,9 +79,31 @@ export function EducationForm({
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
+  // Once the author edits the slug by hand, stop overwriting it from the
+  // title — otherwise a deliberate slug tweak would keep getting clobbered
+  // on every keystroke in the Title field.
+  const [slugTouched, setSlugTouched] = React.useState(mode === "edit");
+  // Off by default for the Markdown body: transliteration intercepts word
+  // boundaries to convert them, and Markdown syntax (##, **, -, |) sits
+  // right up against those boundaries — an editor writing plain Tamil prose
+  // wants this on, but flip it off before pasting/writing raw Markdown.
+  const [transliterateBody, setTransliterateBody] = React.useState(false);
 
   function set<K extends keyof EducationFormValue>(key: K, val: EducationFormValue[K]) {
     setValue((prev) => ({ ...prev, [key]: val }));
+  }
+
+  function setTitle(title: string) {
+    setValue((prev) => ({
+      ...prev,
+      title,
+      slug: mode === "create" && !slugTouched ? slugify(title) : prev.slug,
+    }));
+  }
+
+  function setSlug(slug: string) {
+    setSlugTouched(true);
+    set("slug", slug);
   }
 
   async function handlePreview() {
@@ -174,7 +191,7 @@ export function EducationForm({
           <Field label="Slug" htmlFor="slug" error={fieldErrors.slug} required>
             <Input
               value={value.slug}
-              onChange={(e) => set("slug", e.target.value)}
+              onChange={(e) => setSlug(e.target.value)}
               disabled={mode === "edit"}
               placeholder="insulin-basics"
             />
@@ -199,8 +216,18 @@ export function EducationForm({
             </Select>
           </Field>
 
-          <Field label="Title" htmlFor="title" error={fieldErrors.title} required className="sm:col-span-2">
-            <Input value={value.title} onChange={(e) => set("title", e.target.value)} />
+          <Field
+            label={value.locale === "TA" ? "Title (type in English, transliterates to Tamil)" : "Title"}
+            htmlFor="title"
+            error={fieldErrors.title}
+            required
+            className="sm:col-span-2"
+          >
+            {value.locale === "TA" ? (
+              <TransliterateInput id="title" value={value.title} onChangeText={setTitle} />
+            ) : (
+              <Input id="title" value={value.title} onChange={(e) => setTitle(e.target.value)} />
+            )}
           </Field>
 
           <Field label="Category" htmlFor="category">
@@ -209,11 +236,23 @@ export function EducationForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {humaniseEnum(c)}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectLabel>This study&apos;s curriculum</SelectLabel>
+                  {STUDY_EDUCATION_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {humaniseEnum(c)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Other (not used by this study)</SelectLabel>
+                  {LEGACY_EDUCATION_CATEGORIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {humaniseEnum(c)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
@@ -234,11 +273,21 @@ export function EducationForm({
           </Field>
 
           <Field label="Description" htmlFor="description" className="sm:col-span-2">
-            <Textarea
-              value={value.description}
-              onChange={(e) => set("description", e.target.value)}
-              rows={2}
-            />
+            {value.locale === "TA" ? (
+              <TransliterateTextarea
+                id="description"
+                value={value.description}
+                onChangeText={(text) => set("description", text)}
+                rows={2}
+              />
+            ) : (
+              <Textarea
+                id="description"
+                value={value.description}
+                onChange={(e) => set("description", e.target.value)}
+                rows={2}
+              />
+            )}
           </Field>
 
           <Field label="Tags (comma-separated)" htmlFor="tags">
@@ -259,15 +308,38 @@ export function EducationForm({
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-ink text-sm font-semibold">Body (Markdown)</h2>
-            <Badge tone="neutral">CommonMark + GFM</Badge>
+            <div className="flex items-center gap-2">
+              {value.locale === "TA" ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={transliterateBody ? "primary" : "secondary"}
+                  onClick={() => setTransliterateBody((v) => !v)}
+                  title="Type English words, they convert to Tamil script. Turn off before pasting or writing raw Markdown symbols."
+                >
+                  {transliterateBody ? "Transliterating: EN→TA" : "Transliterate: off"}
+                </Button>
+              ) : null}
+              <Badge tone="neutral">CommonMark + GFM</Badge>
+            </div>
           </div>
-          <Textarea
-            value={value.bodySource}
-            onChange={(e) => set("bodySource", e.target.value)}
-            rows={20}
-            className="font-mono text-[13px]"
-            placeholder={"## Section heading\n\nBody text. **Bold**, lists, tables, and images all work."}
-          />
+          {value.locale === "TA" && transliterateBody ? (
+            <TransliterateTextarea
+              value={value.bodySource}
+              onChangeText={(text) => set("bodySource", text)}
+              rows={20}
+              className="font-mono text-[13px]"
+              placeholder="## Section heading&#10;&#10;Body text."
+            />
+          ) : (
+            <Textarea
+              value={value.bodySource}
+              onChange={(e) => set("bodySource", e.target.value)}
+              rows={20}
+              className="font-mono text-[13px]"
+              placeholder={"## Section heading\n\nBody text. **Bold**, lists, tables, and images all work."}
+            />
+          )}
         </Card>
 
         <Card className="p-4">

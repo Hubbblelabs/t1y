@@ -83,7 +83,10 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     await ProfileService.instance.stashSignupAnswers(_answers);
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
+    // A regular push, not pushReplacement — if account creation fails, the
+    // loading screen pops back to this chat (still showing the terms
+    // prompt, since state here isn't destroyed) with the error to show.
+    final error = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => SignupLoadingScreen(
           email: widget.email,
@@ -92,6 +95,11 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
         ),
       ),
     );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() => _error = error);
+      _scrollToEnd();
+    }
   }
 
   void _askCurrentQuestion() {
@@ -111,7 +119,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   }
 
   void _submitAnswer(String rawValue) {
-    final error = validateSignupAnswer(_current, rawValue);
+    final error = validateSignupAnswer(_current, rawValue, priorAnswers: _answers);
     if (error != null) {
       setState(() => _error = error);
       return;

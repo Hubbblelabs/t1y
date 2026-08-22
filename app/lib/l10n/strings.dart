@@ -78,6 +78,88 @@ class S {
       _t('Locked — needs your care team', 'பூட்டப்பட்டுள்ளது — மருத்துவக் குழு தேவை');
   static String get whyLocked => _t('Why is this locked?', 'இது ஏன் பூட்டப்பட்டுள்ளது?');
   static String get howToUnlock => _t('How to unlock it', 'எப்படித் திறப்பது');
+  static String get calculate => _t('Calculate', 'கணக்கிடு');
+  static String get iUnderstand => _t('I understand', 'எனக்குப் புரிகிறது');
+  static String get calculatorDisclaimerTitle => _t(
+    'This tool is provided as an educational aid',
+    'இந்த கருவி ஒரு கல்வி உதவியாக வழங்கப்படுகிறது',
+  );
+  static String calculatorDisclaimerBody(String calculatorName) => _t(
+    "$calculatorName does not replace your diabetes team's guidance. "
+        'Always confirm doses and thresholds with your clinician.',
+    '$calculatorName உங்கள் நீரிழிவு குழுவின் வழிகாட்டுதலுக்குப் பதிலாக இல்லை. '
+        'மருந்தளவு மற்றும் வரம்புகளை எப்போதும் உங்கள் மருத்துவரிடம் உறுதிப்படுத்தவும்.',
+  );
+  static String get ruleOf15Calculator => _t('The Rule of 15 calculator', '15 விதி கணிப்பான்');
+  static String get currentBloodGlucose =>
+      _t('Current blood glucose (mg/dL)', 'தற்போதைய இரத்த சர்க்கரை (mg/dL)');
+  static String get enterValidGlucose =>
+      _t('Enter a valid blood glucose value.', 'சரியான இரத்த சர்க்கரை மதிப்பை உள்ளிடவும்.');
+  static String ruleOf15AboveRange(int bg) => _t(
+    'Blood glucose is $bg mg/dL — the Rule of 15 is for readings below 70 mg/dL.',
+    'இரத்த சர்க்கரை $bg mg/dL — 15 விதி 70 mg/dL-க்கும் குறைவான அளவீடுகளுக்கானது.',
+  );
+  static String ruleOf15Result(int grams, int servings) => _t(
+    'Take about $grams g of fast-acting sugar (e.g. glucose tablets, '
+        'juice, or $servings serving(s) of 15g carbs).\n\n'
+        'Recheck blood glucose in 15 minutes. If still under 100 mg/dL, repeat with another 15g.',
+    'சுமார் $grams கிராம் வேகமாகச் செயல்படும் சர்க்கரை எடுத்துக் கொள்ளுங்கள் '
+        '(எ.கா. குளுக்கோஸ் மாத்திரைகள், சாறு, அல்லது 15கிராம் கார்போஹைட்ரேட்டின் $servings பரிமாணம்).\n\n'
+        '15 நிமிடங்களில் இரத்த சர்க்கரையை மீண்டும் சரிபார்க்கவும். இன்னும் 100 mg/dL-க்குக் குறைவாக இருந்தால், '
+        'மேலும் 15கிராம் எடுத்துக் கொள்ளுங்கள்.',
+  );
+  static String get icIsfCalculator => _t('The IC / ISF calculator', 'IC / ISF கணிப்பான்');
+  static String get totalDailyInsulinDose =>
+      _t('Total daily insulin dose (units)', 'மொத்த தினசரி இன்சுலின் அளவு (யூனிட்கள்)');
+  static String get enterTotalDailyDose =>
+      _t('Enter the total daily insulin dose (units).', 'மொத்த தினசரி இன்சுலின் அளவை உள்ளிடவும் (யூனிட்கள்).');
+  static String get rapidActingInsulin => _t('Rapid-acting insulin', 'வேகமாகச் செயல்படும் இன்சுலின்');
+  static String get uses1800Rule => _t('Uses 1800 rule', '1800 விதியைப் பயன்படுத்துகிறது');
+  static String get uses1500Rule =>
+      _t('Uses 1500 rule (short-acting)', '1500 விதியைப் பயன்படுத்துகிறது (குறுகிய-செயல்)');
+  static String get lockExplainerBody => _t(
+    'The IC (insulin-to-carbohydrate) ratio and ISF (correction factor) are '
+        "different for every child, and change over time. The app has not been "
+        "given your child's values, and guessing them could produce a dose that "
+        'is unsafe.',
+    'IC (இன்சுலின்-கார்போஹைட்ரேட்) விகிதம் மற்றும் ISF (திருத்தக் காரணி) ஒவ்வொரு '
+        'குழந்தைக்கும் வேறுபட்டது, மேலும் காலப்போக்கில் மாறும். உங்கள் குழந்தையின் '
+        'மதிப்புகள் இன்னும் ஆப்ஸில் கொடுக்கப்படவில்லை, அவற்றை ஊகிப்பது பாதுகாப்பற்ற '
+        'மருந்தளவை உருவாக்கக்கூடும்.',
+  );
+  static String get lockExplainerStep1 => _t(
+    "Ask your diabetes care team for your child's current IC ratio and ISF.",
+    'உங்கள் நீரிழிவு மருத்துவக் குழுவிடம் உங்கள் குழந்தையின் தற்போதைய IC விகிதம் '
+        'மற்றும் ISF-ஐக் கேளுங்கள்.',
+  );
+  static String get lockExplainerStep2 => _t(
+    'Share them with your study coordinator, who records them against '
+        "your child's profile.",
+    'அவற்றை உங்கள் ஆய்வு ஒருங்கிணைப்பாளருடன் பகிரவும், அவர் அவற்றை உங்கள் '
+        'குழந்தையின் சுயவிவரத்தில் பதிவு செய்வார்.',
+  );
+  static String get lockExplainerStep3 => _t(
+    'The coordinator enables this calculator for your account. It will '
+        'appear here the next time the app refreshes.',
+    'ஒருங்கிணைப்பாளர் உங்கள் கணக்கிற்கு இந்தக் கணிப்பானை இயக்குவார். ஆப் அடுத்த முறை '
+        'புதுப்பிக்கும்போது இது இங்கே தோன்றும்.',
+  );
+  static String get ruleOf15AlwaysAvailable => _t(
+    'Rule of 15 stays available to everyone — it uses fixed amounts from '
+        'the Help Book, not a personal prescription.',
+    '15 விதி எல்லோருக்கும் எப்போதும் கிடைக்கும் — இது தனிப்பட்ட மருந்துச் '
+        'சீட்டு அல்ல, உதவி புத்தகத்திலிருந்து நிலையான அளவுகளைப் பயன்படுத்துகிறது.',
+  );
+  static String icIsfResult(String icRatio, String isf) => _t(
+    'IC ratio ≈ 1 unit per $icRatio g of carbs\n\n'
+        'ISF (correction factor) ≈ 1 unit lowers blood glucose by $isf mg/dL\n\n'
+        'These are starting-point ratios from the standard formula — your diabetes team should '
+        'confirm and adjust them for you.',
+    'IC விகிதம் ≈ 1 யூனிட் ஒவ்வொரு $icRatio கிராம் கார்போஹைட்ரேட்டுக்கும்\n\n'
+        'ISF (திருத்தக் காரணி) ≈ 1 யூனிட் இரத்த சர்க்கரையை $isf mg/dL குறைக்கும்\n\n'
+        'இவை நிலையான சூத்திரத்திலிருந்து தொடக்க-புள்ளி விகிதங்கள் — உங்கள் நீரிழிவு குழு இவற்றை '
+        'உறுதிப்படுத்தி உங்களுக்கேற்ப சரிசெய்ய வேண்டும்.',
+  );
 
   // ── Quizzes ──────────────────────────────────────────────────────────────
   static String get noQuizzesYet =>

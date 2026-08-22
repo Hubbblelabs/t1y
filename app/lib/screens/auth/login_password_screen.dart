@@ -19,11 +19,13 @@ class LoginPasswordScreen extends StatefulWidget {
 
 class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
   final _passwordController = TextEditingController();
+  String? _error;
 
-  void _signIn() {
+  Future<void> _signIn() async {
     FocusScope.of(context).unfocus();
     if (_passwordController.text.isEmpty) return;
-    Navigator.of(context).push(
+    setState(() => _error = null);
+    final error = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => LoginLoadingScreen(
           email: widget.email,
@@ -31,6 +33,8 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
         ),
       ),
     );
+    if (!mounted) return;
+    if (error != null) setState(() => _error = error);
   }
 
   @override
@@ -48,6 +52,23 @@ class _LoginPasswordScreenState extends State<LoginPasswordScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      if (_error != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       Row(
                         children: [
                           Icon(

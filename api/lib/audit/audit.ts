@@ -27,6 +27,8 @@ export const AuditAction = {
   PARTICIPANT_CREATED: "participant.created",
   PARTICIPANT_UPDATED: "participant.updated",
   PARTICIPANT_STATUS_CHANGED: "participant.status_changed",
+  PARTICIPANT_ACTIVATED: "participant.activated",
+  PARTICIPANT_BULK_IMPORTED: "participant.bulk_imported",
 
   // Health data
   HEALTH_DATA_VIEWED: "health_data.viewed",
