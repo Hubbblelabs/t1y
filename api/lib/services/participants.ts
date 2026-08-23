@@ -8,6 +8,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { DiabetesType, UserStatus } from "@/generated/prisma/enums";
 import { ConflictError, NotFoundError } from "@/lib/api/errors";
 import type { Principal } from "@/lib/auth/session";
+import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
 import { prisma } from "@/lib/db/prisma";
 import { participantScopeFilter } from "@/lib/permissions/policies";
 import { getLatestHbA1cForParticipants } from "@/lib/services/hba1c";
@@ -239,6 +240,7 @@ export async function getParticipantProfile(userId: string) {
           primaryClinician: true,
           emergencyContactName: true,
           emergencyContactPhone: true,
+          icIsfUnlocked: true,
           onboardedAt: true,
           lastActivityAt: true,
         },
@@ -289,6 +291,7 @@ export interface UpdateParticipantInput {
     primaryClinician?: string | null;
     emergencyContactName?: string | null;
     emergencyContactPhone?: string | null;
+    icIsfUnlocked?: boolean;
   };
 }
 
@@ -342,7 +345,7 @@ export async function createParticipant(input: CreateParticipantInput) {
           participantCode,
           firstName: input.firstName,
           lastName: input.lastName,
-          diabetesType: input.diabetesType ?? "UNSPECIFIED",
+          diabetesType: input.diabetesType ?? STUDY_DIABETES_TYPE,
           diagnosisYear: input.diagnosisYear,
           phone: input.phone,
         },
@@ -501,7 +504,7 @@ export async function bulkImportParticipants(
                 firstName: row.firstName,
                 lastName: row.lastName,
                 dateOfBirth: row.dateOfBirth,
-                diabetesType: row.diabetesType ?? "UNSPECIFIED",
+                diabetesType: row.diabetesType ?? STUDY_DIABETES_TYPE,
                 diagnosisYear: row.diagnosisYear,
                 phone: row.phone,
               },

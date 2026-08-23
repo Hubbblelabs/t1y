@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../../models/quiz.dart';
+import '../../providers/app_state.dart';
 import '../../services/api_client.dart';
 import '../../services/quiz_service.dart';
 import 'quiz_result_screen.dart';
@@ -113,25 +115,30 @@ class _QuizTakeScreenState extends State<QuizTakeScreen> {
   @override
   Widget build(BuildContext context) {
     final question = _question;
-    return Scaffold(
-      appBar: AppBar(title: Text('Question ${_index + 1} / ${widget.quiz.questions.length}')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            LinearProgressIndicator(value: (_index + 1) / widget.quiz.questions.length),
-            const SizedBox(height: 16),
-            Text(question.prompt, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 16),
-            Expanded(child: _buildQuestionBody(question)),
-            FilledButton(
-              onPressed: (_canAdvance && !_submitting) ? _next : null,
-              child: _submitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : Text(_isLast ? 'Submit' : 'Next'),
-            ),
-          ],
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) => Scaffold(
+        appBar: AppBar(
+          title: Text(S.questionOf(_index + 1, widget.quiz.questions.length)),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              LinearProgressIndicator(value: (_index + 1) / widget.quiz.questions.length),
+              const SizedBox(height: 16),
+              Text(question.prompt, style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 16),
+              Expanded(child: _buildQuestionBody(question)),
+              FilledButton(
+                onPressed: (_canAdvance && !_submitting) ? _next : null,
+                child: _submitting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : Text(_isLast ? S.submit : S.next),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -156,7 +163,7 @@ class _QuizTakeScreenState extends State<QuizTakeScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Tap the steps in the correct order:'),
+            Text(S.tapStepsInOrder),
             const SizedBox(height: 8),
             Expanded(
               child: ListView(
@@ -182,7 +189,7 @@ class _QuizTakeScreenState extends State<QuizTakeScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Match each item to its description:'),
+            Text(S.matchEachItem),
             const SizedBox(height: 8),
             Expanded(
               child: ListView(

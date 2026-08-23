@@ -22,6 +22,7 @@ export const GET = defineRoute({
 });
 
 export const PATCH = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   params: idParamSchema,
   body: updateMedicationSchema,
@@ -38,6 +39,7 @@ export const PATCH = defineRoute({
  * the adherence record and must remain intact.
  */
 export const DELETE = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   params: idParamSchema,
   handler: async ({ principal, params }) => {

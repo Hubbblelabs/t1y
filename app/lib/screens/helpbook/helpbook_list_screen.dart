@@ -70,76 +70,88 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppHeader(title: S.helpBook),
-      body: RefreshIndicator(
-        onRefresh: _refresh,
-        child: FutureBuilder<List<Topic>>(
-          future: _future,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (snapshot.hasError) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+      body: Column(
+        children: [
+          // Pinned above the list, not scrolled away with it — a slim status
+          // strip rather than the tall card that used to open the list.
+          FutureBuilder<List<Topic>>(
+            future: _future,
+            builder: (context, snapshot) {
+              final topics = snapshot.data ?? [];
+              if (topics.isEmpty) return const SizedBox.shrink();
+              final readCount = topics.where((t) => _readSlugs.contains(t.slug)).length;
+              return _ProgressBanner(read: readCount, total: topics.length);
+            },
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refresh,
+              child: FutureBuilder<List<Topic>>(
+                future: _future,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return ListView(
                       children: [
-                        const SizedBox(height: 40),
-                        Icon(
-                          Icons.cloud_off,
-                          size: 48,
-                          color: AppTheme.deep.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          '${S.couldNotLoad}\n${snapshot.error}',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: _refresh,
-                          child: Text(S.tryAgain),
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 40),
+                              Icon(
+                                Icons.cloud_off,
+                                size: 48,
+                                color: AppTheme.deep.withValues(alpha: 0.4),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '${S.couldNotLoad}\n${snapshot.error}',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              OutlinedButton(
+                                onPressed: _refresh,
+                                child: Text(S.tryAgain),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                    ),
-                  ),
-                ],
-              );
-            }
+                    );
+                  }
 
-            final topics = snapshot.data ?? [];
-            if (topics.isEmpty) {
-              return ListView(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Center(child: Text(S.noTopicsYet)),
-                  ),
-                ],
-              );
-            }
+                  final topics = snapshot.data ?? [];
+                  if (topics.isEmpty) {
+                    return ListView(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Center(child: Text(S.noTopicsYet)),
+                        ),
+                      ],
+                    );
+                  }
 
-            final readCount = topics.where((t) => _readSlugs.contains(t.slug)).length;
-
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              itemCount: topics.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return _ProgressBanner(read: readCount, total: topics.length);
-                }
-                final topic = topics[index - 1];
-                return TopicCard(
-                  topic: topic,
-                  baseUrl: _baseUrl,
-                  isRead: _readSlugs.contains(topic.slug),
-                  onTap: () => _openTopic(topic),
-                );
-              },
-            );
-          },
-        ),
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    itemCount: topics.length,
+                    itemBuilder: (context, index) {
+                      final topic = topics[index];
+                      return TopicCard(
+                        topic: topic,
+                        baseUrl: _baseUrl,
+                        isRead: _readSlugs.contains(topic.slug),
+                        onTap: () => _openTopic(topic),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -155,44 +167,36 @@ class _ProgressBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final fraction = total == 0 ? 0.0 : read / total;
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppTheme.primary, AppTheme.deep],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(
-            S.yourLearning,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 4),
           Text(
             S.topicsRead(read, total),
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 20,
+              fontSize: 13,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: fraction,
-              minHeight: 7,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
-              valueColor: const AlwaysStoppedAnimation(Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: LinearProgressIndicator(
+                value: fraction,
+                minHeight: 5,
+                backgroundColor: Colors.white.withValues(alpha: 0.25),
+                valueColor: const AlwaysStoppedAnimation(Colors.white),
+              ),
             ),
           ),
         ],

@@ -54,6 +54,25 @@ export const FEATURE_FLAGS = {
       "Displays insulin dosing guidance derived from parent-entered ratios. Confirm clinical " +
       "sign-off for this cohort before enabling.",
   },
+  /**
+   * Gates every PATIENT-writable health-logging endpoint (glucose, insulin,
+   * meals, medication logs, HbA1c, health metrics). Off by default: this
+   * study's v1 is education-only (curriculum + calculators + quizzes) — the
+   * Flutter app has no logging screens at all, so nothing should be able to
+   * write this data regardless. This flag is the difference between "no UI
+   * exists yet" and "the API actually refuses it" — ethics approval for an
+   * education study very likely doesn't cover collecting glucose readings,
+   * so the API shouldn't quietly accept them from some other client either.
+   */
+  health_logging_enabled: {
+    default: false,
+    publicRead: false,
+    clinicalSafety: true,
+    description: "Allows participants to write glucose, insulin, meal, medication and HbA1c logs.",
+    safetyNotice:
+      "This study's ethics approval covers an education app, not health-data collection. " +
+      "Confirm ethics-committee sign-off before enabling.",
+  },
   glucagon_dose_calculator: {
     default: false,
     publicRead: true,

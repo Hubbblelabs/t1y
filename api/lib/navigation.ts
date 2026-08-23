@@ -64,41 +64,17 @@ export const NAVIGATION: NavSection[] = [
     capability: Capability.PARTICIPANTS_VIEW,
     matchPrefix: true,
   },
-  {
-    label: "Health data",
-    icon: "Activity",
-    capability: Capability.HEALTH_DATA_VIEW,
-    items: [
-      { label: "Glucose", href: "/admin/health/glucose", capability: Capability.HEALTH_DATA_VIEW },
-      {
-        label: "Medications",
-        href: "/admin/health/medications",
-        capability: Capability.HEALTH_DATA_VIEW,
-      },
-      { label: "Insulin", href: "/admin/health/insulin", capability: Capability.HEALTH_DATA_VIEW },
-      { label: "Meals", href: "/admin/health/meals", capability: Capability.HEALTH_DATA_VIEW },
-      { label: "Exercise", href: "/admin/health/exercise", capability: Capability.HEALTH_DATA_VIEW },
-      { label: "HbA1c", href: "/admin/health/hba1c", capability: Capability.HEALTH_DATA_VIEW },
-      {
-        label: "Health metrics",
-        href: "/admin/health/metrics",
-        capability: Capability.HEALTH_DATA_VIEW,
-      },
-    ],
-  },
-  {
-    label: "Research",
-    icon: "FlaskConical",
-    capability: Capability.RESEARCH_VIEW,
-    items: [
-      { label: "Studies", href: "/admin/research/studies", capability: Capability.RESEARCH_VIEW, matchPrefix: true },
-      {
-        label: "Data export",
-        href: "/admin/research/export",
-        capability: Capability.RESEARCH_EXPORT,
-      },
-    ],
-  },
+  // "Health data" (Glucose/Medications/Insulin/Meals/Exercise/HbA1c/Health
+  // metrics) and "Research" (Studies/Data export) are deliberately not
+  // listed here. Both are pre-existing platform surface from the original
+  // generic multi-condition, multi-study "Digital Diabetes Management
+  // Platform" this deployment was built from — see
+  // docs/UNUSED-BACKEND.md. This study's Flutter app has no logging screens
+  // at all (v1 is curriculum + calculators + quizzes only) and is one
+  // single Coimbatore cohort, not a multi-study research programme, so
+  // every one of those pages would only ever show empty tables to a
+  // coordinator wondering why. The routes and admin pages still exist
+  // (nothing was deleted) — they're just not surfaced in this nav.
   {
     label: "Content",
     icon: "BookOpen",

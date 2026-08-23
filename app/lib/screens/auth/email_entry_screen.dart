@@ -5,6 +5,7 @@ import '../../widgets/auth_background.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import 'login_password_screen.dart';
+import 'pending_approval_screen.dart';
 import 'signup_password_screen.dart';
 
 /// The entry point after Get Started: prompts only email. Continuing checks
@@ -37,19 +38,29 @@ class _EmailEntryScreenState extends State<EmailEntryScreen> {
       _error = null;
     });
 
-    final exists = await AuthService.instance.checkEmailExists(email);
+    final result = await AuthService.instance.checkEmailExists(email);
     if (!mounted) return;
     setState(() => _checking = false);
 
-    if (exists) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => LoginPasswordScreen(email: email)),
-      );
-    } else {
+    if (!result.exists) {
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => SignupPasswordScreen(email: email)),
       );
+      return;
     }
+
+    if (result.status == 'PENDING') {
+      // Sign-in would only fail here (EMAIL_NOT_VERIFIED) — skip straight to
+      // the honest explanation instead of asking for a password to reject.
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => LoginPasswordScreen(email: email)),
+    );
   }
 
   @override

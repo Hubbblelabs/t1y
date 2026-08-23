@@ -16,6 +16,11 @@ import { checkEmailQuerySchema } from "@/lib/validation/common";
  * address (needed so re-entering an existing email doesn't silently create
  * a duplicate), so existence is already observable. Rate-limited by IP like
  * every other anonymous endpoint to slow bulk enumeration either way.
+ *
+ * Also returns `status` when the account exists, so the entry screen can
+ * send a PENDING account straight to the "your enrolment is still being
+ * reviewed" message instead of prompting for a password it can't yet use
+ * to sign in with anyway (see EMAIL_NOT_VERIFIED on sign-in).
  */
 export const GET = defineRoute({
   auth: "public",
@@ -24,8 +29,8 @@ export const GET = defineRoute({
   handler: async ({ query }) => {
     const user = await prisma.user.findUnique({
       where: { email: query.email.trim().toLowerCase() },
-      select: { id: true },
+      select: { status: true },
     });
-    return ok({ exists: user !== null });
+    return ok({ exists: user !== null, status: user?.status ?? null });
   },
 });

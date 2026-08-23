@@ -60,6 +60,15 @@ class S {
   // ── Language ─────────────────────────────────────────────────────────────
   static String get language => _t('Language', 'மொழி');
   static String get switchLanguage => _t('Switch language', 'மொழியை மாற்று');
+  static String get pendingApprovalTitle =>
+      _t('Almost there', 'கிட்டத்தட்ட முடிந்தது');
+  static String get pendingApprovalBody => _t(
+    'Your status is yet to be updated by the admin. Thank you for your patience — '
+        "you'll be able to sign in as soon as your enrolment is accepted.",
+    'உங்கள் நிலை நிர்வாகியால் இன்னும் புதுப்பிக்கப்படவில்லை. உங்கள் பொறுமைக்கு நன்றி — '
+        'உங்கள் பதிவு ஏற்றுக்கொள்ளப்பட்டவுடன் நீங்கள் உள்நுழையலாம்.',
+  );
+  static String get backToStart => _t('Back to start', 'தொடக்கத்திற்குத் திரும்பு');
   static String get english => 'English';
   static String get tamil => 'தமிழ்';
 
@@ -150,6 +159,47 @@ class S {
     '15 விதி எல்லோருக்கும் எப்போதும் கிடைக்கும் — இது தனிப்பட்ட மருந்துச் '
         'சீட்டு அல்ல, உதவி புத்தகத்திலிருந்து நிலையான அளவுகளைப் பயன்படுத்துகிறது.',
   );
+  static String get mealDoseTitle => _t('Meal dose', 'உணவு அளவு');
+  static String get carbsInMeal => _t('Carbohydrates in this meal (g)', 'இந்த உணவில் உள்ள கார்போஹைட்ரேட் (கிராம்)');
+  static String get enterCarbs =>
+      _t('Enter the carbohydrates for this meal.', 'இந்த உணவிற்கான கார்போஹைட்ரேட்டை உள்ளிடவும்.');
+  static String mealDoseResult(String units, String carbs, String icRatio) => _t(
+    '≈ $units unit(s) of bolus insulin for $carbs g of carbs, at your IC ratio of 1 unit '
+        'per $icRatio g.\n\nConfirm with your diabetes team before dosing.',
+    '$carbs கிராம் கார்போஹைட்ரேட்டுக்கு, உங்கள் IC விகிதமான $icRatio கிராமுக்கு 1 யூனிட் என்ற '
+        'அடிப்படையில் ≈ $units யூனிட் போலஸ் இன்சுலின்.\n\nமருந்தளவு செய்யும் முன் உங்கள் '
+        'நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
+  );
+  static String get correctionDoseTitle => _t('Correction dose', 'திருத்த அளவு');
+  static String get currentBloodGlucoseLabel =>
+      _t('Current blood glucose (mg/dL)', 'தற்போதைய இரத்த சர்க்கரை (mg/dL)');
+  static String get targetBloodGlucose => _t('Target blood glucose (mg/dL)', 'இலக்கு இரத்த சர்க்கரை (mg/dL)');
+  static String get enterCurrentAndTargetBg => _t(
+    'Enter both your current and target blood glucose.',
+    'உங்கள் தற்போதைய மற்றும் இலக்கு இரத்த சர்க்கரை இரண்டையும் உள்ளிடவும்.',
+  );
+  static String correctionDoseNone(String isf) => _t(
+    'Blood glucose is at target — no correction needed. (ISF ≈ $isf mg/dL per unit.)',
+    'இரத்த சர்க்கரை இலக்கில் உள்ளது — திருத்தம் தேவையில்லை. (ISF ≈ ஒரு யூனிட்டுக்கு $isf mg/dL.)',
+  );
+  static String correctionDoseExtra(String units, String diff, String isf) => _t(
+    'Blood glucose is $diff mg/dL above target — about $units extra unit(s), at your ISF of '
+        '$isf mg/dL per unit.\n\nConfirm with your diabetes team before dosing.',
+    'இரத்த சர்க்கரை இலக்கை விட $diff mg/dL அதிகமாக உள்ளது — உங்கள் ISF ஆன ஒரு யூனிட்டுக்கு '
+        '$isf mg/dL அடிப்படையில் சுமார் $units கூடுதல் யூனிட்(கள்).\n\nமருந்தளவு செய்யும் முன் '
+        'உங்கள் நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
+  );
+  static String correctionDoseLess(String units, String diff, String isf) => _t(
+    'Blood glucose is $diff mg/dL below target — about $units fewer unit(s), at your ISF of '
+        '$isf mg/dL per unit.\n\nConfirm with your diabetes team before dosing.',
+    'இரத்த சர்க்கரை இலக்கை விட $diff mg/dL குறைவாக உள்ளது — உங்கள் ISF ஆன ஒரு யூனிட்டுக்கு '
+        '$isf mg/dL அடிப்படையில் சுமார் $units குறைவான யூனிட்(கள்).\n\nமருந்தளவு செய்யும் முன் '
+        'உங்கள் நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
+  );
+  static String get computeRatiosFirst => _t(
+    'Enter your total daily dose above and calculate your ratios first.',
+    'முதலில் மேலே உங்கள் மொத்த தினசரி அளவை உள்ளிட்டு உங்கள் விகிதங்களைக் கணக்கிடவும்.',
+  );
   static String icIsfResult(String icRatio, String isf) => _t(
     'IC ratio ≈ 1 unit per $icRatio g of carbs\n\n'
         'ISF (correction factor) ≈ 1 unit lowers blood glucose by $isf mg/dL\n\n'
@@ -168,6 +218,21 @@ class S {
   static String get submit => _t('Submit', 'சமர்ப்பி');
   static String get next => _t('Next', 'அடுத்து');
   static String get yourScore => _t('Your score', 'உங்கள் மதிப்பெண்');
+  static String questionOf(int index, int total) =>
+      _t('Question $index / $total', 'கேள்வி $index / $total');
+  static String get tapStepsInOrder =>
+      _t('Tap the steps in the correct order:', 'சரியான வரிசையில் படிகளைத் தட்டவும்:');
+  static String get matchEachItem => _t(
+    'Match each item to its description:',
+    'ஒவ்வொரு உருப்படியையும் அதன் விளக்கத்துடன் பொருத்தவும்:',
+  );
+  static String get quizComplete => _t('Quiz complete', 'வினாடி வினா முடிந்தது');
+  static String get done => _t('Done', 'முடிந்தது');
+  static String get passed => _t('Passed', 'தேர்ச்சி பெற்றது');
+  static String get notYetTryAgain => _t(
+    'Not yet — try reviewing the topic again.',
+    'இன்னும் இல்லை — தலைப்பை மீண்டும் பார்வையிடவும்.',
+  );
 
   // ── Profile ──────────────────────────────────────────────────────────────
   static String get account => _t('Account', 'கணக்கு');

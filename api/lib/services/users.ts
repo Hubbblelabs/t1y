@@ -43,6 +43,7 @@ const ME_SELECT = {
       primaryClinician: true,
       emergencyContactName: true,
       emergencyContactPhone: true,
+      icIsfUnlocked: true,
       onboardedAt: true,
       lastActivityAt: true,
     },

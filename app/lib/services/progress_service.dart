@@ -22,20 +22,30 @@ class ProgressService {
   static const _readCacheKey = 'progress_read_slugs';
   static const _uuid = Uuid();
 
-  /// Slugs of topics the participant has completed, server-truth where
-  /// available and last-known cache otherwise.
+  /// Slugs of topics the participant has completed — server-truth merged
+  /// with the local cache, never replaced by it.
+  ///
+  /// A completion is enqueued locally and flushed to the server in the
+  /// background (`_enqueue` fires `flush()` without awaiting it), so a
+  /// `GET /api/progress` made moments after marking a topic read can land
+  /// before that flush has actually reached the server, returning a response
+  /// that doesn't include it yet. Replacing the cache with that response
+  /// would un-mark a topic the person just read — completion only ever
+  /// grows, so the two sets are unioned instead.
   Future<Set<String>> readTopicSlugs() async {
+    final cached = await _readCache();
     try {
       final data = await ApiClient.instance.get('/api/progress');
       final topics = (data['data']['topics'] as List?) ?? const [];
-      final slugs = topics
+      final serverSlugs = topics
           .where((t) => (t as Map)['completedAt'] != null)
           .map((t) => (t as Map)['topicSlug'] as String)
           .toSet();
-      await _writeReadCache(slugs);
-      return slugs;
+      final merged = cached.union(serverSlugs);
+      await _writeReadCache(merged);
+      return merged;
     } catch (_) {
-      return _readCache();
+      return cached;
     }
   }
 
@@ -96,7 +106,14 @@ class ProgressService {
     final events = batch.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
 
     try {
-      await ApiClient.instance.post('/api/sync', body: {'events': events});
+      // `sentAt` is required by the backend's syncPushSchema — every push
+      // from this outbox was missing it and failing 400 VALIDATION_ERROR,
+      // silently (the catch below just leaves it queued), so no topic
+      // completion from this path ever actually reached TopicProgress.
+      await ApiClient.instance.post('/api/sync', body: {
+        'sentAt': DateTime.now().toUtc().toIso8601String(),
+        'events': events,
+      });
       final remaining = raw.sublist(batch.length);
       await prefs.setStringList(_outboxKey, remaining);
     } catch (_) {

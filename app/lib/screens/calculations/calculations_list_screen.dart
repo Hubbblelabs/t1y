@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import '../../providers/app_state.dart';
-import '../../services/flags_service.dart';
+import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import 'ic_isf_screen.dart';
@@ -16,13 +16,17 @@ class CalculationsListScreen extends StatefulWidget {
 }
 
 class _CalculationsListScreenState extends State<CalculationsListScreen> {
-  late Future<Map<String, bool>> _flags;
-
-  @override
-  void initState() {
-    super.initState();
-    _flags = FlagsService.instance.getFlags();
-  }
+  // A field initializer, not `late` + initState: this screen is kept alive
+  // inside HomeShell's IndexedStack, and a `late` field assigned in
+  // initState has thrown LateInitializationError there before — assigning
+  // here runs during construction, before build can ever see it unset.
+  //
+  // `forceRefresh: true` — this drives the IC/ISF lock gate, which an admin
+  // can flip while the app is already open. `ProfileService.me()`'s normal
+  // cache-first behaviour would show yesterday's lock state until some
+  // unrelated call happened to warm the cache; a feature gate should never
+  // be that stale in either direction.
+  final Future<Map<String, dynamic>?> _me = ProfileService.instance.me(forceRefresh: true);
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +34,13 @@ class _CalculationsListScreenState extends State<CalculationsListScreen> {
       animation: AppState.instance,
       builder: (context, _) => Scaffold(
         appBar: AppHeader(title: S.calculations),
-        body: FutureBuilder<Map<String, bool>>(
-          future: _flags,
+        body: FutureBuilder<Map<String, dynamic>?>(
+          future: _me,
           builder: (context, snapshot) {
-            final flags = snapshot.data ?? {};
-            final icIsfEnabled = flags['ic_isf_calculator'] == true;
+            final profile = snapshot.data?['profile'] as Map<String, dynamic>?;
+            // Prescribed per child, not a platform-wide switch — see
+            // Profile.icIsfUnlocked and the admin's per-participant control.
+            final icIsfEnabled = profile?['icIsfUnlocked'] == true;
 
             return ListView(
               padding: const EdgeInsets.all(16),

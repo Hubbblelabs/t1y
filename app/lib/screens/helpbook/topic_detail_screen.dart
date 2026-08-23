@@ -110,10 +110,11 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
         actions: const [LanguageToggle(), SizedBox(width: 12)],
       ),
       body: SafeArea(
+        bottom: false,
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -186,16 +187,20 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                   child: const Center(child: CircularProgressIndicator()),
                 ),
               ),
-            if (hasContent)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 16,
-                child: _MarkReadButton(isRead: _markedRead, onPressed: _toggleRead),
-              ),
           ],
         ),
       ),
+      // A fixed bar in the layout, not a floating button over the content —
+      // it never overlaps the last lines of the article while scrolling.
+      bottomNavigationBar: hasContent
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: _MarkReadButton(isRead: _markedRead, onPressed: _toggleRead),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -212,26 +217,16 @@ class _MarkReadButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: (isRead ? const Color(0xFF2E7D32) : AppTheme.deep)
-                .withValues(alpha: 0.28),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
       child: FilledButton.icon(
         onPressed: isRead ? null : onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: isRead ? const Color(0xFF2E7D32) : AppTheme.deep,
           disabledBackgroundColor: const Color(0xFF2E7D32),
           disabledForegroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         icon: AnimatedSwitcher(
           duration: const Duration(milliseconds: 260),

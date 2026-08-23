@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { HelpCircle } from "lucide-react";
+import Link from "next/link";
+import { HelpCircle, Plus } from "lucide-react";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import {
@@ -21,13 +23,6 @@ import { formatNumber } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Quizzes" };
 
-/**
- * Read-only for now — quizzes are authored via `npm run content:seed-quizzes`
- * (see scripts/seed-quizzes.ts) transcribed by hand from the source
- * curriculum documents, or directly against POST/PATCH /api/admin/quizzes.
- * A full question-builder UI (comparable to the education Markdown editor)
- * is the natural next step once more quiz content needs authoring.
- */
 export default async function QuizzesPage() {
   const [{ items }, stats] = await Promise.all([
     listQuizzesForAdmin({ skip: 0, take: 100 }),
@@ -40,6 +35,14 @@ export default async function QuizzesPage() {
         title="Quizzes"
         description="Topic quizzes shown to participants. Publish a quiz once its answer key has been reviewed."
         breadcrumbs={[{ label: "Content" }, { label: "Quizzes" }]}
+        actions={
+          <Button asChild>
+            <Link href="/admin/content/quizzes/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New quiz
+            </Link>
+          </Button>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

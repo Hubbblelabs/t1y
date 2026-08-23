@@ -170,6 +170,7 @@ export const updateParticipantSchema = z.object({
       primaryClinician: z.string().trim().max(120).nullish(),
       emergencyContactName: z.string().trim().max(120).nullish(),
       emergencyContactPhone: z.string().trim().max(32).nullish(),
+      icIsfUnlocked: z.boolean().optional(),
     })
     .optional(),
 });

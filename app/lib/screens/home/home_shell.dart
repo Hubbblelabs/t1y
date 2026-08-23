@@ -26,20 +26,32 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = HomeShell.homeTabIndex;
 
+  // Bumped every time Calculations is selected, as that tab's key — the
+  // screen otherwise lives forever inside IndexedStack (never rebuilt, never
+  // re-fetching), so an admin unlocking IC/ISF while the app is already open
+  // never reached it. Changing its key forces Flutter to discard the old
+  // screen and build a fresh one, which re-fetches lock status for real.
+  int _calculationsRefreshTick = 0;
+
   @override
   void initState() {
     super.initState();
     AppState.instance.load();
   }
 
-  void _goTo(int index) => setState(() => _index = index);
+  void _goTo(int index) {
+    setState(() {
+      _index = index;
+      if (index == HomeShell.calculationsTabIndex) _calculationsRefreshTick++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final screens = [
       HomeTab(onNavigateToTab: _goTo),
       const HelpBookListScreen(),
-      const CalculationsListScreen(),
+      CalculationsListScreen(key: ValueKey(_calculationsRefreshTick)),
       const QuizListScreen(),
     ];
 

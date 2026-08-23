@@ -5,6 +5,15 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import 'api_client.dart';
 
+/// Result of [AuthService.checkEmailExists]. `status` is null when the
+/// account doesn't exist; otherwise one of "PENDING", "ACTIVE", "INACTIVE",
+/// "SUSPENDED" (see the backend's `UserStatus` enum).
+class EmailCheckResult {
+  final bool exists;
+  final String? status;
+  const EmailCheckResult({required this.exists, required this.status});
+}
+
 /// Better Auth's `sign-in/email` endpoint returns the bearer token in a
 /// response header (`set-auth-token`) as well as in the JSON body's `token`
 /// field — the mobile client reads the body field, which is simpler than
@@ -95,13 +104,15 @@ class AuthService {
     if (newToken != null) await ApiClient.instance.setToken(newToken);
   }
 
-  /// Whether an account already exists for this email — decides whether the
-  /// entry screen asks for a password (returning user) or starts the sign-up
-  /// chat (new user).
+  /// Whether an account already exists for this email, and its status if so
+  /// — decides whether the entry screen asks for a password (returning
+  /// user, ACTIVE/INACTIVE), shows the "still awaiting the admin" message
+  /// directly (PENDING — asking for a password would only fail with a
+  /// confusing error), or starts the sign-up chat (no account yet).
   ///
   /// Backed by `GET /api/check-email` (see that route's doc for why this
   /// isn't the information leak it might look like).
-  Future<bool> checkEmailExists(String email) async {
+  Future<EmailCheckResult> checkEmailExists(String email) async {
     final base = await ApiConfig.getBaseUrl();
     final uri = Uri.parse('$base/api/check-email').replace(
       queryParameters: {'email': email.trim()},
@@ -115,7 +126,10 @@ class AuthService {
     }
 
     final data = body['data'] as Map<String, dynamic>;
-    return data['exists'] as bool;
+    return EmailCheckResult(
+      exists: data['exists'] as bool,
+      status: data['status'] as String?,
+    );
   }
 
   /// Creates an account via Better Auth's `sign-up/email` endpoint.

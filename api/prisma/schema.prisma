@@ -485,6 +485,14 @@ model Profile {
   emergencyContactName  String?
   emergencyContactPhone String?
 
+  /// Per-child gate for the app's IC/ISF calculator. Deliberately not the
+  /// global `ic_isf_calculator` feature flag: the ratios are prescribed per
+  /// child, so a coordinator enables it only once that child's care team has
+  /// actually given values to work from — see the app's own
+  /// "why is this locked?" explainer, which already promised this and had
+  /// nothing behind it until this field existed.
+  icIsfUnlocked Boolean @default(false)
+
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?
   onboardedAt    DateTime?
