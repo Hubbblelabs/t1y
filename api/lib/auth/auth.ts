@@ -78,6 +78,12 @@ export const auth = betterAuth({
         defaultValue: "PENDING",
         input: false,
       },
+      mustChangePassword: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
       timezone: { type: "string", required: false, defaultValue: "UTC", input: true },
       locale: { type: "string", required: false, defaultValue: "en", input: true },
       lastLoginAt: { type: "date", required: false, input: false },

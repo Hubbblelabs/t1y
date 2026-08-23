@@ -17,6 +17,8 @@ export const idSchema = z
 
 export const idParamSchema = z.object({ id: idSchema });
 
+export const checkEmailQuerySchema = z.object({ email: z.email().max(254) });
+
 /** Accepts an ISO-8601 timestamp and normalises it to a `Date`. */
 export const isoDateTime = z.iso
   .datetime({ offset: true, local: true })

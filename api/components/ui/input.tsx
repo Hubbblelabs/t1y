@@ -3,7 +3,7 @@ import * as LabelPrimitive from "@radix-ui/react-label";
 
 import { cn } from "@/lib/utils/cn";
 
-const fieldStyles =
+export const fieldStyles =
   "bg-surface border-line-strong text-ink placeholder:text-ink-subtle flex w-full rounded-md border px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger";
 
 export function Input({ className, type = "text", ...props }: React.ComponentProps<"input">) {

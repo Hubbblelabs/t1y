@@ -1,8 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="app"
+        android:label="T1D Prajana Yandra"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- Dev backend runs on plain HTTP (no TLS cert on a LAN IP) — Android
+             9+ blocks cleartext connections by default. Revisit once the
+             backend has a real HTTPS domain; this should not ship to
+             production as-is. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

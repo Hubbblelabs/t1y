@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { Dumbbell } from "lucide-react";
+import Link from "next/link";
+import { Dumbbell, Plus } from "lucide-react";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Pagination } from "@/components/admin/pagination";
 import { SearchBox } from "@/components/admin/search-box";
 import { StatCard } from "@/components/admin/stat-card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import {
@@ -52,6 +54,14 @@ export default async function ExerciseContentPage(
         title="Exercise programmes"
         description="Guided programmes with instructions and media"
         breadcrumbs={[{ label: "Content" }, { label: "Exercise programmes" }]}
+        actions={
+          <Button asChild>
+            <Link href="/admin/content/exercises/new">
+              <Plus className="size-4" aria-hidden="true" />
+              New programme
+            </Link>
+          </Button>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

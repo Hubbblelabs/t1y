@@ -15,11 +15,14 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/states";
 import type { Principal } from "@/lib/auth/session";
+import { can } from "@/lib/permissions/policies";
+import { Capability } from "@/lib/permissions/roles";
 import { listParticipants, type ParticipantRow } from "@/lib/services/participants";
-import { formatDate, formatPercent, formatRelative, humaniseEnum } from "@/lib/utils/format";
+import { formatDate, formatRelative, humaniseEnum } from "@/lib/utils/format";
 import { buildPagination, type PaginationMeta } from "@/lib/api/response";
 import type { participantListQuerySchema } from "@/lib/validation/admin";
 import type { z } from "zod";
+import { ParticipantStatusSelect } from "@/components/admin/participants/participant-status-select";
 
 type Query = z.infer<typeof participantListQuerySchema>;
 
@@ -57,6 +60,7 @@ export async function ParticipantTable({
   });
 
   const pagination = buildPagination(query.page, query.pageSize, total);
+  const canEditStatus = can(principal, Capability.PARTICIPANTS_EDIT);
 
   if (items.length === 0) {
     return (
@@ -86,10 +90,8 @@ export async function ParticipantTable({
               <SortableHeader field="diabetesType" label="Type" />
               <SortableHeader field="status" label="Status" />
               <SortableHeader field="lastActivityAt" label="Last activity" />
-              <TableHead className="text-right">Last glucose</TableHead>
-              <TableHead className="text-right">HbA1c</TableHead>
-              <TableHead className="text-right">Adherence</TableHead>
               <SortableHeader field="createdAt" label="Joined" />
+              <TableHead className="text-right">Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,22 +110,25 @@ export async function ParticipantTable({
                   {humaniseEnum(row.diabetesType)}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={row.status} />
+                  {canEditStatus && row.status !== "SUSPENDED" ? (
+                    <ParticipantStatusSelect participantId={row.id} status={row.status} />
+                  ) : (
+                    <StatusBadge status={row.status} />
+                  )}
                 </TableCell>
                 <TableCell className="text-ink-muted whitespace-nowrap">
                   {row.lastActivityAt ? formatRelative(row.lastActivityAt) : "No activity"}
                 </TableCell>
-                <TableCell className="text-ink-muted tabular text-right whitespace-nowrap">
-                  {row.lastGlucoseAt ? formatDate(row.lastGlucoseAt) : "—"}
-                </TableCell>
-                <TableCell className="tabular text-right">
-                  {row.latestHbA1c ? `${row.latestHbA1c.valuePercent}%` : "—"}
-                </TableCell>
-                <TableCell className="tabular text-right">
-                  {formatPercent(row.adherencePercent, 0)}
-                </TableCell>
                 <TableCell className="text-ink-muted whitespace-nowrap">
                   {formatDate(row.createdAt)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Link
+                    href={`/admin/participants/${row.id}`}
+                    className="text-primary text-[13px] font-medium underline-offset-4 hover:underline"
+                  >
+                    View activity
+                  </Link>
                 </TableCell>
               </TableRow>
             ))}
@@ -147,20 +152,14 @@ export async function ParticipantTable({
                 <StatusBadge status={row.status} />
               </div>
 
-              <dl className="text-ink-muted mt-2.5 grid grid-cols-3 gap-2 text-xs">
+              <dl className="text-ink-muted mt-2.5 grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <dt className="text-ink-subtle">Type</dt>
                   <dd>{humaniseEnum(row.diabetesType)}</dd>
                 </div>
                 <div>
-                  <dt className="text-ink-subtle">HbA1c</dt>
-                  <dd className="tabular">
-                    {row.latestHbA1c ? `${row.latestHbA1c.valuePercent}%` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-ink-subtle">Adherence</dt>
-                  <dd className="tabular">{formatPercent(row.adherencePercent, 0)}</dd>
+                  <dt className="text-ink-subtle">Joined</dt>
+                  <dd>{formatDate(row.createdAt)}</dd>
                 </div>
               </dl>
 

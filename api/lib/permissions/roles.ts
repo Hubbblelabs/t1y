@@ -37,6 +37,11 @@ export const Capability = {
   SETTINGS_MANAGE: "settings:manage",
   THRESHOLDS_MANAGE: "thresholds:manage",
   STORAGE_UPLOAD: "storage:upload",
+
+  /// Two of the registered flags gate clinical dose calculators, so this
+  /// gets the same SUPER_ADMIN-only posture as SETTINGS_MANAGE rather than
+  /// riding along with EDUCATION_MANAGE.
+  FEATURE_FLAGS_MANAGE: "feature-flags:manage",
 } as const;
 
 export type CapabilityValue = (typeof Capability)[keyof typeof Capability];
@@ -44,56 +49,23 @@ export type CapabilityValue = (typeof Capability)[keyof typeof Capability];
 /**
  * Role → capability matrix.
  *
- *  PATIENT            owns their own records and holds no administrative
- *                     capability at all; their access is handled by ownership
- *                     checks, not by this table.
- *  RESEARCHER         sees participants and health data only for studies they
- *                     have been granted access to (narrowed in `policies.ts`),
- *                     and may export only where `StudyAccess.canExport` is set.
- *  CLINICAL_REVIEWER  read-only clinical oversight, plus ownership of the
- *                     configurable clinical thresholds.
- *  ADMIN              day-to-day operations: participants, content, messaging.
- *  SUPER_ADMIN        everything, including staff accounts and settings.
+ * This deployment serves one study with one operating team, not the
+ * platform's original multi-role newsroom — so there are only two roles:
+ *
+ *  PATIENT  owns their own records and holds no administrative capability
+ *           at all; their access is handled by ownership checks, not by
+ *           this table.
+ *  ADMIN    the single staff role, holding every staff capability —
+ *           participants, content, messaging, settings, audit, staff
+ *           accounts. The platform's former SUPER_ADMIN/RESEARCHER/
+ *           CLINICAL_REVIEWER split existed for a multi-team deployment
+ *           this one isn't; ADMIN is simply the union of what all three
+ *           used to hold.
  */
 const MATRIX: Record<UserRole, readonly CapabilityValue[]> = {
   PATIENT: [],
 
-  RESEARCHER: [
-    Capability.ADMIN_AREA_ACCESS,
-    Capability.PARTICIPANTS_VIEW,
-    Capability.HEALTH_DATA_VIEW,
-    Capability.RESEARCH_VIEW,
-    Capability.RESEARCH_EXPORT,
-    Capability.REPORTS_VIEW,
-  ],
-
-  CLINICAL_REVIEWER: [
-    Capability.ADMIN_AREA_ACCESS,
-    Capability.PARTICIPANTS_VIEW,
-    Capability.HEALTH_DATA_VIEW,
-    Capability.REPORTS_VIEW,
-    Capability.THRESHOLDS_MANAGE,
-  ],
-
   ADMIN: [
-    Capability.ADMIN_AREA_ACCESS,
-    Capability.PARTICIPANTS_VIEW,
-    Capability.PARTICIPANTS_CREATE,
-    Capability.PARTICIPANTS_EDIT,
-    Capability.PARTICIPANTS_DEACTIVATE,
-    Capability.HEALTH_DATA_VIEW,
-    Capability.RESEARCH_VIEW,
-    Capability.RESEARCH_MANAGE_STUDIES,
-    Capability.RESEARCH_EXPORT,
-    Capability.EDUCATION_MANAGE,
-    Capability.EXERCISE_CONTENT_MANAGE,
-    Capability.NOTIFICATIONS_MANAGE,
-    Capability.REPORTS_VIEW,
-    Capability.AUDIT_VIEW,
-    Capability.STORAGE_UPLOAD,
-  ],
-
-  SUPER_ADMIN: [
     Capability.ADMIN_AREA_ACCESS,
     Capability.PARTICIPANTS_VIEW,
     Capability.PARTICIPANTS_CREATE,
@@ -113,15 +85,13 @@ const MATRIX: Record<UserRole, readonly CapabilityValue[]> = {
     Capability.SETTINGS_MANAGE,
     Capability.THRESHOLDS_MANAGE,
     Capability.STORAGE_UPLOAD,
+    Capability.FEATURE_FLAGS_MANAGE,
   ],
 };
 
 const CAPABILITY_SETS: Record<UserRole, ReadonlySet<CapabilityValue>> = {
   PATIENT: new Set(MATRIX.PATIENT),
-  RESEARCHER: new Set(MATRIX.RESEARCHER),
-  CLINICAL_REVIEWER: new Set(MATRIX.CLINICAL_REVIEWER),
   ADMIN: new Set(MATRIX.ADMIN),
-  SUPER_ADMIN: new Set(MATRIX.SUPER_ADMIN),
 };
 
 /** Does this role hold the capability, ignoring any per-resource narrowing? */
@@ -133,12 +103,7 @@ export function capabilitiesFor(role: UserRole): CapabilityValue[] {
   return [...(MATRIX[role] ?? [])];
 }
 
-export const STAFF_ROLES: readonly UserRole[] = [
-  "ADMIN",
-  "SUPER_ADMIN",
-  "RESEARCHER",
-  "CLINICAL_REVIEWER",
-];
+export const STAFF_ROLES: readonly UserRole[] = ["ADMIN"];
 
 export function isStaffRole(role: UserRole): boolean {
   return STAFF_ROLES.includes(role);
@@ -147,7 +112,4 @@ export function isStaffRole(role: UserRole): boolean {
 export const ROLE_LABELS: Record<UserRole, string> = {
   PATIENT: "Participant",
   ADMIN: "Administrator",
-  SUPER_ADMIN: "Super administrator",
-  RESEARCHER: "Researcher",
-  CLINICAL_REVIEWER: "Clinical reviewer",
 };

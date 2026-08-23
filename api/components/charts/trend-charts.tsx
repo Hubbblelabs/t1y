@@ -114,17 +114,34 @@ export function TrendLineChart<T extends SeriesPoint>({
   );
 }
 
+/**
+ * A named formatting mode rather than a function prop.
+ *
+ * `TrendBarChart` is rendered from Server Components (see
+ * components/admin/participants/participant-health.tsx) — a function value
+ * can't cross that boundary as a prop ("Functions cannot be passed directly
+ * to Client Components"), the same class of bug the icon-prop fix in
+ * lib/navigation.ts already worked around once. `"identity"` is for
+ * already-labelled categories (weekday names, etc.) where running the value
+ * through `formatChartDate` would try to parse "Mon" as a date and blank it.
+ */
+const X_FORMATTERS: Record<"date" | "identity", (value: string) => string> = {
+  date: formatChartDate,
+  identity: (value) => value,
+};
+
 export function TrendBarChart<T extends SeriesPoint>({
   series,
   xKey = "bucket",
-  xFormatter = formatChartDate,
+  xFormatter = "date",
   ...props
 }: BaseProps<T> & {
   series: Array<{ key: string; name: string; colour: string }>;
   xKey?: string;
-  xFormatter?: (value: string) => string;
+  xFormatter?: "date" | "identity";
 }) {
   const isEmpty = props.data.length === 0;
+  const formatX = X_FORMATTERS[xFormatter];
 
   return (
     <ChartFrame {...props} isEmpty={isEmpty}>
@@ -132,11 +149,11 @@ export function TrendBarChart<T extends SeriesPoint>({
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={props.data as T[]} margin={{ top: 4, right: 8, bottom: 0, left: -12 }}>
             <CartesianGrid {...gridProps} />
-            <XAxis dataKey={xKey} tickFormatter={xFormatter} {...axisProps} />
+            <XAxis dataKey={xKey} tickFormatter={formatX} {...axisProps} />
             <YAxis width={48} allowDecimals={false} {...axisProps} />
             <Tooltip
               content={
-                <ChartTooltip unit={props.unit} labelFormatter={(v) => xFormatter(String(v))} />
+                <ChartTooltip unit={props.unit} labelFormatter={(v) => formatX(String(v))} />
               }
               cursor={{ fill: "var(--color-surface-hover)" }}
             />
@@ -158,7 +175,7 @@ export function TrendBarChart<T extends SeriesPoint>({
           caption={`${props.title}${props.unit ? ` in ${props.unit}` : ""}`}
           columns={["Period", ...series.map((entry) => entry.name)]}
           rows={props.data.map((point) => [
-            xFormatter(String(valueAt(point, xKey) ?? "")),
+            formatX(String(valueAt(point, xKey) ?? "")),
             ...series.map((entry) => valueAt(point, entry.key)),
           ])}
         />

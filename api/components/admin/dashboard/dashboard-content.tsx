@@ -1,38 +1,50 @@
-import Link from "next/link";
-
 import { RecentActivityPanel } from "@/components/admin/dashboard/recent-activity";
 import { Section } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
-import { TrendBarChart, TrendLineChart } from "@/components/charts/trend-charts";
+import { CategoryBars } from "@/components/charts/trend-charts";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { requirePrincipal } from "@/lib/auth/session";
 import { getDashboardCharts, getDashboardOverview } from "@/lib/services/analytics";
-import {
-  DATE_RANGE_LABELS,
-  resolveDateRange,
-  type DateRangeInput,
-} from "@/lib/validation/common";
-import { formatDate, formatNumber, formatPercent } from "@/lib/utils/format";
+import { getCohortProgress } from "@/lib/services/progress";
+import { resolveDateRange, type DateRangeInput } from "@/lib/validation/common";
+import { formatNumber } from "@/lib/utils/format";
 
 /**
  * Dashboard body — a Server Component, so the aggregate queries run on the
  * server and no participant data is serialised into the client bundle beyond
  * what is rendered.
+ *
+ * Only "Total participants" and "Active participants" come from
+ * `getDashboardOverview`/`getDashboardCharts` here — the rest of what those
+ * two return (records logged, medication adherence, glucose trends, exercise
+ * minutes, HbA1c results) is health-logging data this study's app has no
+ * screens to produce (see api/docs/UNUSED-BACKEND.md); it would only ever
+ * render as empty cards and charts. Everything else on this page comes from
+ * `getCohortProgress` instead — Help Book and quiz engagement, which is what
+ * a coordinator's phone actually generates.
  */
 export async function DashboardContent({ range }: { range: DateRangeInput }) {
   const principal = await requirePrincipal();
   const resolved = resolveDateRange(range);
-  const rangeLabel = DATE_RANGE_LABELS[range.range];
 
-  // A month-long window reads better bucketed daily; a year does not.
-  const interval = range.range === "1y" || range.range === "6m" ? "week" : "day";
-
-  const [overview, charts] = await Promise.all([
+  const [overview, charts, cohort] = await Promise.all([
     getDashboardOverview(principal, resolved),
-    getDashboardCharts(principal, resolved, interval),
+    getDashboardCharts(principal, resolved, "day"),
+    getCohortProgress(),
   ]);
+
+  const topicsCompleted = cohort.topics.reduce((sum, t) => sum + t.completed, 0);
+  const topicsOpened = cohort.topics.reduce((sum, t) => sum + t.opened, 0);
+  const quizzesWithAttempts = cohort.quizzes.filter((q) => q.attempts > 0);
+  const overallPassRate =
+    quizzesWithAttempts.length > 0
+      ? Math.round(
+          quizzesWithAttempts.reduce((sum, q) => sum + (q.passRate ?? 0), 0) /
+            quizzesWithAttempts.length,
+        )
+      : null;
 
   return (
     <div className="space-y-8">
@@ -50,86 +62,71 @@ export async function DashboardContent({ range }: { range: DateRangeInput }) {
           deltaMeaning="higher-is-better"
         />
         <StatCard
-          label="Records logged"
-          value={formatNumber(overview.activity.recordsLoggedInPeriod)}
-          hint={`${formatNumber(overview.activity.recordsLoggedToday)} today · ${formatNumber(overview.activity.participantsLoggingToday)} participants`}
+          label="Topics completed"
+          value={formatNumber(topicsCompleted)}
+          hint={
+            topicsOpened > 0
+              ? `${formatNumber(topicsOpened)} opened across the cohort`
+              : "No topics opened yet"
+          }
         />
         <StatCard
-          label="Medication adherence"
-          value={formatPercent(overview.adherence.percent, 1)}
+          label="Quiz pass rate"
+          value={overallPassRate === null ? null : `${overallPassRate}%`}
           hint={
-            overview.adherence.percent === null
-              ? "No doses came due in this period"
-              : `${formatNumber(overview.adherence.taken)} taken · ${formatNumber(overview.adherence.missed)} missed`
+            quizzesWithAttempts.length > 0
+              ? `Across ${quizzesWithAttempts.length} quiz${quizzesWithAttempts.length === 1 ? "" : "zes"} with attempts`
+              : "No quiz attempts yet"
           }
         />
       </div>
 
-      <TrendLineChart
-        title="Glucose readings"
-        description="Cohort average of all recorded readings"
-        unit="mg/dL"
-        rangeLabel={rangeLabel}
-        data={charts.glucoseSeries}
-        series={[
-          { key: "average", name: "Average", colour: "var(--color-chart-1)" },
-          { key: "minimum", name: "Lowest", colour: "var(--color-chart-3)" },
-          { key: "maximum", name: "Highest", colour: "var(--color-chart-4)" },
-        ]}
-        emptyTitle="No glucose readings recorded"
-        emptyDescription="No participant logged a glucose reading during the selected period. Try widening the date range."
-      />
-
       <div className="grid gap-4 lg:grid-cols-5">
-        <TrendBarChart
-          title="Exercise activity"
-          description="Total minutes logged across the cohort"
-          unit="minutes"
-          rangeLabel={rangeLabel}
-          height={240}
-          className="lg:col-span-3"
-          data={charts.exerciseSeries}
-          series={[{ key: "minutes", name: "Minutes", colour: "var(--color-chart-2)" }]}
-          emptyTitle="No exercise recorded"
-          emptyDescription="No sessions were logged in this period."
-        />
+        <div className="lg:col-span-3">
+          {cohort.topics.length === 0 ? (
+            <Card className="p-5">
+              <EmptyState
+                title="No Help Book activity yet"
+                description="Topic completions appear here once participants start reading."
+              />
+            </Card>
+          ) : (
+            <CategoryBars
+              title="Help Book completion"
+              description="Topics completed vs. opened, cohort-wide"
+              valueLabel="Completed"
+              data={cohort.topics.map((t) => ({ label: t.topicSlug, value: t.completed }))}
+            />
+          )}
+        </div>
 
         <div className="lg:col-span-2">
           <RecentActivityPanel entries={charts.recentActivity} />
         </div>
       </div>
 
-      <Section
-        title="Latest HbA1c results"
-        description="Most recent laboratory results across the cohort"
-      >
+      <Section title="Quiz performance" description="Attempts and pass rate per quiz">
         <Card>
-          {charts.recentHbA1c.length === 0 ? (
+          {cohort.quizzes.length === 0 ? (
             <EmptyState
-              title="No HbA1c results yet"
-              description="Results appear here as participants or clinicians record them."
+              title="No quizzes published yet"
+              description="Quiz performance appears here once quizzes are published and attempted."
             />
           ) : (
             <ul className="divide-line divide-y">
-              {charts.recentHbA1c.map((record) => (
+              {cohort.quizzes.map((quiz) => (
                 <li
-                  key={record.id}
+                  key={`${quiz.slug}-${quiz.locale}`}
                   className="flex items-center justify-between gap-4 px-5 py-3"
                 >
                   <div className="min-w-0">
-                    <Link
-                      href={`/admin/participants/${record.user.id}`}
-                      className="text-ink hover:text-primary truncate text-[13px] font-medium underline-offset-4 hover:underline"
-                    >
-                      {record.user.profile?.participantCode ?? "Unknown"}
-                    </Link>
+                    <p className="text-ink truncate text-[13px] font-medium">{quiz.title}</p>
                     <p className="text-ink-subtle text-xs">
-                      {formatDate(record.measuredAt)}
+                      {formatNumber(quiz.attempts)} attempt{quiz.attempts === 1 ? "" : "s"}
                     </p>
                   </div>
-                  {/* Neutral presentation: the figure is reported, not judged. */}
                   <Badge tone="neutral" className="tabular">
-                    {record.valuePercent}%
+                    {quiz.passRate === null ? "—" : `${quiz.passRate}% passed`}
                   </Badge>
                 </li>
               ))}

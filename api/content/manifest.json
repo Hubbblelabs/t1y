@@ -1,0 +1,58 @@
+[
+  {
+    "slug": "insulin-basics",
+    "category": "INSULIN",
+    "sortOrder": 1,
+    "tags": ["insulin", "injection", "session-1"],
+    "files": { "en": "insulin-basics.en.docx", "ta": "insulin-basics.ta.docx" }
+  },
+  {
+    "slug": "insulin-pump",
+    "category": "INSULIN",
+    "sortOrder": 2,
+    "tags": ["insulin", "pump", "session-1"],
+    "files": { "en": "insulin-pump.en.docx", "ta": "insulin-pump.ta.docx" }
+  },
+  {
+    "slug": "glucose-monitoring",
+    "category": "GLUCOSE_MANAGEMENT",
+    "sortOrder": 3,
+    "tags": ["smbg", "glucometer", "cgm", "session-2"],
+    "files": { "en": "glucose-monitoring.en.docx", "ta": "glucose-monitoring.ta.docx" }
+  },
+  {
+    "slug": "hypoglycaemia",
+    "category": "HYPOGLYCAEMIA",
+    "sortOrder": 4,
+    "tags": ["hypo", "emergency", "session-3"],
+    "files": { "en": "hypoglycaemia.en.docx", "ta": "hypoglycaemia.ta.docx" }
+  },
+  {
+    "slug": "nutrition",
+    "category": "NUTRITION",
+    "sortOrder": 5,
+    "tags": ["nutrition", "carb-counting", "recipes", "session-4"],
+    "files": { "en": "nutrition.en.docx", "ta": "nutrition.ta.docx" }
+  },
+  {
+    "slug": "exercise",
+    "category": "EXERCISE",
+    "sortOrder": 6,
+    "tags": ["exercise", "sports", "session-5"],
+    "files": { "en": "exercise.en.docx", "ta": "exercise.ta.docx" }
+  },
+  {
+    "slug": "school-travel",
+    "category": "TRAVEL",
+    "sortOrder": 7,
+    "tags": ["school", "travel", "diabag", "session-6", "session-7", "session-8"],
+    "files": { "en": "school-travel.en.docx", "ta": "school-travel.ta.docx" }
+  },
+  {
+    "slug": "annual-checkup",
+    "category": "GENERAL_WELLNESS",
+    "sortOrder": 8,
+    "tags": ["hba1c", "ketone-testing", "annual-screening"],
+    "files": { "en": "annual-checkup.en.docx", "ta": "annual-checkup.ta.docx" }
+  }
+]

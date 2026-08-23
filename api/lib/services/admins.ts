@@ -236,19 +236,21 @@ export async function deactivateStaffMember(id: string) {
 }
 
 /**
- * Guards against removing the last super administrator, which would lock
- * everyone out of staff management permanently.
+ * Guards against removing the last administrator, which would lock everyone
+ * out of staff management permanently. ADMIN is the only staff role now
+ * (see lib/permissions/roles.ts), so this protects the role itself rather
+ * than a "super" tier within it.
  */
-export async function assertNotLastSuperAdmin(userId: string): Promise<void> {
+export async function assertNotLastAdmin(userId: string): Promise<void> {
   const target = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true },
   });
-  if (target?.role !== "SUPER_ADMIN") return;
+  if (target?.role !== "ADMIN") return;
 
   const remaining = await prisma.user.count({
     where: {
-      role: "SUPER_ADMIN",
+      role: "ADMIN",
       status: "ACTIVE",
       deletedAt: null,
       id: { not: userId },
@@ -257,7 +259,7 @@ export async function assertNotLastSuperAdmin(userId: string): Promise<void> {
 
   if (remaining === 0) {
     throw new ValidationError(
-      "This is the only active super administrator. Promote another account first.",
+      "This is the only active administrator. Promote another account first.",
     );
   }
 }

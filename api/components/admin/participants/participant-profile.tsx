@@ -1,7 +1,4 @@
-import Link from "next/link";
-
 import { DataPoint } from "@/components/admin/stat-card";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { getParticipantProfile } from "@/lib/services/participants";
 import { formatDate, formatNumber, humaniseEnum } from "@/lib/utils/format";
@@ -77,56 +74,6 @@ export function ParticipantProfileCard({ participant }: { participant: Participa
         </dl>
       </Card>
 
-      <Card className="p-5">
-        <h2 className="text-ink mb-3 text-sm font-semibold">Records</h2>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5">
-          <DataPoint
-            label="Glucose readings"
-            value={formatNumber(participant._count.glucoseReadings)}
-          />
-          <DataPoint label="Medications" value={formatNumber(participant._count.medications)} />
-          <DataPoint
-            label="Insulin records"
-            value={formatNumber(participant._count.insulinLogs)}
-          />
-          <DataPoint label="Meals" value={formatNumber(participant._count.meals)} />
-          <DataPoint
-            label="Exercise sessions"
-            value={formatNumber(participant._count.exerciseLogs)}
-          />
-          <DataPoint label="HbA1c results" value={formatNumber(participant._count.hba1cRecords)} />
-        </dl>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="text-ink mb-3 text-sm font-semibold">Research</h2>
-        {participant.studyEnrollments.length === 0 ? (
-          <p className="text-ink-subtle text-[13px]">Not enrolled in any study.</p>
-        ) : (
-          <ul className="space-y-3">
-            {participant.studyEnrollments.map((enrollment) => (
-              <li key={enrollment.id} className="border-line border-l-2 pl-3">
-                <Link
-                  href={`/admin/research/studies/${enrollment.study.id}`}
-                  className="text-ink hover:text-primary text-[13px] font-medium underline-offset-4 hover:underline"
-                >
-                  {enrollment.study.code}
-                </Link>
-                <p className="text-ink-muted truncate text-xs">{enrollment.study.title}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                  <Badge tone="neutral">{humaniseEnum(enrollment.enrollmentStatus)}</Badge>
-                  {enrollment.armOrGroup ? (
-                    <Badge tone="neutral">{enrollment.armOrGroup}</Badge>
-                  ) : null}
-                </div>
-                <p className="text-ink-subtle mt-1 text-xs">
-                  Study ID: {enrollment.studyParticipantCode}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
     </div>
   );
 }

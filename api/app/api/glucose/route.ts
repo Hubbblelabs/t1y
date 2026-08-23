@@ -37,6 +37,7 @@ export const GET = defineRoute({
 });
 
 export const POST = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createGlucoseSchema,
   handler: async ({ principal, body }) =>

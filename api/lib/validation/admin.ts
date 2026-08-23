@@ -11,20 +11,21 @@ import {
   sortBySchema,
   sortOrderSchema,
 } from "@/lib/validation/common";
+import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
 import { exerciseCategorySchema, notificationTypeSchema } from "@/lib/validation/health";
 
 /** Input schemas for the administration and research APIs. */
 
 export const userStatusSchema = z.enum(["PENDING", "ACTIVE", "INACTIVE", "SUSPENDED"]);
-export const diabetesTypeSchema = z.enum([
-  "TYPE_1",
-  "TYPE_2",
-  "GESTATIONAL",
-  "PREDIABETES",
-  "MODY",
-  "OTHER",
-  "UNSPECIFIED",
-]);
+/**
+ * This deployment's study is Type 1 only (BRD §1.1 inclusion criteria).
+ * `Profile.diabetesType` in the schema still carries the platform's
+ * original multi-condition values (TYPE_2, GESTATIONAL, PREDIABETES, MODY,
+ * OTHER) — UNSPECIFIED stays selectable only because it's the column's
+ * default for a row that hasn't captured this field yet, not because this
+ * study has any use for it being set otherwise.
+ */
+export const diabetesTypeSchema = z.enum([STUDY_DIABETES_TYPE, "UNSPECIFIED"]);
 export const treatmentModalitySchema = z.enum([
   "LIFESTYLE_ONLY",
   "ORAL_MEDICATION",
@@ -34,12 +35,8 @@ export const treatmentModalitySchema = z.enum([
   "OTHER",
   "UNSPECIFIED",
 ]);
-export const staffRoleSchema = z.enum([
-  "ADMIN",
-  "SUPER_ADMIN",
-  "RESEARCHER",
-  "CLINICAL_REVIEWER",
-]);
+// ADMIN is the only staff role now (see lib/permissions/roles.ts).
+export const staffRoleSchema = z.enum(["ADMIN"]);
 export const contentStatusSchema = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
 export const educationCategorySchema = z.enum([
   "DIABETES_BASICS",
@@ -51,7 +48,13 @@ export const educationCategorySchema = z.enum([
   "LIFESTYLE",
   "STRESS_MANAGEMENT",
   "GENERAL_WELLNESS",
+  "HYPOGLYCAEMIA",
+  "SCHOOL_MANAGEMENT",
+  "TRAVEL",
+  "DIABAG",
 ]);
+export const contentLocaleSchema = z.enum(["EN", "TA"]);
+export const contentBodyFormatSchema = z.enum(["MARKDOWN", "HTML"]);
 export const difficultySchema = z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED"]);
 export const studyStatusSchema = z.enum([
   "DRAFT",
@@ -69,7 +72,7 @@ export const enrollmentStatusSchema = z.enum([
   "COMPLETED",
 ]);
 
-const slugSchema = z
+export const slugSchema = z
   .string()
   .trim()
   .min(3)
@@ -120,6 +123,36 @@ export const createParticipantSchema = z.object({
   timezone: z.string().trim().max(64).optional(),
 });
 
+export const bulkParticipantRowSchema = z
+  .object({
+    email: z.email().max(254),
+    firstName: shortTextSchema(80),
+    lastName: shortTextSchema(80),
+    participantCode: z
+      .string()
+      .trim()
+      .max(32)
+      .regex(/^[A-Za-z0-9_-]+$/, "Use letters, numbers, hyphens and underscores only.")
+      .optional(),
+    diabetesType: diabetesTypeSchema.optional(),
+    diagnosisYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
+    dateOfBirth: z.coerce.date().optional(),
+    phone: z.string().trim().max(32).optional(),
+  })
+  .refine(
+    (data) => {
+      if (!data.dateOfBirth || data.diagnosisYear == null) return true;
+      return data.diagnosisYear >= data.dateOfBirth.getFullYear();
+    },
+    { message: "Diagnosis year cannot be before the date of birth.", path: ["diagnosisYear"] },
+  );
+
+/** A 500-row cap keeps one import inside a single request's timeout budget. */
+export const bulkImportParticipantsSchema = z.object({
+  fileBase64: z.string().min(1),
+  dummyPassword: z.string().min(12).max(128),
+});
+
 export const updateParticipantSchema = z.object({
   status: userStatusSchema.optional(),
   profile: z
@@ -137,6 +170,7 @@ export const updateParticipantSchema = z.object({
       primaryClinician: z.string().trim().max(120).nullish(),
       emergencyContactName: z.string().trim().max(120).nullish(),
       emergencyContactPhone: z.string().trim().max(32).nullish(),
+      icIsfUnlocked: z.boolean().optional(),
     })
     .optional(),
 });
@@ -159,18 +193,24 @@ export const educationListQuerySchema = z
   .object({
     status: contentStatusSchema.optional(),
     category: educationCategorySchema.optional(),
+    locale: contentLocaleSchema.optional(),
     search: searchSchema,
   })
   .and(paginationSchema);
 
 export const createEducationSchema = z.object({
   slug: slugSchema,
+  locale: contentLocaleSchema.default("EN"),
   title: shortTextSchema(200),
   description: z.string().trim().max(500).optional(),
   excerpt: z.string().trim().max(300).optional(),
   category: educationCategorySchema,
   /** Rich text; sanitised server-side before storage. */
   body: z.string().min(1).max(200_000),
+  /** Author-editable source. When bodyFormat is MARKDOWN, `body` above is
+   *  derived from this on save — see lib/utils/markdown.ts. */
+  bodySource: z.string().max(200_000).optional(),
+  bodyFormat: contentBodyFormatSchema.default("MARKDOWN"),
   mediaType: z.enum(["NONE", "IMAGE", "VIDEO", "PDF", "AUDIO"]).default("NONE"),
   mediaUrl: z.url().max(2000).nullish(),
   mediaKey: z.string().trim().max(500).nullish(),
@@ -182,7 +222,9 @@ export const createEducationSchema = z.object({
   sortOrder: z.number().int().min(0).max(10_000).default(0),
 });
 
-export const updateEducationSchema = createEducationSchema.partial();
+/** `locale` is immutable after creation — changing it would silently
+ *  re-pair two unrelated topics. */
+export const updateEducationSchema = createEducationSchema.partial().omit({ locale: true });
 
 // ---------------------------------------------------------------------------
 // Exercise programmes
@@ -240,7 +282,7 @@ export const createCampaignSchema = z
       .enum(["ALL_PARTICIPANTS", "ROLE", "STUDY", "SPECIFIC_USERS"])
       .default("ALL_PARTICIPANTS"),
     targetRole: z
-      .enum(["PATIENT", "ADMIN", "SUPER_ADMIN", "RESEARCHER", "CLINICAL_REVIEWER"])
+      .enum(["PATIENT", "ADMIN"])
       .optional(),
     targetStudyId: idSchema.optional(),
     targetUserIds: z.array(idSchema).max(5000).default([]),
@@ -418,7 +460,7 @@ export const auditQuerySchema = z
     action: z.string().trim().max(80).optional(),
     resourceType: z.string().trim().max(80).optional(),
     actorRole: z
-      .enum(["PATIENT", "ADMIN", "SUPER_ADMIN", "RESEARCHER", "CLINICAL_REVIEWER"])
+      .enum(["PATIENT", "ADMIN"])
       .optional(),
     success: z
       .enum(["true", "false"])

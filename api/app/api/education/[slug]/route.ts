@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { defineRoute } from "@/lib/api/handler";
 import { ok } from "@/lib/api/response";
+import { publicLocaleSchema } from "@/lib/validation/content";
 import {
   getPublishedEducationBySlug,
   incrementViewCount,
@@ -16,10 +17,13 @@ const paramsSchema = z.object({
     .regex(/^[a-z0-9-]+$/, "Invalid article reference."),
 });
 
+const querySchema = z.object({ locale: publicLocaleSchema });
+
 export const GET = defineRoute({
   params: paramsSchema,
-  handler: async ({ params }) => {
-    const article = await getPublishedEducationBySlug(params.slug);
+  query: querySchema,
+  handler: async ({ params, query }) => {
+    const article = await getPublishedEducationBySlug(params.slug, query.locale);
 
     // Not awaited: a counter must never delay or fail the read.
     void incrementViewCount(article.id);
