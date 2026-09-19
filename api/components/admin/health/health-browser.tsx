@@ -29,7 +29,7 @@ export interface BrowseRow {
   id: string;
   user: {
     id: string;
-    profile: { participantCode: string; firstName: string; lastName: string } | null;
+    profile: { participantCode: string; name: string } | null;
   };
   occurredAt: Date;
   cells: Array<{ label: string; value: React.ReactNode; align?: "left" | "right" }>;

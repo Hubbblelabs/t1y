@@ -109,8 +109,7 @@ export const participantListQuerySchema = z
 
 export const createParticipantSchema = z.object({
   email: z.email().max(254),
-  firstName: shortTextSchema(80),
-  lastName: shortTextSchema(80),
+  name: shortTextSchema(120),
   participantCode: z
     .string()
     .trim()
@@ -126,8 +125,7 @@ export const createParticipantSchema = z.object({
 export const bulkParticipantRowSchema = z
   .object({
     email: z.email().max(254),
-    firstName: shortTextSchema(80),
-    lastName: shortTextSchema(80),
+    name: shortTextSchema(120),
     participantCode: z
       .string()
       .trim()
@@ -157,8 +155,7 @@ export const updateParticipantSchema = z.object({
   status: userStatusSchema.optional(),
   profile: z
     .object({
-      firstName: shortTextSchema(80).optional(),
-      lastName: shortTextSchema(80).optional(),
+      name: shortTextSchema(120).optional(),
       phone: z.string().trim().max(32).nullish(),
       city: z.string().trim().max(80).nullish(),
       country: z.string().trim().max(80).nullish(),
@@ -198,6 +195,16 @@ export const educationListQuerySchema = z
   })
   .and(paginationSchema);
 
+/** One paragraph + the image it's shown with in the Help Book reading
+ *  screen — see scripts/split-content-blocks.ts. `imageUrl` is a site-
+ *  relative `/content/...` path or absolute URL, not validated as a strict
+ *  URL, since the importer writes the former. */
+export const contentBlockSchema = z.object({
+  paragraph: z.string().min(1).max(20_000),
+  imageUrl: z.string().trim().min(1).max(2000),
+  imageKey: z.string().trim().max(2000).nullish(),
+});
+
 export const createEducationSchema = z.object({
   slug: slugSchema,
   locale: contentLocaleSchema.default("EN"),
@@ -211,6 +218,9 @@ export const createEducationSchema = z.object({
    *  derived from this on save — see lib/utils/markdown.ts. */
   bodySource: z.string().max(200_000).optional(),
   bodyFormat: contentBodyFormatSchema.default("MARKDOWN"),
+  /** Optional: the Help Book's image-paired paragraph layout. Omitted
+   *  entirely leaves whatever's already stored untouched on an update. */
+  contentBlocks: z.array(contentBlockSchema).max(1000).optional(),
   mediaType: z.enum(["NONE", "IMAGE", "VIDEO", "PDF", "AUDIO"]).default("NONE"),
   mediaUrl: z.url().max(2000).nullish(),
   mediaKey: z.string().trim().max(500).nullish(),
@@ -549,3 +559,44 @@ export const updateSettingsSchema = z.record(
   z.string().trim().min(1).max(80),
   z.union([z.string().max(500), z.number(), z.boolean()]),
 );
+
+// ---------------------------------------------------------------------------
+// Profile field definitions
+// ---------------------------------------------------------------------------
+
+const choiceOptionSchema = z.object({
+  value: z.string().trim().min(1).max(60),
+  labelEn: z.string().trim().min(1).max(120),
+  labelTa: z.string().trim().max(120).optional(),
+});
+
+export const createProfileFieldSchema = z.object({
+  key: z
+    .string()
+    .trim()
+    .min(2)
+    .max(60)
+    .regex(/^[a-z][a-zA-Z0-9]*$/, "Start with a lowercase letter; letters and digits only."),
+  fieldType: z.enum(["TEXT", "NUMBER", "DATE", "CHOICE"]),
+  section: z.string().trim().min(1).max(80).optional(),
+  required: z.boolean().optional(),
+  active: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  labelEn: z.string().trim().min(1).max(120),
+  labelTa: z.string().trim().max(120).nullish(),
+  hintEn: z.string().trim().max(200).nullish(),
+  hintTa: z.string().trim().max(200).nullish(),
+  options: z.array(choiceOptionSchema).max(30).nullish(),
+});
+
+export const updateProfileFieldSchema = z.object({
+  section: z.string().trim().min(1).max(80).optional(),
+  required: z.boolean().optional(),
+  active: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  labelEn: z.string().trim().min(1).max(120).optional(),
+  labelTa: z.string().trim().max(120).nullish(),
+  hintEn: z.string().trim().max(200).nullish(),
+  hintTa: z.string().trim().max(200).nullish(),
+  options: z.array(choiceOptionSchema).max(30).nullish(),
+});

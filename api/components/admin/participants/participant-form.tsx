@@ -11,13 +11,12 @@ import { Field, Input } from "@/components/ui/input";
 
 interface FormValue {
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   diagnosisYear: string;
   phone: string;
 }
 
-const EMPTY: FormValue = { email: "", firstName: "", lastName: "", diagnosisYear: "", phone: "" };
+const EMPTY: FormValue = { email: "", name: "", diagnosisYear: "", phone: "" };
 
 /**
  * Enrols a participant from the admin side — the facility that was missing
@@ -56,8 +55,7 @@ export function ParticipantForm() {
 
     const payload = {
       email: value.email.trim(),
-      firstName: value.firstName.trim(),
-      lastName: value.lastName.trim(),
+      name: value.name.trim(),
       // This study is Type 1 only — see lib/config/study-scope.ts. Every
       // participant created here is TYPE_1; there is no type to choose.
       diabetesType: "TYPE_1" as const,
@@ -134,7 +132,7 @@ export function ParticipantForm() {
               Participant {created.participantCode} created
             </h2>
             <p className="text-ink-muted text-[13px]">
-              {value.firstName} {value.lastName} — {value.email}
+              {value.name} — {value.email}
             </p>
           </div>
         </div>
@@ -227,12 +225,8 @@ export function ParticipantForm() {
           />
         </Field>
 
-        <Field label="Child's first name" htmlFor="firstName" error={fieldErrors.firstName} required>
-          <Input id="firstName" value={value.firstName} onChange={(e) => set("firstName", e.target.value)} />
-        </Field>
-
-        <Field label="Child's last name" htmlFor="lastName" error={fieldErrors.lastName} required>
-          <Input id="lastName" value={value.lastName} onChange={(e) => set("lastName", e.target.value)} />
+        <Field label="Child's name" htmlFor="name" error={fieldErrors.name} required className="sm:col-span-2">
+          <Input id="name" value={value.name} onChange={(e) => set("name", e.target.value)} />
         </Field>
 
         <Field label="Diabetes type" htmlFor="diabetesType">
@@ -262,7 +256,7 @@ export function ParticipantForm() {
       <div>
         <Button
           onClick={handleCreate}
-          disabled={saving || !value.email.trim() || !value.firstName.trim() || !value.lastName.trim()}
+          disabled={saving || !value.email.trim() || !value.name.trim()}
         >
           {saving ? (
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />

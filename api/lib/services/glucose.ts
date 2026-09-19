@@ -2,8 +2,9 @@ import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
 import type { GlucoseContext, GlucoseUnit } from "@/generated/prisma/enums";
-import { NotFoundError } from "@/lib/api/errors";
+import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
+import { getSetting } from "@/lib/services/settings";
 import {
   daysBetween,
   glucoseFromMgDl,
@@ -90,7 +91,61 @@ export interface CreateGlucoseInput {
   notes?: string;
 }
 
+export interface GlucoseEntryStatus {
+  /** The configured minimum gap between entries — see `health.glucoseEntryCooldownHours`. */
+  cooldownHours: number;
+  lastReadingAt: Date | null;
+  /** When the next entry becomes allowed. Null only when there is no prior reading. */
+  nextAllowedAt: Date | null;
+  canEnterNow: boolean;
+}
+
+/**
+ * Whether this child's parent may record another reading right now, and
+ * when they may next.
+ *
+ * The cooldown exists so glucometer entry stays a deliberate, occasional
+ * parent action rather than something loggable at will — the study protocol
+ * sets the gap (`health.glucoseEntryCooldownHours`, an admin-configurable
+ * setting, not a hard-coded constant), and this is the one place that reads
+ * it and applies it, so the app's countdown and the server's own rejection
+ * in `createGlucoseReading` can never disagree.
+ */
+export async function getGlucoseEntryStatus(userId: string): Promise<GlucoseEntryStatus> {
+  const [cooldownHours, latest] = await Promise.all([
+    getSetting("health.glucoseEntryCooldownHours"),
+    prisma.glucoseReading.findFirst({
+      where: { userId },
+      orderBy: { measuredAt: "desc" },
+      select: { measuredAt: true },
+    }),
+  ]);
+
+  if (!latest) {
+    return { cooldownHours, lastReadingAt: null, nextAllowedAt: null, canEnterNow: true };
+  }
+
+  const nextAllowedAt = new Date(latest.measuredAt.getTime() + cooldownHours * 3_600_000);
+  return {
+    cooldownHours,
+    lastReadingAt: latest.measuredAt,
+    nextAllowedAt,
+    canEnterNow: nextAllowedAt.getTime() <= Date.now(),
+  };
+}
+
 export async function createGlucoseReading(userId: string, input: CreateGlucoseInput) {
+  const status = await getGlucoseEntryStatus(userId);
+  if (!status.canEnterNow) {
+    // The client is expected to hide the entry form entirely once it has
+    // read this same status — reaching here means either a stale screen or
+    // a direct API call, and either way the server is the one that must
+    // actually refuse it, not just the UI that happens to be hiding it.
+    throw new ForbiddenError(
+      `The next reading can be entered at ${status.nextAllowedAt!.toISOString()}.`,
+    );
+  }
+
   const reading = await prisma.glucoseReading.create({
     data: { userId, ...input },
     select: READING_SELECT,

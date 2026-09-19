@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -17,6 +18,49 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// Unwraps a raw HTTP response into the backend's `{success,data|error}`
+/// envelope — or, for a `noContent()` route, into `null`.
+///
+/// Pulled out of [ApiClient] as a free function (rather than a private
+/// method) specifically so it can be unit-tested directly against
+/// constructed [http.Response] objects, with no network and no Flutter
+/// bindings — `flutter test` fakes every real HTTP call, so a body-parsing
+/// bug like this one is otherwise only found by clicking through the app.
+///
+/// A success response can legitimately have no body at all: every
+/// `noContent()` route on the backend (204 — setting an MPIN, deleting a
+/// record) sends an empty one on purpose. Calling `jsonDecode('')`
+/// unconditionally on every response used to throw here, and was reported
+/// by a real user as "the server sent an unexpected response" on an action
+/// (setting a PIN) that had actually already succeeded.
+@visibleForTesting
+dynamic unwrapApiResponse(http.Response response) {
+  if (response.body.isEmpty) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return null;
+    }
+    throw ApiException(response.statusCode, 'UNKNOWN', 'Something went wrong.');
+  }
+
+  Map<String, dynamic> body;
+  try {
+    body = jsonDecode(response.body) as Map<String, dynamic>;
+  } catch (_) {
+    throw ApiException(response.statusCode, 'PARSE_ERROR', 'The server sent an unexpected response.');
+  }
+
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    return body;
+  }
+
+  final error = body['error'] as Map<String, dynamic>?;
+  throw ApiException(
+    response.statusCode,
+    (error?['code'] as String?) ?? 'UNKNOWN',
+    (error?['message'] as String?) ?? 'Something went wrong.',
+  );
 }
 
 /// Thin wrapper around `http` that attaches the bearer token (Better Auth's
@@ -62,25 +106,7 @@ class ApiClient {
     return Uri.parse('$base$path').replace(queryParameters: query);
   }
 
-  dynamic _unwrap(http.Response response) {
-    Map<String, dynamic> body;
-    try {
-      body = jsonDecode(response.body) as Map<String, dynamic>;
-    } catch (_) {
-      throw ApiException(response.statusCode, 'PARSE_ERROR', 'The server sent an unexpected response.');
-    }
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return body;
-    }
-
-    final error = body['error'] as Map<String, dynamic>?;
-    throw ApiException(
-      response.statusCode,
-      (error?['code'] as String?) ?? 'UNKNOWN',
-      (error?['message'] as String?) ?? 'Something went wrong.',
-    );
-  }
+  dynamic _unwrap(http.Response response) => unwrapApiResponse(response);
 
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
     final response = await http.get(await _uri(path, query), headers: await _headers(json: false));

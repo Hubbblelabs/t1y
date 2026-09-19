@@ -9,7 +9,7 @@ import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/locale_aware.dart';
-import '../../widgets/topic_card.dart';
+import '../../widgets/topic_card.dart' show TopicCard, categoryIcons;
 import 'topic_detail_screen.dart';
 
 class HelpBookListScreen extends StatefulWidget {
@@ -24,6 +24,10 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
   late Future<List<Topic>> _future;
   String? _baseUrl;
   Set<String> _readSlugs = {};
+
+  /// Tapped category icon, filtering the list below — null shows everything.
+  /// Tapping the same icon again clears it back to null.
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -59,11 +63,17 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
   }
 
   Future<void> _openTopic(Topic topic) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TopicDetailScreen(topic: topic)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => TopicDetailScreen(topic: topic)));
     // Reading a topic marks it complete; reflect that on return.
     await _loadProgress();
+  }
+
+  void _selectCategory(String category) {
+    setState(() {
+      _selectedCategory = _selectedCategory == category ? null : category;
+    });
   }
 
   @override
@@ -79,8 +89,23 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
             builder: (context, snapshot) {
               final topics = snapshot.data ?? [];
               if (topics.isEmpty) return const SizedBox.shrink();
-              final readCount = topics.where((t) => _readSlugs.contains(t.slug)).length;
-              return _ProgressBanner(read: readCount, total: topics.length);
+              final readCount = topics
+                  .where((t) => _readSlugs.contains(t.slug))
+                  .length;
+              // Distinct categories actually published — not every
+              // `categoryIcons` entry, which would show an icon for a
+              // category with nothing in it yet.
+              final categories = {for (final t in topics) t.category}.toList();
+              return Column(
+                children: [
+                  _ProgressBanner(read: readCount, total: topics.length),
+                  _CategoryIconRow(
+                    categories: categories,
+                    selected: _selectedCategory,
+                    onSelect: _selectCategory,
+                  ),
+                ],
+              );
             },
           ),
           Expanded(
@@ -122,8 +147,8 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
                     );
                   }
 
-                  final topics = snapshot.data ?? [];
-                  if (topics.isEmpty) {
+                  final allTopics = snapshot.data ?? [];
+                  if (allTopics.isEmpty) {
                     return ListView(
                       children: [
                         Padding(
@@ -133,6 +158,11 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
                       ],
                     );
                   }
+
+                  final category = _selectedCategory;
+                  final topics = category == null
+                      ? allTopics
+                      : allTopics.where((t) => t.category == category).toList();
 
                   return ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -200,6 +230,146 @@ class _ProgressBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// One icon per published category, sitting under the progress banner —
+/// each behaves like a quick action: tap to jump straight to that part of
+/// the Help Book, tap the same one again to see everything.
+class _CategoryIconRow extends StatelessWidget {
+  final List<String> categories;
+  final String? selected;
+  final ValueChanged<String> onSelect;
+
+  const _CategoryIconRow({
+    required this.categories,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.length < 2) return const SizedBox.shrink();
+
+    return SizedBox(
+      height: 108,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+        itemCount: categories.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final category = categories[index];
+          return _CategoryIconTile(
+            icon: categoryIcons[category] ?? Icons.article_outlined,
+            label: _categoryLabel(category),
+            selected: category == selected,
+            onTap: () => onSelect(category),
+          );
+        },
+      ),
+    );
+  }
+}
+
+String _categoryLabel(String category) {
+  final words = category.split('_');
+  return words
+      .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
+      .join(' ');
+}
+
+/// A single quick-action icon tile — dips slightly on press, same treatment
+/// as the home screen's own quick-action tiles, so the two read as the same
+/// kind of control.
+class _CategoryIconTile extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _CategoryIconTile({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  State<_CategoryIconTile> createState() => _CategoryIconTileState();
+}
+
+class _CategoryIconTileState extends State<_CategoryIconTile> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.93 : 1,
+        duration: const Duration(milliseconds: 130),
+        curve: Curves.easeOut,
+        child: SizedBox(
+          width: 66,
+          // A fixed height, not just a fixed width: the label's natural line
+          // height varies slightly by platform/font metrics, and that's what
+          // was overflowing the row by a few pixels even with headroom in
+          // the parent — pinning every piece of this tile's size removes
+          // the guesswork entirely instead of padding around it.
+          height: 90,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: widget.selected ? AppTheme.primary : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.deep.withValues(
+                        alpha: widget.selected ? 0.14 : 0.08,
+                      ),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  widget.icon,
+                  size: 24,
+                  color: widget.selected ? Colors.white : AppTheme.primary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 16,
+                child: Text(
+                  widget.label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    height: 1.1,
+                    fontWeight: FontWeight.w600,
+                    color: widget.selected
+                        ? AppTheme.deep
+                        : Colors.black.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

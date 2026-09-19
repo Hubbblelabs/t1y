@@ -32,10 +32,10 @@ class ProfileService {
   /// with. [answers] uses the keys from `models/signup_question.dart`.
   Future<void> stashSignupAnswers(Map<String, String> answers) async {
     final profile = <String, dynamic>{
-      if (answers['firstName'] != null) 'firstName': answers['firstName'],
-      if (answers['lastName'] != null) 'lastName': answers['lastName'],
+      if (answers['name'] != null) 'name': answers['name'],
       if (answers['dateOfBirth'] != null) 'dateOfBirth': answers['dateOfBirth'],
-      if (answers['sex'] != null) 'sex': _sexMap[answers['sex']] ?? 'UNSPECIFIED',
+      if (answers['sex'] != null)
+        'sex': _sexMap[answers['sex']] ?? 'UNSPECIFIED',
       if (answers['diagnosisYear'] != null)
         'diagnosisYear': int.tryParse(answers['diagnosisYear']!),
       // Every participant in this study is Type 1 by the inclusion criteria.
@@ -62,6 +62,21 @@ class ProfileService {
     } catch (_) {
       // Leave it queued; retried on the next sign-in.
     }
+  }
+
+  /// Saves any subset of the extended profile fields (phone, address,
+  /// treatment details, emergency contact, …) — the ones a parent fills in
+  /// after sign-up, separately from the identity fields captured in the
+  /// chat. Refreshes the cache on success so the Profile screen reflects it
+  /// immediately without a second round trip.
+  Future<void> updateProfile(Map<String, dynamic> fields) async {
+    final data = await ApiClient.instance.patch(
+      '/api/users/me',
+      body: {'profile': fields},
+    );
+    final me = data['data'] as Map<String, dynamic>;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheKey, jsonEncode(me));
   }
 
   /// Current user + profile, server-truth with a local fallback so the

@@ -177,11 +177,15 @@ class _Thumbnail extends StatelessWidget {
     required this.fallbackIcon,
   });
 
+  // 3:2 — the same fixed image ratio used across the Help Book.
+  static const _width = 114.0;
+  static const _height = 76.0;
+
   @override
   Widget build(BuildContext context) {
     final placeholder = Container(
-      width: 104,
-      height: 104,
+      width: _width,
+      height: _height,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -189,21 +193,21 @@ class _Thumbnail extends StatelessWidget {
           colors: [AppTheme.lightest, AppTheme.accent.withValues(alpha: 0.7)],
         ),
       ),
-      child: Icon(fallbackIcon, size: 38, color: AppTheme.deep.withValues(alpha: 0.55)),
+      child: Icon(fallbackIcon, size: 32, color: AppTheme.deep.withValues(alpha: 0.55)),
     );
 
     final thumb = topic.thumbnailUrl;
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        width: 104,
-        height: 104,
+        width: _width,
+        height: _height,
         child: (thumb == null || baseUrl == null)
             ? placeholder
             : Image.network(
                 thumb.startsWith('http') ? thumb : '$baseUrl$thumb',
-                width: 104,
-                height: 104,
+                width: _width,
+                height: _height,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => placeholder,
                 loadingBuilder: (context, child, progress) =>

@@ -72,6 +72,13 @@ enum Sex {
   UNSPECIFIED
 }
 
+enum ProfileFieldType {
+  TEXT
+  NUMBER
+  DATE
+  CHOICE
+}
+
 enum GlucoseUnit {
   MG_DL
   MMOL_L
@@ -346,8 +353,15 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
+  /// The parent account this child belongs to. Null for ADMIN users and for
+  /// participants enrolled before households existed — those are treated as
+  /// a household of one, so nothing breaks for them.
+  householdId String?
+
   sessions Session[]
   accounts Account[]
+
+  household Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
   profile   Profile?
   adminUser AdminUser?
@@ -382,7 +396,9 @@ model User {
   quizAttempts  QuizAttempt[]
   topicProgress TopicProgress[]
   syncEvents    SyncEvent[]
+  quizBadges    QuizBadge[]
 
+  @@index([householdId])
   @@index([role, status])
   @@index([createdAt])
   @@index([status, createdAt])
@@ -457,6 +473,55 @@ model ApiRateLimit {
 }
 
 // ---------------------------------------------------------------------------
+// Households
+//
+// A parent in this study may enrol more than one child. Each child keeps
+// their own `User` row — that is what every route, quiz attempt, progress
+// record and research export already keys on, and splitting children out
+// into a non-User entity would rewrite all of it for no clinical gain.
+// A Household is purely the grouping above them: the parent's own contact
+// details, the MPIN that gates glucose entry, and the fact that these
+// children share one sign-in.
+//
+// Sign-in stays Better Auth's email+password against a child `User`. The
+// parent's email/phone resolves to the household, the app shows the child
+// picker, and the chosen child's account is the one the session belongs to
+// — see lib/services/households.ts.
+// ---------------------------------------------------------------------------
+
+model Household {
+  id String @id @default(cuid())
+
+  /// What the parent types to sign in. Distinct from any child `User.email`
+  /// (which must stay unique per child), and the reason a parent with three
+  /// children still has exactly one set of credentials to remember.
+  email String  @unique
+  phone String? @unique
+
+  parentName String
+
+  /// scrypt hash of the 4-6 digit MPIN gating glucose entry, and null until
+  /// the parent sets one in Profile. Never the same secret as the account
+  /// password — a PIN this short is only a "not the child's fingers" gate,
+  /// so it is rate-limited server-side and resettable only with the account
+  /// password. See lib/services/mpin.ts.
+  mpinHash  String?
+  mpinSetAt DateTime?
+
+  /// Consecutive failed MPIN attempts, reset to 0 on success. Lock-out is
+  /// derived from this rather than stored, so it expires on its own.
+  mpinFailedAttempts Int       @default(0)
+  mpinLockedUntil    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  children User[]
+
+  @@index([phone])
+}
+
+// ---------------------------------------------------------------------------
 // Participant and staff profiles
 // ---------------------------------------------------------------------------
 
@@ -467,8 +532,11 @@ model Profile {
   /// Stable pseudonymous identifier used in research exports (e.g. "P001").
   participantCode String @unique
 
-  firstName   String
-  lastName    String
+  /// The child's full name as one field — the study never needed first/last
+  /// split out (nothing sorts, matches, or exports on either part alone),
+  /// and splitting a name that isn't naturally "first + last" in every
+  /// family's convention was friction the form didn't need.
+  name        String
   dateOfBirth DateTime?
   sex         Sex       @default(UNSPECIFIED)
   phone       String?
@@ -484,6 +552,15 @@ model Profile {
 
   emergencyContactName  String?
   emergencyContactPhone String?
+
+  /// Answers to admin-defined [ProfileFieldDefinition]s, keyed by
+  /// `ProfileFieldDefinition.key`. Deliberately a JSON bucket rather than a
+  /// column per field: an admin can invent a field at any time, and giving
+  /// it a real column would need a migration for every one. A field that is
+  /// later deactivated leaves its answers here untouched — deactivating
+  /// only stops the field from being *asked* for, it never deletes what was
+  /// already collected.
+  customFieldValues Json @default("{}")
 
   /// Per-child gate for the app's IC/ISF calculator. Deliberately not the
   /// global `ic_isf_calculator` feature flag: the ratios are prescribed per
@@ -504,7 +581,54 @@ model Profile {
 
   @@index([diabetesType])
   @@index([lastActivityAt])
-  @@index([lastName, firstName])
+  @@index([name])
+}
+
+/// An admin-defined field on the parent-facing profile form, on top of the
+/// fixed set of columns already on [Profile].
+///
+/// `key` is the stable identifier an answer is filed under in
+/// `Profile.customFieldValues` — immutable once set, because renaming it
+/// would orphan every answer already collected under the old key.
+///
+/// There is deliberately no delete: retiring a field is done by setting
+/// `active: false`, which stops the app asking for it and forces `required`
+/// back to false at the same time (see updateProfileFieldDefinition) —
+/// existing answers under its key are left exactly where they are. A hard
+/// delete would either orphan that data or require cascading it away, and
+/// this is self-reported study data — nothing here should vanish because an
+/// admin changed their mind about a form.
+model ProfileFieldDefinition {
+  id  String @id @default(cuid())
+  key String @unique
+
+  fieldType ProfileFieldType @default(TEXT)
+  /// Free-text grouping label (e.g. "Additional details") the app renders
+  /// this field under — not a fixed enum, so an admin can group fields
+  /// without a code change.
+  section   String           @default("Additional details")
+
+  /// Enforced client-side at save time only, and only while `active` — never
+  /// retroactively against rows already in the database. A profile saved
+  /// while a field was required and later left blank (because the field was
+  /// deactivated, or the parent simply skipped an optional one) is never
+  /// treated as broken data.
+  required  Boolean @default(false)
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  labelEn String
+  labelTa String?
+  hintEn  String?
+  hintTa  String?
+
+  /// For `fieldType: CHOICE` only — `[{ "value": "...", "labelEn": "...", "labelTa": "..." }]`.
+  options Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }
 
 /// Staff-specific metadata. Authorisation always derives from `User.role`.
@@ -1000,6 +1124,15 @@ model EducationContent {
   bodySource String?
   bodyFormat ContentBodyFormat @default(HTML)
 
+  /// Ordered `{paragraph, imageUrl, imageKey}[]` — the Help Book reading
+  /// screen's image-above-text layout, where the image changes to match
+  /// whichever paragraph is on screen. Null/empty means "not migrated to
+  /// block layout yet"; the reader falls back to `body`. A block with no
+  /// `imageUrl` inherits the previous block's image (or the topic's
+  /// `thumbnailUrl`, or a generic fallback) — see
+  /// scripts/split-content-blocks.ts and ContentBlock's own doc.
+  contentBlocks Json?
+
   mediaType          MediaType @default(NONE)
   mediaUrl           String?
   mediaKey           String?
@@ -1134,6 +1267,7 @@ model Quiz {
   author    User           @relation("QuizAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   questions QuizQuestion[]
   attempts  QuizAttempt[]
+  badges    QuizBadge[]
 
   @@unique([slug, locale])
   @@index([status, locale])
@@ -1243,6 +1377,57 @@ model QuizResponse {
 
   @@unique([attemptId, questionId])
   @@index([questionId])
+}
+
+// ---------------------------------------------------------------------------
+// Rewards
+//
+// Engagement scaffolding for children aged 6-15: one badge per quiz.
+// Deliberately *derived* state — every badge is recomputed
+// from the QuizAttempt that earned it, so these tables can be rebuilt from
+// scratch and carry no information the attempt data doesn't already have.
+// That keeps them out of the research dataset's way: they are motivation,
+// not measurement.
+// ---------------------------------------------------------------------------
+
+/// Score bands, highest first. A quiz scored below [BadgeTier.RISING]'s
+/// threshold earns no badge at all — the app says "you gave it your best,
+/// try again" rather than handing out a participation tier, which children
+/// read straight through.
+enum BadgeTier {
+  /// 91-100%
+  GOLD
+  /// 81-90%
+  SILVER
+  /// 61-80%
+  BRONZE
+  /// 51-60%
+  RISING
+}
+
+/// The single best badge a child holds for one quiz. Beating your own score
+/// overwrites the row (see lib/services/badges.ts) — the collection shows a
+/// child's best work per quiz, never a pile of every attempt, so retaking a
+/// quiz can only ever improve the wall.
+model QuizBadge {
+  id     String @id @default(cuid())
+  userId String
+  quizId String
+
+  tier         BadgeTier
+  scorePercent Int
+  /// The attempt that earned this badge, kept so the badge can always be
+  /// traced back to real scored evidence.
+  attemptId    String    @unique
+
+  earnedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quizId])
+  @@index([userId, earnedAt])
 }
 
 // ---------------------------------------------------------------------------

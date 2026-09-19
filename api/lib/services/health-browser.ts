@@ -40,8 +40,7 @@ async function scopedUserFilter(
       ? {
           OR: [
             { profile: { participantCode: { contains: search, mode: "insensitive" } } },
-            { profile: { firstName: { contains: search, mode: "insensitive" } } },
-            { profile: { lastName: { contains: search, mode: "insensitive" } } },
+            { profile: { name: { contains: search, mode: "insensitive" } } },
           ],
         }
       : {}),
@@ -50,7 +49,7 @@ async function scopedUserFilter(
 
 const participantSelect = {
   id: true,
-  profile: { select: { participantCode: true, firstName: true, lastName: true } },
+  profile: { select: { participantCode: true, name: true } },
 } satisfies Prisma.UserSelect;
 
 export async function browseGlucose(principal: Principal, params: BrowseParams) {
@@ -266,12 +265,10 @@ export async function browseHealthMetrics(principal: Principal, params: BrowsePa
 
 /** Formats the participant column consistently across every browse table. */
 export function participantLabel(user: {
-  profile: { participantCode: string; firstName: string; lastName: string } | null;
+  profile: { participantCode: string; name: string } | null;
 }): { code: string; name: string } {
   return {
     code: user.profile?.participantCode ?? "—",
-    name: user.profile
-      ? `${user.profile.firstName} ${user.profile.lastName}`
-      : "Unknown participant",
+    name: user.profile?.name ?? "Unknown participant",
   };
 }

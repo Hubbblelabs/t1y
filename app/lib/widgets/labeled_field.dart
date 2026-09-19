@@ -24,6 +24,11 @@ class LabeledField extends StatefulWidget {
   final bool readOnly;
   final VoidCallback? onTap;
 
+  /// Overrides the app-wide pale-blue fill (`AppTheme.lightest`) with a
+  /// white field plus a visible outline — used on screens where the fields
+  /// otherwise blend into a light background and stop reading as fillable.
+  final bool whiteFill;
+
   const LabeledField({
     super.key,
     required this.icon,
@@ -38,6 +43,7 @@ class LabeledField extends StatefulWidget {
     this.suffixIcon,
     this.readOnly = false,
     this.onTap,
+    this.whiteFill = false,
   });
 
   @override
@@ -88,11 +94,19 @@ class _LabeledFieldState extends State<LabeledField> {
       children: [
         Row(
           children: [
-            Icon(widget.icon, size: 16, color: AppTheme.deep.withValues(alpha: 0.75)),
+            Icon(
+              widget.icon,
+              size: 16,
+              color: AppTheme.deep.withValues(alpha: 0.75),
+            ),
             const SizedBox(width: 6),
             Text(
               widget.label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.deep.withValues(alpha: 0.85)),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.deep.withValues(alpha: 0.85),
+              ),
             ),
           ],
         ),
@@ -111,10 +125,30 @@ class _LabeledFieldState extends State<LabeledField> {
           cursorColor: AppTheme.primary,
           decoration: InputDecoration(
             hintText: widget.hint,
+            filled: widget.whiteFill ? true : null,
+            fillColor: widget.whiteFill ? Colors.white : null,
+            enabledBorder: widget.whiteFill
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: AppTheme.deep.withValues(alpha: 0.14),
+                    ),
+                  )
+                : null,
+            border: widget.whiteFill
+                ? OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(
+                      color: AppTheme.deep.withValues(alpha: 0.14),
+                    ),
+                  )
+                : null,
             suffixIcon: widget.obscureText
                 ? IconButton(
                     icon: Icon(
-                      _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                      _obscured
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
                       color: AppTheme.deep.withValues(alpha: 0.5),
                       size: 20,
                     ),

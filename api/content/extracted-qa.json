@@ -1,0 +1,524 @@
+[
+  {
+    "slug": "exercise",
+    "locale": "EN",
+    "question": "At the time of sports activity (like swimming, karate, gym) what to do to maintain the BSL?",
+    "answer": "Check BSL before any sports activity if it is > 250 avoid the activity or take correction dose and then do the activity. If BSL is below 100 then eat 1-2 exchange (15 to 30 grams) of carbs. Do BSL afterward also. It is very important to avoid post exercise hypo."
+  },
+  {
+    "slug": "exercise",
+    "locale": "EN",
+    "question": "Can T1Ds trek at high altitudes?",
+    "answer": "Yes absolutely. With right care, T1ds can participate in all activities and soprts.Talk to your doctor for necessary precautions."
+  },
+  {
+    "slug": "exercise",
+    "locale": "TA",
+    "question": "நீச்சல், கராத்தே, உடற்பயிற்சிக் கூடம் போன்ற விளையாட்டு நடவடிக்கைகளில் ஈடுபடும்போது, உடல் தகுதி நிலையை (BSL) பராமரிக்க என்ன செய்ய வேண்டும்?",
+    "answer": "எந்தவொரு விளையாட்டுச் செயலுக்கும் முன் இரத்த சர்க்கரை அளவை (BSL) சரிபார்க்கவும். அது 250-க்கு மேல் இருந்தால், அந்தச் செயலைத் தவிர்க்கவும் அல்லது சரிசெய்யும் அளவை எடுத்துக்கொண்டு பின்னர் அந்தச் செயலில் ஈடுபடவும். இரத்த சர்க்கரை அளவு 100-க்குக் குறைவாக இருந்தால், 1-2 எக்ஸ்சேஞ்ச் (15 முதல் 30 கிராம்) கார்போஹைட்ரேட்டுகளை உண்ணுங்கள். அதன் பிறகும் இரத்த சர்க்கரை அளவைச் சரிபார்க்கவும். உடற்பயிற்சிக்குப் பிந்தைய இரத்த சர்க்கரைக் குறைவைத் (post exercise hypo) தவிர்ப்பது மிகவும் முக்கியம்."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What should be bed time sugar levels?",
+    "answer": "You must talk to your doctor to decide a safe target, which can be modified based on your individual experience. For children it is recommended to keep bedtime blood sugars above 150 mg/dl."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What should be the difference between the bed time (pp3) sugar & fasting sugar?",
+    "answer": "It should be around 30 to 50 mg/dl indicating that the basal insulin is working fine."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Why a child’s fasting sugar goes high inspite of night sugar being normal?",
+    "answer": "Basal insulin would be less or not"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Does taking blood from other sites such as palm or toes, arm etc. give correct BG levels ?",
+    "answer": "Yes the readings are quite accurate. Common alternative blood testing sites include the palm, forearm, upper arm, thigh and calf. It may not give an accurate result when glucose levels are changing rapidly. E.g. after a meal, after taking insulin, during exercise or when you are sick or experiencing stress. When you need an immediate, present-moment result, such as when you suspect low blood sugar, always use a finger test site."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Does weather affect blood glucose levels?",
+    "answer": "Yes it does. Hot weather generaly leads to more hypos."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Where are Glucose monitoring and insulin administration products available?",
+    "answer": "Please visit KEM diabetes educator. http://www.gluco-wise.com /https://in.abbott-diabetescare.com /freestyle-libre-pro.php"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Where can we buy glucometer strips online?",
+    "answer": "Amazon, Ebay, shopclues.com, netmeds.com, medlife.com and others"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which apps can be used for logging blood sugars, food etc?",
+    "answer": "MySugr, Diabetes:M, OnTrack and several others"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What does CGM stand for?",
+    "answer": "Continous Glucose Monitoring"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What exactly is the Libre?",
+    "answer": "The Libre Pro is a FGM – Flash Continuous Glucose Monitoring System."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Where all on the body can the libre pro be used?",
+    "answer": "It’s recommended by Abbott to use it on the outer arm. It can also be used on the inner arm, outer thighs, inner thighs and stomach as per user feedback"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Does site variation for libre affect the accuracy?",
+    "answer": "No it does not (as per feedback)"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Are there tapes or stickers to put over the libre?",
+    "answer": "Tegaderm is an option"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Does the libre take 24 hours to warm up and give proper readings?",
+    "answer": "Not necessarily, usually 3-4 hours warm up (and calibrations if using Glimp) does the trick. It might take longer with just the reader."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Is it necessary to have reader for using libre pro sensor?",
+    "answer": "We need reader to activate the sensor. Once the sensor is activated we can eighter read the data from reader or an NFC enabled Android phone using Glimp App.Glimp App shows the actual glucose value. The reader shows only sugar graph & not the value. For seeing the values you have to download it to PC or laptop."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Can Libre Pro reports be downloaded or accessed without a reader?",
+    "answer": "No, a reader is needed to read the sensor and generate reports through a software on a computer."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Can the Libre Pro be used for taking a reading with a phone if the Abbott reader is not working / available?",
+    "answer": "Yes, it’s possible on NFC enabled Android mobile phones. A third party app called “Glimp” needs to be downloaded and used to scan the reading"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which phone model has the facility for reading of libre sensor?",
+    "answer": "There is an app called Glimp. Glimp is supported on devices which have NFC (Near Field Communication)."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which glucose reading is generally closer to the actual glucometer value, the Libre reader or Glimp?",
+    "answer": "Usually, Glimp – since calibration is possible (unlike the reader)"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "How to check compatibility of a device on the Glimp app?",
+    "answer": "Options > Info > List of Compatible Devices"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which phones in the Indian market are known to be compatible with the app Glimp to read the Libre Pro sensor?",
+    "answer": "LG G3 D855, LG watch Urbane 2nd edition, LG watch Urbane, LG Q Stylus, Samsung galaxy A3 GT S7270, SM A300, S3 GT-I9300, S3 Neo GT 19301, S4 GT 11905, S4 Mini GT 19195, S7 Edge, SMG935, S8, One Plus 3T/5/5T/6, Motorola XPlay, Lenovo X3A40, Motorola G5 Plus, Motorola One action, Nokia 3TA1032, Xiomi MI 5, Nokia 6.1"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What do you like about libre?",
+    "answer": "It is relatively affordable (compared to other available options), it’s sticky and doesn’t fall out, it gives a lot of blood sugar data to study and it is much superior compared to 5-6 meter tests a day – it covers all blind spots over 24 hours. It is helpful to understand trends and useful overnight too. It is important to check against a glucometer though"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What are the drawbacks of the libre?",
+    "answer": "It’s more expensive than meter tests, if it falls off, it’s a complete waste, it could be 20-30 mg/dl lesser than meter values due to it measuring interstitial fluid and the meter measuring capillary fluid (therefore affecting dosing), the libre is more unpredictable and far from meter values when sugars are either too high or too low."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Does Libre work more than 14 days?",
+    "answer": "No it doesn’t"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What is the worth of Dixcom CGM. Who uses it. What is Dixcom G5. Can it be given to a 4 year old?",
+    "answer": "It is an alteranate to Libre. It is a CGM as opposed to Libre which monitors every 15 mins or so. https://www.dexcom.com/en-IN"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "What is duration & level of blood glucose for starting ketone production in our body?",
+    "answer": "There is no cut off number of BSL for ketone generation in our body.It is multifactorial. Ketone starts generating in following conditions *New onset Diabetes *Acute illness & infections *Dehydration *Starvation *Irregular/Skipping insulin *High BSL."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which ketones strips should I use?",
+    "answer": "Bayer is a known and trusted brand to use."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "EN",
+    "question": "Which is the best and affordable glucometer?",
+    "answer": "There are many glucometers available in the market. While buying a meter, one must consider:"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "உறங்கும் முன் சர்க்கரையின் அளவு என்னவாக இருக்க வேண்டும்?",
+    "answer": "பாதுகாப்பான ஒரு இலக்கைத் தீர்மானிக்க நீங்கள் உங்கள் மருத்துவரிடம் கலந்தாலோசிக்க வேண்டும்; உங்கள் தனிப்பட்ட அனுபவத்தின் அடிப்படையில் அதனை மாற்றியமைக்கலாம். குழந்தைகளுக்கு, உறங்கும் நேர இரத்தச் சர்க்கரை அளவை 150 mg/dl-க்கு மேல் வைத்திருக்குமாறு பரிந்துரைக்கப்படுகிறது."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "படுக்கைக்குச் செல்லும் முன் (பக்.3) உள்ள சர்க்கரை அளவுக்கும், வெறும் வயிற்றில் உள்ள சர்க்கரை அளவுக்கும் என்ன வித்தியாசம் இருக்க வேண்டும்?",
+    "answer": "இது சுமார் 30 முதல் 50 mg/dl வரை இருக்க வேண்டும், இது பேசல் இன்சுலின் சரியாகச் செயல்படுகிறது என்பதைக் குறிக்கிறது."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "இரத்த சர்க்கரை அளவைக் கண்காணிப்பதற்கும் இன்சுலின் செலுத்துவதற்குமான தயாரிப்புகள் எங்கே கிடைக்கும்?",
+    "answer": "தயவுசெய்து KEM நீரிழிவு கல்வியாளரைப் பார்வையிடவும். http://www.gluco-wise.com /https://in.abbott-diabetescare.com /freestyle- libre - pro.php"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "குளுக்கோமீட்டர் பட்டைகளை ஆன்லைனில் எங்கே வாங்கலாம்?",
+    "answer": "அமேசான், ஈபே , ஷாப்க்ளூஸ்.காம், நெட்மெட்ஸ்.காம், மெட்லைஃப்.காம் மற்றும் பிற."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "லிப்ரே ப்ரோவை உடலின் எந்தெந்தப் பகுதிகளில் பயன்படுத்தலாம்?",
+    "answer": "இதை வெளிக்கையில் பயன்படுத்துமாறு அபோட் நிறுவனம் பரிந்துரைக்கிறது. பயனர்களின் கருத்துக்களின்படி, இதை உள்கை, வெளித் தொடைகள், உள் தொடைகள் மற்றும் வயிற்றிலும் பயன்படுத்தலாம்."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "லிப்ரேயின் மீது ஒட்டுவதற்கு டேப்புகள் அல்லது ஸ்டிக்கர்கள் உள்ளனவா?",
+    "answer": "டெகாடெர்ம் ஒரு தேர்வாகும் ."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "Glimp செயலியில் ஒரு சாதனத்தின் இணக்கத்தன்மையை எவ்வாறு சரிபார்ப்பது ?",
+    "answer": "விருப்பங்கள் > தகவல் > இணக்கமான சாதனங்களின் பட்டியல்"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "இந்திய சந்தையில், லிப்ரே ப்ரோ சென்சாரின் செயல்பாட்டைப் படிக்க, க்ளிம்ப் செயலியுடன் இணக்கமான தொலைபேசிகள் எவை ?",
+    "answer": "எல்ஜி ஜி3 டி855, எல்ஜி வாட்ச் அர்பேன் 2 ஆம் பதிப்பு, எல்ஜி வாட்ச் அர்பேன், எல்ஜி க்யூ ஸ்டைலஸ், சாம்சங் கேலக்ஸி ஏ3 ஜிடி எஸ்7270, எஸ்எம் ஏ300, எஸ்3 ஜிடி-ஐ9300, எஸ்3 நியோ ஜிடி 19301, எஸ்4 ஜிடி 11905, எஸ்4 மினி ஜிடி 19195, எஸ்7 எட்ஜ், எஸ்எம்ஜி935, எஸ்8, ஒன் பிளஸ் 3டி/5/5டி/6, மோட்டோரோலா எக்ஸ்பிளே , லெனோவா எக்ஸ்3ஏ40, மோட்டோரோலா ஜி5 பிளஸ், மோட்டோரோலா ஒன் ஆக்சன், நோக்கியா 3டிஏ1032, சியோமி எம்ஐ 5, நோக்கியா 6.1"
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "லிப்ரே 14 நாட்களுக்கு மேல் செயல்படுமா?",
+    "answer": "இல்லை, அப்படி இல்லை."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "நம் உடலில் கீட்டோன் உற்பத்தி தொடங்குவதற்குத் தேவையான இரத்த குளுக்கோஸின் கால அளவு மற்றும் நிலை என்ன?",
+    "answer": "நம் உடலில் கீட்டோன் உருவாவதற்கு இரத்த சர்க்கரை அளவில் (BSL) ஒரு குறிப்பிட்ட வரம்பு இல்லை. இது பல காரணிகளைச் சார்ந்தது. பின்வரும் நிலைகளில் கீட்டோன் உருவாகத் தொடங்குகிறது: *புதிதாகத் தோன்றும் நீரிழிவு நோய் *கடுமையான நோய்கள் மற்றும் தொற்றுகள் *நீரிழப்பு *பட்டினி *ஒழுங்கற்ற/தவறவிட்ட இன்சுலின் *அதிக இரத்த சர்க்கரை அளவு."
+  },
+  {
+    "slug": "glucose-monitoring",
+    "locale": "TA",
+    "question": "நான் எந்த கீட்டோன் பட்டைகளைப் பயன்படுத்த வேண்டும்?",
+    "answer": "பேயர் என்பது பயன்படுத்துவதற்கு நன்கு அறியப்பட்ட மற்றும் நம்பகமான ஒரு பிராண்ட் ஆகும்."
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "EN",
+    "question": "Any tips on hypo treatment that can be carried in a bag easily?",
+    "answer": "Regular Glucovita or hypotabs are easy to carry. In empty Glucovita containers, Glucon-D can be filled. It is easy and economical to carry."
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "EN",
+    "question": "Can't find hypotabs in the market, what should I use for treating hypos?",
+    "answer": ""
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "EN",
+    "question": "I give my son milk at bedtime to avoid night time hypos but I get unexpected sugars next morning. Why could this be?",
+    "answer": "It could be for various reasons such as incorrect basal, delayed spike from protein or fat rich foods, insufficient or excess bolus for dinner etc."
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "EN",
+    "question": "Why one experiences hypo symptoms even if the BSL is in range?",
+    "answer": "It maybe because the body is used to high blood glucose levels. Monitor sugars frequently and try to keep all sugars in the range (between 100 to 180). The body will get the habit to adjust and stabilize in this range and hypo symptoms will not be seen while the sugars are in the range."
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "TA",
+    "question": "இரவு நேர சர்க்கரைக் குறைவைத் தவிர்ப்பதற்காக, என் மகனுக்கு உறங்கும் முன் பால் கொடுக்கிறேன். ஆனால், மறுநாள் காலையில் எனக்கு எதிர்பாராத விதமாக சர்க்கரை அளவு அதிகரிக்கிறது. இதற்குக் காரணம் என்னவாக இருக்கலாம்?",
+    "answer": "தவறான பேசல், புரதம் அல்லது கொழுப்பு நிறைந்த உணவுகளால் ஏற்படும் தாமதமான ஸ்பைக், இரவு உணவின் போது போதுமான அளவு அல்லது அதிகப்படியான போலஸ் செலுத்துதல் போன்ற பல்வேறு காரணங்களால் இது ஏற்படலாம்."
+  },
+  {
+    "slug": "hypoglycaemia",
+    "locale": "TA",
+    "question": "இரத்த சர்க்கரை அளவு இயல்பான வரம்பில் இருந்தாலும், ஏன் குறை இரத்த அழுத்த அறிகுறிகள் ஏற்படுகின்றன?",
+    "answer": "உடல் அதிக இரத்த சர்க்கரை அளவுகளுக்குப் பழகிவிட்டதால் இது இருக்கலாம். சர்க்கரை அளவை அடிக்கடி கண்காணித்து, அனைத்து சர்க்கரை அளவுகளையும் (100 முதல் 180 வரை) வரம்பிற்குள் வைத்திருக்க முயற்சி செய்யுங்கள். இந்த வரம்பில் உடல் தன்னைச் சரிசெய்து நிலைபெறப் பழகிவிடும், மேலும் சர்க்கரை அளவு இந்த வரம்பில் இருக்கும்போது ஹைப்போ அறிகுறிகள் காணப்படாது."
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "EN",
+    "question": "As a child grows do we need to increase the dose of insulin?",
+    "answer": ""
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "EN",
+    "question": "What is I-port?",
+    "answer": ""
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "EN",
+    "question": "Can basal insulin (lantus / balasog) be given through i-port?",
+    "answer": ""
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "EN",
+    "question": "Does insulin make you put on weight?",
+    "answer": "It does, if taken in excess"
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "EN",
+    "question": "Even when after changing injection site my BSL is consistently high. What to do?",
+    "answer": "There are many factors influencing high sugars, injection site is only one of them. You need to check other factors like dose adjustment, diet etc."
+  },
+  {
+    "slug": "insulin-basics",
+    "locale": "TA",
+    "question": "ஊசி போடும் இடத்தை மாற்றிய பிறகும் எனது இரத்த சர்க்கரை அளவு (BSL) தொடர்ந்து அதிகமாகவே உள்ளது. என்ன செய்வது?",
+    "answer": "உயர் இரத்த சர்க்கரைக்கு பல காரணிகள் உள்ளன, ஊசி போடும் இடம் அவற்றில் ஒன்று மட்டுமே. மருந்தின் அளவை சரிசெய்தல், உணவுமுறை போன்ற பிற காரணிகளையும் நீங்கள் சரிபார்க்க வேண்டும்."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "Can a pump be bought through installments?",
+    "answer": "Yes EMI facility is provided by Medtronics India"
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "Can an insulin pump be used for a 6 year old?",
+    "answer": "Yes it can, on a doctor’s Recommendation and your own readiness, and after in depth knowledge about diabetes management."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "How often do you have to change the infusion set on the pump?",
+    "answer": "It is recommended by Medtronics to change it every 3 days, however changing every 4-5 days is okay too, depending on the sugars"
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "I would like to explore the option for an insulin pump. I am currently on insulin injections. How do I go about it?",
+    "answer": "Read up on insulin pumps, types of pumps, how they work etc., Consult your doctor and take their advice on whether the pump is a good option for you. If the doctor agrees, consult the Medtronics Medical Representative through your doctor. They will arrange a pump trial for you. If you are comfortable after the trial and can afford the pump and its recurring costs, you could buy and use it."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "Is a pump more expensive to buy and maintain compared to syringes or pens?",
+    "answer": "Yes it is more expensive at the intial cost as well as the running cost."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "What do I need to know before buying an insulin pump?",
+    "answer": "Apart from the technical aspects of using a pump, one needs to know carb counting, dose adjustment, sick day management, basal adjustment among others"
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "What is the ‘temporary basal’ feature on the pump?",
+    "answer": "A temporary basal rate is a feature available on insulin pumps. It allows you to temporarily increase or decrease your basal rate from anywhere between 30 minutes to 24 hours. It is a useful feature, especially when regular basal requirements might change, such as during sickness, while playing sports, during menstruation, during stress, during a low, during high carb meals etc."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "EN",
+    "question": "Which insulin is better for insulin pump?",
+    "answer": "Any rapid acting analog like Novorapid, Humalog, Apidra. Can use Actrapid, Insugen – R (shortacting insulin)"
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "TA",
+    "question": "பம்பில் உள்ள 'தற்காலிக அடித்தள' அம்சம் என்பது என்ன?",
+    "answer": "தற்காலிக பேஸல் ரேட் என்பது இன்சுலின் பம்புகளில் உள்ள ஒரு வசதியாகும். இது உங்கள் பேஸல் ரேட்டை 30 நிமிடங்கள் முதல் 24 மணி நேரம் வரை தற்காலிகமாக அதிகரிக்கவோ அல்லது குறைக்கவோ அனுமதிக்கிறது. குறிப்பாக, உடல்நலக்குறைவின் போது, விளையாட்டுகளில் ஈடுபடும்போது, மாதவிடாயின் போது, மன அழுத்தத்தின் போது, குறைந்த சர்க்கரை அளவின் போது, அதிக கார்போஹைட்ரேட் உணவுகளின் போது போன்ற வழக்கமான பேஸல் தேவைகள் மாறக்கூடிய சமயங்களில் இது ஒரு பயனுள்ள வசதியாகும்."
+  },
+  {
+    "slug": "insulin-pump",
+    "locale": "TA",
+    "question": "இன்சுலின் பம்பிற்கு எந்த இன்சுலின் சிறந்தது?",
+    "answer": "நோவோராபிட் , ஹியூமலாக், அபிட்ரா போன்ற ஏதேனும் ஒரு விரைவாகச் செயல்படும் அனலாக் . ஆக்ட்ராபிட் , இன்சுலின் -ஆர் ( குறுகிய நேரம் செயல்படும் இன்சுலின்) ஆகியவற்றையும் பயன்படுத்தலாம்."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Can a person with diabetes drink Nira?",
+    "answer": "Nira will cause tremendous sugar spikes. It can be taken in small quantities when in hypo."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Can diabetics have kodo millet?",
+    "answer": "Diabetics can have anything -including millets."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Can home made laddoos and chivda be eaten?",
+    "answer": ""
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Can sugar free be used? If yes, how Often?",
+    "answer": "Sugarfree / artificial sweeteners can be used to replace sugar in the diet. Prefer sweeteners containing sucralose / stevia. The long term risks of regularly using artificial sweeteners are not known; they are being studied. It is therefore better to use them occasionally and not on daily basis especially for kids.Fruit purees or dates can be used instead of artificial sweetner."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Can we have whey protein after work out?",
+    "answer": "If you do not meet your protein macros, you could. Better consult a nutritionist and not gym instructor!"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Does jamun lower blood glucose?",
+    "answer": "The only thing that lowers BG is insulin. Jamun may not cause a sudden spike in BG like certain other carb rich foods."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Does milk cause T1D?",
+    "answer": "The association of T1d and milk protein is not all that straight forward. Milk protein mimics the body protein and can trigger autoimmunity in a genetically susceptible individual. There are various hypothesis for explaining T1 in kids but nothing has been proven."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "How many dates to eat in hypo?",
+    "answer": "Differs from person to person. Small kids may need just one or two. Adults may need 3-4. One date contains 5-6 grams of carbs"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "How to curb or deal with hunger or snacking?",
+    "answer": "Protein rich snacks/foods such as nuts, cheese etc are options. Avoid refined carbs and processed junk foods"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Is jaggery better than sugar?",
+    "answer": ""
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "What can be taken as pre excercise snack?",
+    "answer": "Date Almonds laddus, Moong daal laddus with nuts, fruits, Pineapple and cheese, The key is to use protein and carbs together!"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "What can we drink instead of cold drinks in the summer",
+    "answer": "Jaljeera, buttermilk, salted lime juice or lime soda"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "What is IC Ratio?",
+    "answer": "IC Ratio is insulin to carbohydrate ratio. It tells you how many carbs are covered with one unit of insulin. For example, an IC ratio of 1:15 means that every 15 gms of carbs need 1 unit of insulin."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Which protein powder is good and safe for kids?",
+    "answer": ""
+  },
+  {
+    "slug": "nutrition",
+    "locale": "EN",
+    "question": "Do the ayurvedic neem jamun and karela drinks work for tid just like they work for t2d?",
+    "answer": "No. Actually there is no scientific evidence supporting the usefulness of these foods in type 2 diabetes also. Rather various studies from prestigious institutes have concluded that bitter gourd can not be recommendated as insulin replacement or as a glucose lowering"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "சர்க்கரை இல்லாததைப் பயன்படுத்தலாமா? பயன்படுத்தலாம் எனில், எவ்வளவு அடிக்கடி?",
+    "answer": "உணவில் சர்க்கரைக்கு பதிலாக சர்க்கரை இல்லாத / செயற்கை இனிப்பூட்டிகளைப் பயன்படுத்தலாம். சுக்ரலோஸ் / ஸ்டீவியா உள்ள இனிப்பூட்டிகளைத் தேர்ந்தெடுக்கவும். செயற்கை இனிப்பூட்டிகளைத் தொடர்ந்து பயன்படுத்துவதால் ஏற்படும் நீண்ட கால அபாயங்கள் அறியப்படவில்லை; அவை குறித்து ஆய்வு செய்யப்பட்டு வருகிறது. எனவே, அவற்றை தினமும் பயன்படுத்தாமல், எப்போதாவது பயன்படுத்துவது நல்லது, குறிப்பாக குழந்தைகளுக்கு. செயற்கை இனிப்பூட்டிக்கு பதிலாக பழக்கூழ் அல்லது பேரீச்சையைப் பயன்படுத்தலாம் ."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "நாவல் பழம் இரத்தச் சர்க்கரை அளவைக் குறைக்குமா?",
+    "answer": "இரத்த சர்க்கரை அளவைக் குறைக்கும் ஒரே விஷயம் இன்சுலின் தான். மற்ற சில மாவுச்சத்து நிறைந்த உணவுகளைப் போல, நாவல் பழம் இரத்த சர்க்கரை அளவில் திடீர் உயர்வை ஏற்படுத்தாது."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "பால் டைப் 1 நீரிழிவு நோயை ஏற்படுத்துமா?",
+    "answer": "டைப் 1 நீரிழிவு நோய்க்கும் பால் புரதத்திற்கும் உள்ள தொடர்பு அவ்வளவு எளிமையானதல்ல. பால் புரதம், உடல் புரதத்தைப் போலவே செயல்பட்டு, மரபணு ரீதியாக எளிதில் பாதிக்கப்படக்கூடிய ஒருவரிடம் தன்னுடல் தாக்குநோயைத் தூண்டக்கூடும். குழந்தைகளிடம் டைப் 1 நீரிழிவு நோயை விளக்க பல்வேறு கருதுகோள்கள் உள்ளன, ஆனால் எதுவும் நிரூபிக்கப்படவில்லை."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "ஹைப்போ நிலையில் எத்தனை பேரீச்சம்பழங்கள் சாப்பிட வேண்டும்?",
+    "answer": "இது நபருக்கு நபர் மாறுபடும். சிறு குழந்தைகளுக்கு ஒன்று அல்லது இரண்டு தேவைப்படலாம். பெரியவர்களுக்கு 3-4 தேவைப்படலாம். ஒரு பேரீச்சம்பழத்தில் 5-6 கிராம் கார்போஹைட்ரேட் உள்ளது."
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "கோடை காலத்தில் குளிர்பானங்களுக்குப் பதிலாக நாம் என்ன குடிக்கலாம்?",
+    "answer": "ஜல்ஜீரா , மோர், உப்பு சேர்த்த எலுமிச்சை சாறு அல்லது எலுமிச்சை சோடா"
+  },
+  {
+    "slug": "nutrition",
+    "locale": "TA",
+    "question": "ஆயுர்வேதம் வேம்பு நாவல் பழம் மற்றும் பாகற்காய் பானங்கள் , வகை 2 நீரிழிவு நோய்க்குப் பலனளிப்பதைப் போலவே, பாக்டீரியா தொற்று நோய்க்கும் பலனளிக்குமா?",
+    "answer": "இல்லை. உண்மையில், வகை 2 நீரிழிவு நோயிலும் இந்த உணவுகளின் பயனை ஆதரிக்கும் எந்த அறிவியல் சான்றும் இல்லை. மாறாக, புகழ்பெற்ற நிறுவனங்களின் பல்வேறு ஆய்வுகள், பாகற்காயை இன்சுலினுக்கு மாற்றாகவோ அல்லது இரத்த சர்க்கரை அளவைக் குறைப்பதாகவோ பரிந்துரைக்க முடியாது என்று முடிவு செய்துள்ளன."
+  },
+  {
+    "slug": "school-travel",
+    "locale": "EN",
+    "question": "How to keep insulin cool while travelling?",
+    "answer": "A product (cooling pouch) called 'Frio' available on Amazon.in in different sizes is most popular and most suited. An ice pack or thermos with ice can also be carried."
+  },
+  {
+    "slug": "school-travel",
+    "locale": "EN",
+    "question": "What to usually carry in a dia-bag (diabetes supplies pouch) while travelling?",
+    "answer": "Insulin, frio/cooling pouch,"
+  }
+]

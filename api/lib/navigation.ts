@@ -141,6 +141,11 @@ export const NAVIGATION: NavSection[] = [
         href: "/admin/settings/feature-flags",
         capability: Capability.FEATURE_FLAGS_MANAGE,
       },
+      {
+        label: "Profile fields",
+        href: "/admin/settings/profile-fields",
+        capability: Capability.SETTINGS_MANAGE,
+      },
     ],
   },
 ];

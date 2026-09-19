@@ -110,8 +110,7 @@ export async function listParticipants(
         profile: {
           select: {
             participantCode: true,
-            firstName: true,
-            lastName: true,
+            name: true,
             diabetesType: true,
             lastActivityAt: true,
           },
@@ -138,9 +137,7 @@ export async function listParticipants(
   const items: ParticipantRow[] = users.map((user) => ({
     id: user.id,
     participantCode: user.profile?.participantCode ?? "—",
-    name: user.profile
-      ? `${user.profile.firstName} ${user.profile.lastName}`.trim()
-      : user.name,
+    name: user.profile?.name ?? user.name,
     email: user.email,
     diabetesType: user.profile?.diabetesType ?? "UNSPECIFIED",
     status: user.status,
@@ -162,8 +159,7 @@ function buildSearchFilter(search: string): Prisma.UserWhereInput {
       { name: { contains: term, mode: "insensitive" } },
       { email: { contains: term, mode: "insensitive" } },
       { profile: { participantCode: { contains: term, mode: "insensitive" } } },
-      { profile: { firstName: { contains: term, mode: "insensitive" } } },
-      { profile: { lastName: { contains: term, mode: "insensitive" } } },
+      { profile: { name: { contains: term, mode: "insensitive" } } },
     ],
   };
 }
@@ -174,7 +170,7 @@ function buildOrderBy(
 ): Prisma.UserOrderByWithRelationInput {
   switch (sortBy) {
     case "name":
-      return { profile: { lastName: sortOrder } };
+      return { profile: { name: sortOrder } };
     case "participantCode":
       return { profile: { participantCode: sortOrder } };
     case "diabetesType":
@@ -225,8 +221,7 @@ export async function getParticipantProfile(userId: string) {
       profile: {
         select: {
           participantCode: true,
-          firstName: true,
-          lastName: true,
+          name: true,
           dateOfBirth: true,
           sex: true,
           phone: true,
@@ -278,8 +273,7 @@ export async function getParticipantProfile(userId: string) {
 export interface UpdateParticipantInput {
   status?: UserStatus;
   profile?: {
-    firstName?: string;
-    lastName?: string;
+    name?: string;
     phone?: string | null;
     city?: string | null;
     country?: string | null;
@@ -308,8 +302,7 @@ export async function updateParticipant(userId: string, input: UpdateParticipant
 
 export interface CreateParticipantInput {
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   participantCode?: string;
   diabetesType?: DiabetesType;
   diagnosisYear?: number;
@@ -336,15 +329,14 @@ export async function createParticipant(input: CreateParticipantInput) {
   return prisma.user.create({
     data: {
       email: input.email.toLowerCase(),
-      name: `${input.firstName} ${input.lastName}`.trim(),
+      name: input.name,
       role: "PATIENT",
       status: "PENDING",
       timezone: input.timezone ?? "UTC",
       profile: {
         create: {
           participantCode,
-          firstName: input.firstName,
-          lastName: input.lastName,
+          name: input.name,
           diabetesType: input.diabetesType ?? STUDY_DIABETES_TYPE,
           diagnosisYear: input.diagnosisYear,
           phone: input.phone,
@@ -440,8 +432,7 @@ export async function activateParticipant(
 
 export interface BulkImportRow {
   email: string;
-  firstName: string;
-  lastName: string;
+  name: string;
   participantCode?: string;
   diabetesType?: DiabetesType;
   diagnosisYear?: number;
@@ -493,7 +484,7 @@ export async function bulkImportParticipants(
         const record = await tx.user.create({
           data: {
             email,
-            name: `${row.firstName} ${row.lastName}`.trim(),
+            name: row.name,
             role: "PATIENT",
             status: "ACTIVE",
             emailVerified: true,
@@ -501,8 +492,7 @@ export async function bulkImportParticipants(
             profile: {
               create: {
                 participantCode,
-                firstName: row.firstName,
-                lastName: row.lastName,
+                name: row.name,
                 dateOfBirth: row.dateOfBirth,
                 diabetesType: row.diabetesType ?? STUDY_DIABETES_TYPE,
                 diagnosisYear: row.diagnosisYear,

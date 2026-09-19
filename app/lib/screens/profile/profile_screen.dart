@@ -7,6 +7,7 @@ import '../../l10n/strings.dart';
 import '../../providers/app_state.dart';
 import '../../services/auth_service.dart';
 import '../../services/content_service.dart';
+import '../../services/mpin_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
@@ -14,6 +15,10 @@ import '../../widgets/flip_card.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/participant_id_card.dart';
 import '../auth/get_started_screen.dart';
+import 'children_screen.dart';
+import 'mpin_screen.dart';
+import 'profile_details_screen.dart';
+import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,17 +38,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _serverUrl = '';
   DateTime? _lastSynced;
 
+  /// Null until the MPIN status has loaded — the row's subtitle and tap
+  /// behaviour both depend on whether a PIN already exists, and guessing
+  /// would send the parent into the wrong flow.
+  bool? _mpinSet;
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
+  Future<void> _loadMpinStatus() async {
+    try {
+      final status = await MpinService.instance.status();
+      if (mounted) setState(() => _mpinSet = status.isSet);
+    } catch (_) {
+      // Offline, or an account with no household yet — treat as "not set"
+      // so the row stays usable rather than spinning forever.
+      if (mounted) setState(() => _mpinSet = false);
+    }
+  }
+
+  /// Opens the set-PIN or reset-PIN flow depending on what already exists.
+  Future<void> _openMpin() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => MpinScreen(isReset: _mpinSet == true)),
+    );
+    if (changed != true || !mounted) return;
+    setState(() => _mpinSet = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(S.pinSet), behavior: SnackBarBehavior.floating),
+    );
+  }
+
   Future<void> _load() async {
     final me = await ProfileService.instance.me();
     final prefs = await SharedPreferences.getInstance();
     final url = await ApiConfig.getBaseUrl();
-    final synced = await ContentService.instance.lastSyncedAt(AppState.instance.locale);
+    final synced = await ContentService.instance.lastSyncedAt(
+      AppState.instance.locale,
+    );
     if (!mounted) return;
     setState(() {
       _me = me;
@@ -52,6 +87,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _lastSynced = synced;
       _loading = false;
     });
+    // Not awaited above: the profile card must render immediately, and only
+    // the PIN row depends on this.
+    _loadMpinStatus();
   }
 
   /// Manual "check for new content" — the same refresh the 24-hour background
@@ -64,11 +102,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await ContentService.instance.getTopics('en', forceRefresh: true);
       await ContentService.instance.getTopics('ta', forceRefresh: true);
       await ProfileService.instance.me(forceRefresh: true);
-      final synced = await ContentService.instance.lastSyncedAt(AppState.instance.locale);
+      final synced = await ContentService.instance.lastSyncedAt(
+        AppState.instance.locale,
+      );
       if (!mounted) return;
       setState(() => _lastSynced = synced);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(S.contentUpdated), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text(S.contentUpdated),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -109,13 +152,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${diff.inDays} d ago';
   }
 
+  /// How many of the fields collected on [ProfileEditScreen] are still
+  /// blank — the sign-up chat only ever captures name/DOB/sex/diagnosis
+  /// year, so this is non-zero for essentially every account until a parent
+  /// deliberately goes and fills the rest in.
+  int _missingDetailCount(Map<String, dynamic>? profile) {
+    if (profile == null) return _completableFields.length;
+    return _completableFields.where((key) {
+      final value = profile[key];
+      return value == null || (value is String && value.trim().isEmpty);
+    }).length;
+  }
+
+  static const _completableFields = [
+    'phone',
+    'city',
+    'country',
+    'heightCm',
+    'baselineWeightKg',
+    'emergencyContactName',
+    'emergencyContactPhone',
+  ];
+
+  Future<void> _openEdit(Map<String, dynamic> profile) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => ProfileEditScreen(initial: profile)),
+    );
+    if (changed == true) await _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _me?['profile'] as Map<String, dynamic>?;
-    final firstName = profile?['firstName'] as String? ?? '';
-    final lastName = profile?['lastName'] as String? ?? '';
-    final fullName = [firstName, lastName].where((s) => s.isNotEmpty).join(' ');
+    final fullName = profile?['name'] as String? ?? '';
     final dobRaw = profile?['dateOfBirth'] as String?;
+    final missingCount = _missingDetailCount(profile);
 
     return AnimatedBuilder(
       animation: AppState.instance,
@@ -146,142 +217,299 @@ class _ProfileScreenState extends State<ProfileScreen> {
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                  child: FlipCard(
-                    showBack: _showSettings,
-                    front: ParticipantIdCard(
-                      name: fullName.isNotEmpty
-                          ? fullName
-                          : (_me?['name'] as String? ?? S.participant),
-                      participantCode: profile?['participantCode'] as String?,
-                      dateOfBirth: dobRaw == null ? null : DateTime.tryParse(dobRaw),
-                      diagnosisYear: profile?['diagnosisYear'] as int?,
-                      sex: profile?['sex'] as String?,
-                      email: _me?['email'] as String?,
-                      onFlip: () => setState(() => _showSettings = true),
-                    ),
-                    back: ParticipantSettingsCard(
-                      onFlipBack: () => setState(() => _showSettings = false),
-                      children: [
-                        // Content refresh, given real weight rather than a
-                        // line of grey text — this is the control a parent is
-                        // told to use when new material is published.
-                        _RefreshTile(
-                          busy: _refreshing,
-                          lastSynced: _lastSyncedLabel,
-                          onTap: _refreshing ? null : _forceRefresh,
+                  child: Column(
+                    children: [
+                      // Only on the identity face — flipped to settings, the
+                      // "Edit details" row right there is the nudge.
+                      if (!_showSettings && missingCount > 0 && profile != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _CompleteProfileNudge(
+                            missingCount: missingCount,
+                            onTap: () => _openEdit(profile),
+                          ),
                         ),
-                        const SizedBox(height: 14),
-                        _Group(
-                          title: S.notifications,
-                          children: [
-                            SwitchListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                              secondary: const Icon(Icons.notifications_outlined),
-                              title: Text(
-                                S.reminders,
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                S.remindersSubtitle,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              value: _notificationsEnabled,
-                              onChanged: _setNotifications,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        _Group(
-                          title: S.privacyAndData,
-                          children: [
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                              leading: const Icon(Icons.privacy_tip_outlined),
-                              title: Text(
-                                AppState.instance.isTamil
-                                    ? 'உங்கள் தரவு எவ்வாறு பயன்படுத்தப்படுகிறது'
-                                    : 'How your data is used',
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                AppState.instance.isTamil
-                                    ? 'நீங்கள் உள்ளிட்ட விவரங்களும் உங்கள் கற்றல் முன்னேற்றமும் இந்த ஆய்வுக்காக மட்டுமே சேகரிக்கப்படுகின்றன. அவை பொதுவில் பகிரப்படுவதில்லை.'
-                                    : 'Details you enter and your learning progress are '
-                                          'collected for the T1D Prajana Yandra study, kept '
-                                          'private to the study team, and never shared publicly.',
-                                style: const TextStyle(fontSize: 12, height: 1.4),
-                              ),
-                              isThreeLine: true,
-                            ),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                              leading: const Icon(Icons.manage_accounts_outlined),
-                              title: Text(
-                                AppState.instance.isTamil
-                                    ? 'தரவைத் திருத்த அல்லது நீக்க'
-                                    : 'Correct or delete your data',
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              subtitle: Text(
-                                AppState.instance.isTamil
-                                    ? 'உங்கள் ஆய்வு ஒருங்கிணைப்பாளரிடம் எந்த நேரத்திலும் கேட்கலாம்.'
-                                    : 'Ask your study coordinator at any time.',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (!kReleaseMode) ...[
-                          const SizedBox(height: 14),
-                          _Group(
-                            title: 'Developer',
+                      Expanded(
+                        child: FlipCard(
+                          showBack: _showSettings,
+                          front: ParticipantIdCard(
+                            name: fullName.isNotEmpty
+                                ? fullName
+                                : (_me?['name'] as String? ?? S.participant),
+                            participantCode:
+                                profile?['participantCode'] as String?,
+                            dateOfBirth: dobRaw == null
+                                ? null
+                                : DateTime.tryParse(dobRaw),
+                            diagnosisYear: profile?['diagnosisYear'] as int?,
+                            sex: profile?['sex'] as String?,
+                            email: _me?['email'] as String?,
+                            onFlip: () => setState(() => _showSettings = true),
+                          ),
+                          back: ParticipantSettingsCard(
+                            onFlipBack: () =>
+                                setState(() => _showSettings = false),
                             children: [
-                              ListTile(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                                leading: const Icon(Icons.dns_outlined),
-                                title: const Text(
-                                  'Server',
-                                  style: TextStyle(
-                                    fontSize: 14.5,
+                              // Content refresh, given real weight rather than a
+                              // line of grey text — this is the control a parent is
+                              // told to use when new material is published.
+                              _RefreshTile(
+                                busy: _refreshing,
+                                lastSynced: _lastSyncedLabel,
+                                onTap: _refreshing ? null : _forceRefresh,
+                              ),
+                              const SizedBox(height: 14),
+                              _Group(
+                                title: S.yourDetails,
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(Icons.edit_outlined),
+                                    title: Text(
+                                      S.editDetails,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: profile == null
+                                        ? null
+                                        : () => _openEdit(profile),
+                                  ),
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(
+                                      Icons.list_alt_outlined,
+                                    ),
+                                    title: Text(
+                                      S.viewAllDetails,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: _me == null
+                                        ? null
+                                        : () async {
+                                            final changed =
+                                                await Navigator.of(
+                                                  context,
+                                                ).push<bool>(
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        ProfileDetailsScreen(
+                                                          me: _me!,
+                                                        ),
+                                                  ),
+                                                );
+                                            if (changed == true) await _load();
+                                          },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _Group(
+                                title: S.notifications,
+                                children: [
+                                  SwitchListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    secondary: const Icon(
+                                      Icons.notifications_outlined,
+                                    ),
+                                    title: Text(
+                                      S.reminders,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      S.remindersSubtitle,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    value: _notificationsEnabled,
+                                    onChanged: _setNotifications,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _Group(
+                                title: S.familyAndSecurity,
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(
+                                      Icons.family_restroom_outlined,
+                                    ),
+                                    title: Text(
+                                      S.yourChildren,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      S.childIdHint,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const ChildrenScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(Icons.pin_outlined),
+                                    title: Text(
+                                      S.parentPin,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      _mpinSet == null
+                                          ? S.loading
+                                          : (_mpinSet!
+                                                ? S.forgotPin
+                                                : S.pinNotSetTitle),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: _mpinSet == null ? null : _openMpin,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _Group(
+                                title: S.privacyAndData,
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(
+                                      Icons.privacy_tip_outlined,
+                                    ),
+                                    title: Text(
+                                      AppState.instance.isTamil
+                                          ? 'உங்கள் தரவு எவ்வாறு பயன்படுத்தப்படுகிறது'
+                                          : 'How your data is used',
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      AppState.instance.isTamil
+                                          ? 'நீங்கள் உள்ளிட்ட விவரங்களும் உங்கள் கற்றல் முன்னேற்றமும் இந்த ஆய்வுக்காக மட்டுமே சேகரிக்கப்படுகின்றன. அவை பொதுவில் பகிரப்படுவதில்லை.'
+                                          : 'Details you enter and your learning progress are '
+                                                'collected for the T1D Prajana Yandra study, kept '
+                                                'private to the study team, and never shared publicly.',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                    isThreeLine: true,
+                                  ),
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(
+                                      Icons.manage_accounts_outlined,
+                                    ),
+                                    title: Text(
+                                      AppState.instance.isTamil
+                                          ? 'தரவைத் திருத்த அல்லது நீக்க'
+                                          : 'Correct or delete your data',
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      AppState.instance.isTamil
+                                          ? 'உங்கள் ஆய்வு ஒருங்கிணைப்பாளரிடம் எந்த நேரத்திலும் கேட்கலாம்.'
+                                          : 'Ask your study coordinator at any time.',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (!kReleaseMode) ...[
+                                const SizedBox(height: 14),
+                                _Group(
+                                  title: 'Developer',
+                                  children: [
+                                    ListTile(
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                          ),
+                                      leading: const Icon(Icons.dns_outlined),
+                                      title: const Text(
+                                        'Server',
+                                        style: TextStyle(
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        _serverUrl,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              const SizedBox(height: 20),
+                              // Sign out lives inside the card, per the design.
+                              OutlinedButton.icon(
+                                onPressed: _signOut,
+                                icon: const Icon(
+                                  Icons.logout,
+                                  color: Colors.red,
+                                  size: 19,
+                                ),
+                                label: Text(
+                                  S.signOut,
+                                  style: const TextStyle(
+                                    color: Colors.red,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                subtitle: Text(
-                                  _serverUrl,
-                                  style: const TextStyle(fontSize: 12),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.red),
+                                  minimumSize: const Size.fromHeight(48),
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                        const SizedBox(height: 20),
-                        // Sign out lives inside the card, per the design.
-                        OutlinedButton.icon(
-                          onPressed: _signOut,
-                          icon: const Icon(Icons.logout, color: Colors.red, size: 19),
-                          label: Text(
-                            S.signOut,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Colors.red),
-                            minimumSize: const Size.fromHeight(48),
-                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -297,7 +525,11 @@ class _RefreshTile extends StatelessWidget {
   final String lastSynced;
   final VoidCallback? onTap;
 
-  const _RefreshTile({required this.busy, required this.lastSynced, this.onTap});
+  const _RefreshTile({
+    required this.busy,
+    required this.lastSynced,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,13 +552,20 @@ class _RefreshTile extends StatelessWidget {
               width: 34,
               height: 34,
               child: busy
-                  ? const CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white)
+                  ? const CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    )
                   : Container(
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.sync, color: Colors.white, size: 19),
+                      child: const Icon(
+                        Icons.sync,
+                        color: Colors.white,
+                        size: 19,
+                      ),
                     ),
             ),
             const SizedBox(width: 14),
@@ -397,6 +636,55 @@ class _Group extends StatelessWidget {
           child: Column(children: children),
         ),
       ],
+    );
+  }
+}
+
+/// A slim banner above the ID card when the extended details haven't been
+/// filled in — how the "must fill other details if not filled" requirement
+/// is met without putting those fields inside the card itself.
+class _CompleteProfileNudge extends StatelessWidget {
+  final int missingCount;
+  final VoidCallback onTap;
+
+  const _CompleteProfileNudge({
+    required this.missingCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.primary.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline, size: 16, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  S.completeProfileNudge(missingCount),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                size: 18,
+                color: AppTheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

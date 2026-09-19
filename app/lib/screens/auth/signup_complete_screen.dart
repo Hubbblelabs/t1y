@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
-import 'email_entry_screen.dart';
+import 'identifier_entry_screen.dart';
 
 /// Honest completion state. Doesn't pretend the account is signed in —
 /// the backend doesn't auto-sign-in after sign-up and defaults to requiring
@@ -43,7 +43,7 @@ class SignupCompleteScreen extends StatelessWidget {
                 const SizedBox(height: 32),
                 FilledButton(
                   onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const EmailEntryScreen()),
+                    MaterialPageRoute(builder: (_) => const IdentifierEntryScreen()),
                     (route) => false,
                   ),
                   child: const Text('Back to sign in'),

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
-import { EducationForm } from "@/components/admin/content/education-form";
+import { EducationForm, type EducationContentBlock } from "@/components/admin/content/education-form";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { getEducationById } from "@/lib/services/education";
 
@@ -48,6 +48,7 @@ export default async function EditEducationPage(
           status: article.status,
           tags: article.tags.join(", "),
           sortOrder: article.sortOrder,
+          contentBlocks: (article.contentBlocks as EducationContentBlock[] | null) ?? [],
         }}
       />
     </PageContainer>

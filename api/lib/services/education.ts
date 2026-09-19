@@ -32,6 +32,7 @@ const PUBLIC_SELECT = {
   excerpt: true,
   category: true,
   body: true,
+  contentBlocks: true,
   mediaType: true,
   mediaUrl: true,
   thumbnailUrl: true,
@@ -96,7 +97,11 @@ export async function listPublishedEducation(params: {
   // library grows well past what a study curriculum needs.
   const rows = await prisma.educationContent.findMany({
     where,
-    select: { ...PUBLIC_SELECT, body: params.includeBody === true },
+    select: {
+      ...PUBLIC_SELECT,
+      body: params.includeBody === true,
+      contentBlocks: params.includeBody === true,
+    },
     orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
   });
 
@@ -234,6 +239,8 @@ export interface EducationInput {
   body: string;
   bodySource?: string;
   bodyFormat?: "MARKDOWN" | "HTML";
+  /** Omitted entirely leaves whatever's already stored untouched. */
+  contentBlocks?: Array<{ paragraph: string; imageUrl: string; imageKey?: string | null }>;
   mediaType?: "NONE" | "IMAGE" | "VIDEO" | "PDF" | "AUDIO";
   mediaUrl?: string | null;
   mediaKey?: string | null;

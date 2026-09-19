@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageContainer, PageHeader, Section } from "@/components/admin/page-header";
+import { GlucoseCooldownPanel } from "@/components/admin/settings/glucose-cooldown-panel";
 import { DataPoint } from "@/components/admin/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getFeatureFlags } from "@/lib/services/feature-flags";
 import { getSettings } from "@/lib/services/settings";
 import { listThresholds } from "@/lib/services/thresholds";
 import { isEmailConfigured, isStorageConfigured } from "@/lib/env";
@@ -20,9 +22,10 @@ export const metadata: Metadata = { title: "Settings" };
  * that they need clinical sign-off.
  */
 export default async function SettingsPage() {
-  const [settings, thresholds] = await Promise.all([
+  const [settings, thresholds, flags] = await Promise.all([
     getSettings(),
     listThresholds({ includeInactive: false }),
+    getFeatureFlags(),
   ]);
 
   return (
@@ -69,6 +72,16 @@ export default async function SettingsPage() {
             />
           </dl>
         </Card>
+      </Section>
+
+      <Section
+        title="Glucose entry"
+        description="How often a parent may record a glucometer reading for a child"
+      >
+        <GlucoseCooldownPanel
+          initialEnabled={flags.health_logging_enabled.enabled}
+          initialCooldownHours={settings["health.glucoseEntryCooldownHours"]}
+        />
       </Section>
 
       <Section

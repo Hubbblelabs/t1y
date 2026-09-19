@@ -72,6 +72,8 @@ export const AuditAction = {
   THRESHOLD_CREATED: "threshold.created",
   THRESHOLD_UPDATED: "threshold.updated",
   THRESHOLD_DELETED: "threshold.deleted",
+  PROFILE_FIELD_CREATED: "profile_field.created",
+  PROFILE_FIELD_UPDATED: "profile_field.updated",
 
   // Storage
   UPLOAD_URL_ISSUED: "storage.upload_url_issued",

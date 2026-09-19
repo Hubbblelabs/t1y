@@ -1,25 +1,34 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/api_config.dart';
 import '../../l10n/strings.dart';
+import '../../models/badge.dart';
+import '../../models/glucose_reading.dart';
 import '../../models/topic.dart';
 import '../../providers/app_state.dart';
 import '../../services/content_service.dart';
+import '../../services/glucose_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/progress_service.dart';
 import '../../services/reminder_service.dart';
+import '../../services/rewards_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
-import '../../widgets/topic_card.dart';
+import '../glucose/glucose_section_screen.dart';
 import '../helpbook/topic_detail_screen.dart';
-import 'home_shell.dart';
+import '../rewards/badges_screen.dart';
 
 /// Today's dashboard: where the participant is in the curriculum, what to
-/// read next, what's coming up, and a tip — rather than a static list of
-/// links. Everything here is derived from real progress and reminder data,
-/// so it is empty-but-honest for a new account rather than showing
-/// fabricated activity.
+/// read next, what's coming up, and how their badges stand — rather than a
+/// static list of links or a rotating tip nobody asked for. Everything here
+/// is derived from real progress, reminder and reward data, so it is
+/// empty-but-honest for a new account rather than showing fabricated
+/// activity, and every card here does something when tapped.
 class HomeTab extends StatefulWidget {
   final void Function(int tabIndex) onNavigateToTab;
 
@@ -36,17 +45,31 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
   String _name = '';
   String? _baseUrl;
   bool _loading = true;
-  /// Bumped on every pull-to-refresh so the tip visibly changes.
-  int _tipKey = 0;
+  BadgeCollection _badges = BadgeCollection.empty;
+
+  /// Most recently opened topic's slug (any topic — read or not), from
+  /// `TopicProgress.lastOpenedAt`. Null for an account that hasn't opened
+  /// anything yet, in which case the "continue reading" card falls back to
+  /// [_nextTopic] instead of disappearing.
+  String? _lastOpenedSlug;
+
+  DateTime _selectedDay = DateTime.now();
+  List<GlucoseReading>? _dayReadings;
+  bool _glucoseAvailable = true;
+  bool _loadingDay = false;
 
   @override
   void initState() {
     super.initState();
+    _selectedDay = _dateOnly(DateTime.now());
     _load();
+    _loadDay(_selectedDay);
   }
 
   @override
   void onLocaleChanged(String locale) => _load();
+
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
@@ -56,22 +79,79 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
       ReminderService.instance.upcoming(),
       ProfileService.instance.me(),
       ApiConfig.getBaseUrl(),
+      ProgressService.instance.fetchProgress(),
     ]);
+    // Best-effort, separately: a rewards outage should never block the rest
+    // of the dashboard from loading.
+    final badges = await RewardsService.instance.collection().catchError(
+      (_) => BadgeCollection.empty,
+    );
     if (!mounted) return;
 
     final me = results[3] as Map<String, dynamic>?;
     final profile = me?['profile'] as Map<String, dynamic>?;
+    final progress = results[5] as Map<String, dynamic>?;
+    // Already ordered lastOpenedAt desc server-side — see
+    // listProgressForUser in api/lib/services/progress.ts.
+    final progressTopics = progress?['topics'] as List<dynamic>?;
 
     setState(() {
       _topics = results[0] as List<Topic>;
       _read = results[1] as Set<String>;
       _reminders = results[2] as List<Reminder>;
-      _name = (profile?['firstName'] as String?)?.trim().isNotEmpty == true
-          ? profile!['firstName'] as String
+      _name = (profile?['name'] as String?)?.trim().isNotEmpty == true
+          ? (profile!['name'] as String).split(' ').first
           : ((me?['name'] as String?)?.split(' ').first ?? '');
       _baseUrl = results[4] as String;
+      _badges = badges;
+      _lastOpenedSlug = (progressTopics != null && progressTopics.isNotEmpty)
+          ? progressTopics.first['topicSlug'] as String?
+          : null;
       _loading = false;
     });
+  }
+
+  Future<void> _loadDay(DateTime day) async {
+    setState(() => _loadingDay = true);
+    try {
+      final readings = await GlucoseService.instance.recent(onDate: day);
+      if (!mounted) return;
+      setState(() {
+        _dayReadings = readings;
+        _glucoseAvailable = true;
+        _loadingDay = false;
+      });
+    } catch (_) {
+      // Glucose entry is off for this study by default (ethics gate — see
+      // GlucoseCooldownPanel's own note) or the request failed; either way
+      // the day card just stays hidden rather than showing an error for
+      // something the family was never meant to see.
+      if (!mounted) return;
+      setState(() {
+        _dayReadings = null;
+        _glucoseAvailable = false;
+        _loadingDay = false;
+      });
+    }
+  }
+
+  void _selectDay(DateTime day) {
+    final normalised = _dateOnly(day);
+    if (normalised == _selectedDay) return;
+    setState(() => _selectedDay = normalised);
+    _loadDay(normalised);
+  }
+
+  void _openBadges() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const BadgesScreen()));
+  }
+
+  void _openGlucose() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const GlucoseSectionScreen()));
   }
 
   /// First unread topic in curriculum order — "continue where you left off".
@@ -82,71 +162,90 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
     return null;
   }
 
+  /// The topic the "continue reading" card actually shows: whichever the
+  /// parent most recently opened, or — for an account that has never opened
+  /// one — the next unread topic, so the card is never simply absent.
+  Topic? get _featuredTopic {
+    final slug = _lastOpenedSlug;
+    if (slug != null) {
+      for (final t in _topics) {
+        if (t.slug == slug) return t;
+      }
+    }
+    return _nextTopic;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final next = _nextTopic;
     final total = _topics.length;
-    final done = _topics.where((t) => _read.contains(t.slug)).length;
+    final featured = _featuredTopic;
+    final isContinuing = _lastOpenedSlug != null && featured != null;
 
     return Scaffold(
-      appBar: AppHeader(title: S.home),
+      backgroundColor: const Color(0xFFF7F8FA),
+      appBar: AppHeader(title: S.home, showBadges: true),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: () async {
-                setState(() => _tipKey++);
-                await _load();
-              },
+              onRefresh: () => Future.wait([_load(), _loadDay(_selectedDay)]),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                 children: [
                   if (_name.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 14, left: 4),
+                      padding: const EdgeInsets.only(bottom: 18, left: 2),
                       child: Text(
-                        S.greeting(_name),
-                        style: const TextStyle(
-                          fontSize: 22,
+                        S.greetingForHour(DateTime.now().hour, _name),
+                        style: GoogleFonts.dancingScript(
+                          fontSize: 32,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.deep,
+                          height: 1.1,
                         ),
                       ),
                     ),
-                  // Tip sits at the top: it fills the gap beside the greeting
-                  // and is the first thing a parent sees after pulling to
-                  // refresh, which is when a fresh tip is most noticeable.
-                  _TipCard(refreshKey: _tipKey),
-                  const SizedBox(height: 16),
-                  _ProgressRing(done: done, total: total),
-                  const SizedBox(height: 18),
-                  if (next != null) ...[
-                    _SectionLabel(
-                      done == 0 ? S.startLearning : S.continueReading,
+                  _WeekPillCalendar(
+                    selected: _selectedDay,
+                    onSelect: _selectDay,
+                  ),
+                  const SizedBox(height: 14),
+                  if (_glucoseAvailable)
+                    _DayReadingsCard(
+                      day: _selectedDay,
+                      readings: _dayReadings,
+                      loading: _loadingDay,
+                      onTap: _openGlucose,
                     ),
-                    TopicCard(
-                      topic: next,
+                  if (featured != null) ...[
+                    const SizedBox(height: 20),
+                    _ContinueReadingCard(
+                      topic: featured,
                       baseUrl: _baseUrl,
-                      isRead: false,
+                      badgeLabel: isContinuing
+                          ? S.continueReadingBadge
+                          : S.startLearning,
                       onTap: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => TopicDetailScreen(topic: next),
+                            builder: (_) => TopicDetailScreen(topic: featured),
                           ),
                         );
                         await _load();
                       },
                     ),
                   ] else if (total > 0) ...[
+                    const SizedBox(height: 20),
                     _AllDoneBanner(),
-                    const SizedBox(height: 18),
                   ],
+                  const SizedBox(height: 20),
+                  _RankBadgeStrip(badges: _badges, onTap: _openBadges),
                   if (_reminders.isNotEmpty) ...[
+                    const SizedBox(height: 20),
                     _SectionLabel(S.reminders),
-                    ..._reminders.take(3).map((r) => _ReminderTile(reminder: r)),
-                    const SizedBox(height: 18),
+                    ..._reminders
+                        .take(3)
+                        .map((r) => _ReminderTile(reminder: r)),
                   ],
-                  _SectionLabel(S.quickActions),
-                  _QuickActions(onNavigateToTab: widget.onNavigateToTab),
                 ],
               ),
             ),
@@ -175,113 +274,346 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-/// Animated completion ring — the dashboard's headline number.
-class _ProgressRing extends StatefulWidget {
-  final int done;
-  final int total;
+/// The week strip: seven days, Monday first, the selected one filled as a
+/// pill. Always shows the calendar week containing today — there is no
+/// paging, matching how small and single-purpose this is meant to feel.
+class _WeekPillCalendar extends StatelessWidget {
+  final DateTime selected;
+  final ValueChanged<DateTime> onSelect;
 
-  const _ProgressRing({required this.done, required this.total});
-
-  @override
-  State<_ProgressRing> createState() => _ProgressRingState();
-}
-
-class _ProgressRingState extends State<_ProgressRing>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..forward();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _WeekPillCalendar({required this.selected, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    final fraction = widget.total == 0 ? 0.0 : widget.done / widget.total;
+    final today = DateTime.now();
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final labels = AppState.instance.isTamil
+        ? S.weekdaysShortTa
+        : S.weekdaysShort;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.primary, AppTheme.deep],
-        ),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withValues(alpha: 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              final t = Curves.easeOutCubic.transform(_controller.value);
-              return SizedBox(
-                width: 78,
-                height: 78,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 78,
-                      height: 78,
-                      child: CircularProgressIndicator(
-                        value: fraction * t,
-                        strokeWidth: 7,
-                        backgroundColor: Colors.white.withValues(alpha: 0.22),
-                        valueColor: const AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    ),
-                    Text(
-                      '${(fraction * t * 100).round()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          const SizedBox(width: 20),
-          Expanded(
+    return Row(
+      children: List.generate(7, (i) {
+        final day = DateTime(monday.year, monday.month, monday.day + i);
+        final isSelected =
+            day.year == selected.year &&
+            day.month == selected.month &&
+            day.day == selected.day;
+        final isToday =
+            day.year == today.year &&
+            day.month == today.month &&
+            day.day == today.day;
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () => onSelect(day),
+            behavior: HitTestBehavior.opaque,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  S.yourProgress,
+                  labels[i],
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black.withValues(alpha: 0.4),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  S.topicsRead(widget.done, widget.total),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+                const SizedBox(height: 8),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.deep : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: isToday && !isSelected
+                        ? Border.all(color: AppTheme.deep, width: 1.3)
+                        : null,
+                  ),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected
+                          ? Colors.white
+                          : Colors.black.withValues(alpha: 0.75),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+        );
+      }),
+    );
+  }
+}
+
+/// Average glucose for whichever day is selected above — the "attach the
+/// readings" card. Absent (not an error state) when glucose entry isn't
+/// enabled for this study, or shows an honest "no readings" rather than a
+/// fabricated number when the day has none.
+class _DayReadingsCard extends StatelessWidget {
+  final DateTime day;
+  final List<GlucoseReading>? readings;
+  final bool loading;
+  final VoidCallback onTap;
+
+  const _DayReadingsCard({
+    required this.day,
+    required this.readings,
+    required this.loading,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final list = readings;
+    final average = (list != null && list.isNotEmpty)
+        ? list.map((r) => r.value).reduce((a, b) => a + b) / list.length
+        : null;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.water_drop_outlined,
+                  size: 19,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      S.averageGlucose,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black.withValues(alpha: 0.45),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    if (loading)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Text(
+                        average != null
+                            ? '${average.toStringAsFixed(0)} mg/dL'
+                            : S.noReadingsThatDay,
+                        style: TextStyle(
+                          fontSize: average != null ? 18 : 13,
+                          fontWeight: FontWeight.w700,
+                          color: average != null
+                              ? AppTheme.deep
+                              : Colors.black.withValues(alpha: 0.4),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (list != null && list.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lightest,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${list.length}',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.deep,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "continue reading" hero — a topic's own artwork with a frosted glass
+/// panel along the bottom holding the badge, title and a reading-time chip,
+/// rather than a plain caption under a plain thumbnail.
+class _ContinueReadingCard extends StatelessWidget {
+  final Topic topic;
+  final String? baseUrl;
+  final String badgeLabel;
+  final VoidCallback onTap;
+
+  const _ContinueReadingCard({
+    required this.topic,
+    required this.baseUrl,
+    required this.badgeLabel,
+    required this.onTap,
+  });
+
+  String? get _imageUrl {
+    final raw = topic.thumbnailUrl;
+    if (raw == null) return null;
+    final base = baseUrl;
+    if (base == null || raw.startsWith('http')) return raw;
+    return raw.startsWith('/content/') ? '$base$raw' : raw;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final image = _imageUrl;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24),
+      clipBehavior: Clip.antiAlias,
+      elevation: 0,
+      child: InkWell(
+        onTap: onTap,
+        child: AspectRatio(
+          aspectRatio: 16 / 10,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (image != null)
+                Image.network(
+                  image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const _TopicArtworkFallback(),
+                )
+              else
+                const _TopicArtworkFallback(),
+              // The fade: a plain gradient darkens the lower third so white
+              // text stays legible over any photo, then the glass panel sits
+              // on top of that for the badge and title specifically.
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black38],
+                    stops: [0.5, 1.0],
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: ClipRRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.22),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            topic.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.menu_book_outlined,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  badgeLabel,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TopicArtworkFallback extends StatelessWidget {
+  const _TopicArtworkFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.accent, AppTheme.deep],
+        ),
+      ),
+      child: Center(
+        child: Icon(Icons.menu_book_outlined, size: 40, color: Colors.white70),
       ),
     );
   }
@@ -371,7 +703,10 @@ class _ReminderTile extends StatelessWidget {
                   reminder.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 if (reminder.timeOfDay != null)
                   Text(
@@ -405,181 +740,89 @@ class _ReminderTile extends StatelessWidget {
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  final void Function(int) onNavigateToTab;
-  const _QuickActions({required this.onNavigateToTab});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _ActionTile(
-            icon: Icons.menu_book_outlined,
-            label: S.helpBook,
-            onTap: () => onNavigateToTab(HomeShell.helpBookTabIndex),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ActionTile(
-            icon: Icons.calculate_outlined,
-            label: S.calculations,
-            onTap: () => onNavigateToTab(HomeShell.calculationsTabIndex),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ActionTile(
-            icon: Icons.quiz_outlined,
-            label: S.quizzes,
-            onTap: () => onNavigateToTab(HomeShell.quizzesTabIndex),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Tile that dips slightly on press — the "little movement" the flat icons
-/// were missing.
-class _ActionTile extends StatefulWidget {
-  final IconData icon;
-  final String label;
+/// Standing + recent badges, tappable through to the full rewards screen —
+/// replaces the static rotating tip that used to sit here. The tip was the
+/// same piece of text for every family regardless of how they were actually
+/// doing; this is the opposite, built entirely from that child's own quiz
+/// results, and it does something when touched.
+class _RankBadgeStrip extends StatelessWidget {
+  final BadgeCollection badges;
   final VoidCallback onTap;
 
-  const _ActionTile({required this.icon, required this.label, required this.onTap});
-
-  @override
-  State<_ActionTile> createState() => _ActionTileState();
-}
-
-class _ActionTileState extends State<_ActionTile> {
-  bool _pressed = false;
+  const _RankBadgeStrip({required this.badges, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.93 : 1,
-        duration: const Duration(milliseconds: 130),
-        curve: Curves.easeOut,
+    final rank = badges.rank;
+    final recent = badges.badges.take(5).toList();
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.deep.withValues(alpha: _pressed ? 0.04 : 0.08),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(widget.icon, size: 26, color: AppTheme.primary),
-              const SizedBox(height: 8),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.deep,
-                ),
+              Row(
+                children: [
+                  HexBadge(
+                    tier: recent.isEmpty ? null : recent.first.tier,
+                    size: 40,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rank?.title ?? S.myBadges,
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.deep,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          S.badgesEarnedCount(badges.totalBadges),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right,
+                    color: AppTheme.deep.withValues(alpha: 0.4),
+                  ),
+                ],
               ),
+              if (recent.length > 1) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 46,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: recent.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 10),
+                    itemBuilder: (context, i) =>
+                        HexBadge(tier: recent[i].tier, size: 46),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Rotating tip drawn from the study curriculum, in the active language.
-class _TipCard extends StatelessWidget {
-  final int refreshKey;
-  const _TipCard({required this.refreshKey});
-
-  static const _tipsEn = [
-    'Check blood glucose before sports. Above 250, take a correction dose first; below 100, eat 15–30 g of carbs.',
-    'The Rule of 15: below 70 mg/dL, take 15 g of fast-acting carbs and recheck after 15 minutes.',
-    'Rotate injection sites — using the same spot every time can cause lumps under the skin.',
-    'Keep insulin cool while travelling with a Frio pouch or ice pack. Never freeze it.',
-    'Carry a diabag everywhere: insulin, glucose tablets and a spare glucometer.',
-    'HbA1c should be checked 3–4 times a year; it reflects your average glucose over 2–3 months.',
-  ];
-
-  static const _tipsTa = [
-    'விளையாட்டுக்கு முன் இரத்த சர்க்கரையைச் சரிபார்க்கவும். 250-க்கு மேல் இருந்தால் திருத்தும் அளவு எடுக்கவும்; 100-க்குக் கீழ் இருந்தால் 15–30 கிராம் கார்ப் உண்ணவும்.',
-    '15 விதி: 70 mg/dL-க்குக் கீழ் இருந்தால், 15 கிராம் விரைவு கார்ப் எடுத்து 15 நிமிடம் கழித்து மீண்டும் சரிபார்க்கவும்.',
-    'ஊசி போடும் இடத்தை மாற்றி மாற்றிப் பயன்படுத்துங்கள் — ஒரே இடத்தில் போட்டால் தோலுக்கு அடியில் கட்டிகள் வரலாம்.',
-    'பயணத்தின்போது இன்சுலினை Frio பை அல்லது ஐஸ் பேக்கில் குளிராக வைக்கவும். ஒருபோதும் உறைய வைக்க வேண்டாம்.',
-    'எப்போதும் டயாபேக் எடுத்துச் செல்லுங்கள்: இன்சுலின், குளுக்கோஸ் மாத்திரைகள், கூடுதல் குளுக்கோமீட்டர்.',
-    'HbA1c ஆண்டுக்கு 3–4 முறை பரிசோதிக்க வேண்டும்; இது 2–3 மாத சராசரி சர்க்கரை அளவைக் காட்டுகிறது.',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final tips = AppState.instance.isTamil ? _tipsTa : _tipsEn;
-    // Advances on each manual refresh; otherwise stable for the day rather
-    // than shuffling on every rebuild.
-    final tip = tips[(DateTime.now().day + refreshKey) % tips.length];
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.6)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: const BoxDecoration(
-                  color: AppTheme.primary,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.lightbulb_outline,
-                  size: 17,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                S.tipOfTheDay,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.deep,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            tip,
-            style: TextStyle(
-              fontSize: 13.5,
-              height: 1.5,
-              color: Colors.black.withValues(alpha: 0.75),
-            ),
-          ),
-        ],
       ),
     );
   }

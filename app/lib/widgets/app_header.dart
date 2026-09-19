@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/strings.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/rewards/badges_screen.dart';
 import 'language_toggle.dart';
 
 /// `Page Title … [EN|தமிழ்] [👤]` — the language switcher sits immediately
@@ -10,7 +12,12 @@ import 'language_toggle.dart';
 class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   final String title;
 
-  const AppHeader({super.key, required this.title});
+  /// Adds a trophy button opening the badge collection. On by default only
+  /// where rewards are the point (Quizzes, Home) rather than on every screen
+  /// — a header with four icons stops reading as a header.
+  final bool showBadges;
+
+  const AppHeader({super.key, required this.title, this.showBadges = false});
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -20,6 +27,14 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       title: Text(title),
       actions: [
+        if (showBadges)
+          IconButton(
+            icon: const Icon(Icons.workspace_premium_outlined),
+            tooltip: S.myBadges,
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BadgesScreen()),
+            ),
+          ),
         const LanguageToggle(),
         const SizedBox(width: 6),
         IconButton(

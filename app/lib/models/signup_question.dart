@@ -1,9 +1,9 @@
 enum SignupAnswerType { text, date, choice, year }
 
 /// One step of the chat-style sign-up flow. Fields chosen to match
-/// `Profile` on the backend (see `api/prisma/schema.prisma`) — first/last
-/// name, date of birth, sex, diagnosis year — kept to the minimum the app
-/// actually uses rather than the full profile form.
+/// `Profile` on the backend (see `api/prisma/schema.prisma`) — name, date of
+/// birth, sex, diagnosis year — kept to the minimum the app actually uses
+/// rather than the full profile form.
 class SignupQuestion {
   final String key;
   final String prompt;
@@ -20,13 +20,8 @@ class SignupQuestion {
 
 const List<SignupQuestion> signupQuestions = [
   SignupQuestion(
-    key: 'firstName',
-    prompt: "What is the child's first name?",
-    type: SignupAnswerType.text,
-  ),
-  SignupQuestion(
-    key: 'lastName',
-    prompt: "And their last name?",
+    key: 'name',
+    prompt: "What is your child name?",
     type: SignupAnswerType.text,
   ),
   SignupQuestion(
@@ -76,20 +71,26 @@ String? validateSignupAnswer(
       final date = DateTime.tryParse(value);
       if (date == null) return 'Enter a valid date.';
       final now = DateTime.now();
-      final age = now.year - date.year - (now.isBefore(DateTime(now.year, date.month, date.day)) ? 1 : 0);
+      final age =
+          now.year -
+          date.year -
+          (now.isBefore(DateTime(now.year, date.month, date.day)) ? 1 : 0);
       if (date.isAfter(now)) return 'Date of birth cannot be in the future.';
-      if (age < 0 || age > 25) return 'Enter a date of birth between 0 and 25 years ago.';
+      if (age < 0 || age > 25)
+        return 'Enter a date of birth between 0 and 25 years ago.';
       return null;
 
     case SignupAnswerType.choice:
-      if (!(question.choices ?? []).contains(value)) return 'Choose one of the options.';
+      if (!(question.choices ?? []).contains(value))
+        return 'Choose one of the options.';
       return null;
 
     case SignupAnswerType.year:
       final year = int.tryParse(value);
       final currentYear = DateTime.now().year;
       if (year == null) return 'Enter a valid year, e.g. $currentYear.';
-      if (year < 1900 || year > currentYear) return 'Enter a year between 1900 and $currentYear.';
+      if (year < 1900 || year > currentYear)
+        return 'Enter a year between 1900 and $currentYear.';
 
       // A diagnosis year cannot precede the child's own birth year — the
       // per-question check above had no way to catch this (DOB 2018,

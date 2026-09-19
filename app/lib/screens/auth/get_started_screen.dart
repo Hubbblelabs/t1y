@@ -6,7 +6,7 @@ import '../../config/api_config.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/orbiting_icons.dart';
-import 'email_entry_screen.dart';
+import 'identifier_entry_screen.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
@@ -165,7 +165,7 @@ class GetStartedScreen extends StatelessWidget {
                         ),
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const EmailEntryScreen(),
+                            builder: (_) => const IdentifierEntryScreen(),
                           ),
                         ),
                         child: const Text('Get Started'),

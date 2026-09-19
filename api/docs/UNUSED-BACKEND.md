@@ -5,7 +5,13 @@ Platform" — a broad multi-condition, multi-study clinical data platform. The
 actual product is narrower: a bilingual (English/Tamil) **education** app
 delivering 8 curriculum topics, 2 calculators, and quizzes to 140 children
 (6–15) in a single Coimbatore nursing PhD study, with a parent operating an
-Android phone. v1 has **no health logging**.
+Android phone.
+
+**Update — glucose logging is now in scope.** The app has a Glucose tab
+(parent-only, gated behind an MPIN) that writes through `POST /api/glucose`.
+That endpoint family stays behind the `health_logging_enabled` feature flag,
+which **defaults to off**: see the governance note at the end of this
+document. Everything else under "Health logging" below is still unused.
 
 This document tracks what the platform has that the product doesn't need, so
 future work doesn't assume something is load-bearing when it isn't. Nothing
@@ -131,10 +137,18 @@ product doesn't use. What's new:
 ## Governance note, not a code issue
 
 The health-logging endpoints above (`/api/glucose`, `/api/insulin`,
-`/api/meals`, …) are live and **PATIENT-writable** even though this
-product's v1 has no health-logging UI. Ethics approval for an *education*
-study very likely doesn't cover collecting glucose readings. If this
-platform is deployed for the study as-is, consider gating that endpoint
-family behind a `health_logging_enabled`-style flag defaulting off, or
-documenting them as explicitly out of scope with the ethics committee. This
-is a scope/consent question, not a bug.
+`/api/meals`, …) are live and **PATIENT-writable**. Ethics approval for an
+*education* study very likely doesn't cover collecting glucose readings.
+
+**Status: gated.** Every mutation in that family now requires the
+`health_logging_enabled` feature flag (`lib/services/feature-flags.ts`),
+which defaults to `false` and is marked `clinicalSafety: true` — so enabling
+it takes a deliberate admin action with an explicit safety acknowledgement.
+Until then those endpoints return 403, and the app's Glucose tab says so in
+plain language rather than failing like a bug.
+
+**This remains a scope/consent question, not a code one.** The flag is a
+control, not an answer: someone must still confirm with the ethics committee
+that collecting glucose readings from these participants is covered, and
+that the consent forms say so, *before* turning it on. Nothing in the code
+can make that determination.

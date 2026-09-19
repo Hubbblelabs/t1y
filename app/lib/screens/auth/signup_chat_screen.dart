@@ -46,7 +46,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     super.initState();
     _messages.add(
       _ChatMessage(
-        "Before we begin, a few details about the child can help your care team better understand their needs. Your information will remain private to this study.",
+        "BA few details about the child will help us better understand their needs. Your information will remain private.",
         isUser: false,
       ),
     );
@@ -91,7 +91,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
         builder: (_) => SignupLoadingScreen(
           email: widget.email,
           password: widget.password,
-          name: '${_answers['firstName']} ${_answers['lastName']}',
+          name: _answers['name'] ?? '',
         ),
       ),
     );
@@ -119,7 +119,11 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   }
 
   void _submitAnswer(String rawValue) {
-    final error = validateSignupAnswer(_current, rawValue, priorAnswers: _answers);
+    final error = validateSignupAnswer(
+      _current,
+      rawValue,
+      priorAnswers: _answers,
+    );
     if (error != null) {
       setState(() => _error = error);
       return;
@@ -152,7 +156,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('A few details before we start')),
+      appBar: AppBar(title: const Text('Before We Begin...')),
       body: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: RadialGradient(

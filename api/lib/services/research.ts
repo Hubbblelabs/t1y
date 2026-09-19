@@ -132,8 +132,7 @@ const ENROLLMENT_SELECT = {
       profile: {
         select: {
           participantCode: true,
-          firstName: true,
-          lastName: true,
+          name: true,
           diabetesType: true,
           lastActivityAt: true,
         },

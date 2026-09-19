@@ -31,6 +31,14 @@ const CATEGORIES = [...STUDY_EDUCATION_CATEGORIES, ...LEGACY_EDUCATION_CATEGORIE
 const LOCALES = ["EN", "TA"] as const;
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 
+/** One paragraph + the image it's shown with on the Help Book reading
+ *  screen — see scripts/split-content-blocks.ts. */
+export interface EducationContentBlock {
+  paragraph: string;
+  imageUrl: string;
+  imageKey?: string | null;
+}
+
 export interface EducationFormValue {
   id?: string;
   slug: string;
@@ -43,6 +51,7 @@ export interface EducationFormValue {
   status: (typeof STATUSES)[number];
   tags: string;
   sortOrder: number;
+  contentBlocks?: EducationContentBlock[];
 }
 
 const EMPTY: EducationFormValue = {
@@ -56,6 +65,7 @@ const EMPTY: EducationFormValue = {
   status: "DRAFT",
   tags: "",
   sortOrder: 0,
+  contentBlocks: [],
 };
 
 /**
@@ -91,6 +101,15 @@ export function EducationForm({
 
   function set<K extends keyof EducationFormValue>(key: K, val: EducationFormValue[K]) {
     setValue((prev) => ({ ...prev, [key]: val }));
+  }
+
+  function setBlockImage(index: number, imageUrl: string) {
+    setValue((prev) => ({
+      ...prev,
+      contentBlocks: (prev.contentBlocks ?? []).map((b, i) =>
+        i === index ? { ...b, imageUrl } : b,
+      ),
+    }));
   }
 
   function setTitle(title: string) {
@@ -144,6 +163,10 @@ export function EducationForm({
         .map((t) => t.trim())
         .filter(Boolean),
       sortOrder: value.sortOrder,
+      // Omitted on create (no blocks exist yet — generated separately, see
+      // scripts/split-content-blocks.ts); included on edit so an image
+      // remap actually saves.
+      ...(mode === "edit" && value.contentBlocks ? { contentBlocks: value.contentBlocks } : {}),
     };
 
     try {
@@ -362,6 +385,54 @@ export function EducationForm({
           />
         </Card>
       </div>
+
+      {mode === "edit" && value.contentBlocks && value.contentBlocks.length > 0 ? (
+        <Card className="p-4">
+          <div className="mb-1 flex items-center justify-between">
+            <h2 className="text-ink text-sm font-semibold">
+              Content blocks — image ↔ paragraph
+            </h2>
+            <Badge tone="neutral">{value.contentBlocks.length}</Badge>
+          </div>
+          <p className="text-ink-muted mb-3 text-[13px]">
+            One row per paragraph shown on the reading screen, with the image it appears with. Set
+            an image URL to remap one; clearing a row&apos;s image falls back to the previous
+            row&apos;s image, or the topic thumbnail. Paragraph text isn&apos;t editable here — it
+            comes from the source content verbatim.
+          </p>
+          <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+            {value.contentBlocks.map((block, index) => (
+              <div key={index} className="border-line flex items-start gap-3 rounded-md border p-2">
+                <div className="bg-surface-sunken h-14 w-20 shrink-0 overflow-hidden rounded">
+                  {block.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={block.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.visibility = "hidden";
+                      }}
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Input
+                    value={block.imageUrl}
+                    onChange={(e) => setBlockImage(index, e.target.value)}
+                    placeholder="/content/topic-slug/hash.webp"
+                    className="text-xs"
+                  />
+                  <p
+                    className="text-ink-muted line-clamp-2 text-xs"
+                    dangerouslySetInnerHTML={{ __html: block.paragraph }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div>
         <Button variant="primary" onClick={handleSave} disabled={saving}>
