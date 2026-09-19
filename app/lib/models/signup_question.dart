@@ -33,7 +33,7 @@ const List<SignupQuestion> signupQuestions = [
     key: 'sex',
     prompt: "Sex, for the medical record?",
     type: SignupAnswerType.choice,
-    choices: ['Female', 'Male', 'Prefer not to say'],
+    choices: ['Female', 'Male'],
   ),
   SignupQuestion(
     key: 'diagnosisYear',

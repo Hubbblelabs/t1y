@@ -117,9 +117,13 @@ class _StartupGate extends StatelessWidget {
       future: AuthService.instance.isSignedIn,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
-        return snapshot.data == true ? const HomeShell() : const GetStartedScreen();
+        return snapshot.data == true
+            ? const HomeShell()
+            : const GetStartedScreen();
       },
     );
   }

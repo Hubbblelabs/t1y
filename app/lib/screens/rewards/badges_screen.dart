@@ -114,7 +114,10 @@ class _Hero extends StatelessWidget {
     final average = collection.averageScore;
     if (average == null) return const [Color(0xFFCFD8DC), Color(0xFF90A4AE)];
     return BadgeTier.values
-        .firstWhere((t) => average >= t.minScore, orElse: () => BadgeTier.rising)
+        .firstWhere(
+          (t) => average >= t.minScore,
+          orElse: () => BadgeTier.rising,
+        )
         .colors;
   }
 
@@ -133,7 +136,10 @@ class _Hero extends StatelessWidget {
             colors: colors,
             glow: collection.attemptedFraction,
             title: rank?.title ?? S.startFirstQuiz,
-            subtitle: S.takenOfQuizzes(collection.quizzesAttempted, collection.totalQuizzes),
+            subtitle: S.takenOfQuizzes(
+              collection.quizzesAttempted,
+              collection.totalQuizzes,
+            ),
           ),
           child: GlowBadge(
             glow: collection.attemptedFraction,
@@ -144,7 +150,10 @@ class _Hero extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         Text(
-          S.takenOfQuizzes(collection.quizzesAttempted, collection.totalQuizzes),
+          S.takenOfQuizzes(
+            collection.quizzesAttempted,
+            collection.totalQuizzes,
+          ),
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -168,7 +177,10 @@ class _Hero extends StatelessWidget {
           // Score shown as a filled-star gauge rather than a "84%" label — a
           // glance tells a child whether that's good, where a raw number
           // needs reading and comparing against nothing shown on screen.
-          _ScoreStars(scorePercent: collection.averageScore!, color: colors.last),
+          _ScoreStars(
+            scorePercent: collection.averageScore!,
+            color: colors.last,
+          ),
         ],
       ],
     );
@@ -193,7 +205,9 @@ class _ScoreStars extends StatelessWidget {
         final starTenths = filledTenths - i * 2;
         final icon = starTenths >= 2
             ? Icons.star_rounded
-            : (starTenths == 1 ? Icons.star_half_rounded : Icons.star_border_rounded);
+            : (starTenths == 1
+                  ? Icons.star_half_rounded
+                  : Icons.star_border_rounded);
         return Icon(icon, size: 26, color: color);
       }),
     );
@@ -302,7 +316,11 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off, size: 44, color: AppTheme.deep.withValues(alpha: 0.4)),
+            Icon(
+              Icons.cloud_off,
+              size: 44,
+              color: AppTheme.deep.withValues(alpha: 0.4),
+            ),
             const SizedBox(height: 12),
             Text('${S.couldNotLoad}\n$message', textAlign: TextAlign.center),
             const SizedBox(height: 12),

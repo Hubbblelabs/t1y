@@ -20,16 +20,17 @@ class GlucoseEntryStatus {
     required this.canEnterNow,
   });
 
-  factory GlucoseEntryStatus.fromJson(Map<String, dynamic> json) => GlucoseEntryStatus(
-    cooldownHours: json['cooldownHours'] as int? ?? 8,
-    lastReadingAt: json['lastReadingAt'] == null
-        ? null
-        : DateTime.tryParse(json['lastReadingAt'] as String)?.toLocal(),
-    nextAllowedAt: json['nextAllowedAt'] == null
-        ? null
-        : DateTime.tryParse(json['nextAllowedAt'] as String)?.toLocal(),
-    canEnterNow: json['canEnterNow'] as bool? ?? true,
-  );
+  factory GlucoseEntryStatus.fromJson(Map<String, dynamic> json) =>
+      GlucoseEntryStatus(
+        cooldownHours: json['cooldownHours'] as int? ?? 8,
+        lastReadingAt: json['lastReadingAt'] == null
+            ? null
+            : DateTime.tryParse(json['lastReadingAt'] as String)?.toLocal(),
+        nextAllowedAt: json['nextAllowedAt'] == null
+            ? null
+            : DateTime.tryParse(json['nextAllowedAt'] as String)?.toLocal(),
+        canEnterNow: json['canEnterNow'] as bool? ?? true,
+      );
 }
 
 /// Glucometer readings entered by the parent.

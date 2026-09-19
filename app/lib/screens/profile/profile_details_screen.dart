@@ -130,7 +130,7 @@ class ProfileDetailsScreen extends StatelessWidget {
   }
 
   static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 
   static String? _prettySex(String? value) => switch (value) {
     'FEMALE' => S.female,

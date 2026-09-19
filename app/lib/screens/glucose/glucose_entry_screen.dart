@@ -7,6 +7,7 @@ import '../../services/glucose_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/calculator_disclaimer.dart';
+import '../../widgets/error_banner.dart';
 
 enum _SortOrder { newestFirst, oldestFirst }
 
@@ -56,9 +57,10 @@ class _GlucoseEntryScreenState extends State<GlucoseEntryScreen> {
   /// parent picked from the log below to check a different day.
   GlucoseReading? _selectedReading;
 
-  // IC/ISF is gated the same way the old standalone screen was: prescribed
-  // per child, not a platform-wide switch — see health_hub_screen.dart's
-  // own note on why.
+  // Per-child switch, defaulting to on for every child (see
+  // Profile.icIsfUnlocked) — a coordinator can still turn it back off for
+  // one child specifically, so this is still read per-child rather than
+  // assumed true.
   bool _icIsfUnlocked = false;
 
   @override
@@ -375,22 +377,7 @@ class _EntryCard extends StatelessWidget {
               ),
               if (error != null) ...[
                 const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    error!,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12.5,
-                      height: 1.35,
-                    ),
-                  ),
-                ),
+                ErrorBanner(message: error!, textAlign: TextAlign.center),
               ],
               const SizedBox(height: 20),
               FilledButton(
@@ -690,7 +677,7 @@ class _ReadingTile extends StatelessWidget {
                   ),
                 ),
               Text(
-                '${when.day.toString().padLeft(2, '0')}/'
+                '${when.day.toString().padLeft(2, '0')}-'
                 '${when.month.toString().padLeft(2, '0')} · '
                 '${when.hour.toString().padLeft(2, '0')}:'
                 '${when.minute.toString().padLeft(2, '0')}',
@@ -1006,7 +993,7 @@ class _InsulinCalculatorCardState extends State<_InsulinCalculatorCard> {
 }
 
 String _formatDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 
 String _formatWhen(DateTime when) {
   final now = DateTime.now();

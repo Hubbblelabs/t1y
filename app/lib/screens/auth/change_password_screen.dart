@@ -4,6 +4,7 @@ import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import '../home/home_shell.dart';
@@ -37,11 +38,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final confirm = _confirmController.text;
 
     if (newPassword.length < _minLength) {
-      setState(() => _error = 'Password must be at least $_minLength characters.');
+      setState(
+        () => _error = 'Password must be at least $_minLength characters.',
+      );
       return;
     }
     if (newPassword.length > _maxLength) {
-      setState(() => _error = 'Password must be at most $_maxLength characters.');
+      setState(
+        () => _error = 'Password must be at most $_maxLength characters.',
+      );
       return;
     }
     if (newPassword != confirm) {
@@ -49,7 +54,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       return;
     }
     if (newPassword == widget.currentPassword) {
-      setState(() => _error = 'Choose a password different from the one you signed in with.');
+      setState(
+        () => _error =
+            'Choose a password different from the one you signed in with.',
+      );
       return;
     }
 
@@ -71,7 +79,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     } on ApiException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
-      setState(() => _error = 'Could not reach the server. Check your connection and try again.');
+      setState(
+        () => _error =
+            'Could not reach the server. Check your connection and try again.',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -116,7 +127,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, size: 18, color: AppTheme.primary),
+                              Icon(
+                                Icons.info_outline,
+                                size: 18,
+                                color: AppTheme.primary,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -126,7 +141,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     height: 1.4,
-                                    color: AppTheme.deep.withValues(alpha: 0.85),
+                                    color: AppTheme.deep.withValues(
+                                      alpha: 0.85,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -135,17 +152,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         ),
                         const SizedBox(height: 20),
                         if (_error != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
-                            ),
-                          ),
+                          ErrorBanner(message: _error!),
                           const SizedBox(height: 16),
                         ],
                         LabeledField(
@@ -172,7 +179,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
                                 )
                               : const Text('Change password & continue'),
                         ),

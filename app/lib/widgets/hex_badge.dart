@@ -25,7 +25,9 @@ class HexBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final earned = tier != null;
-    final colors = earned ? tier!.colors : const [Color(0xFFDCE3EA), Color(0xFFB0BEC5)];
+    final colors = earned
+        ? tier!.colors
+        : const [Color(0xFFDCE3EA), Color(0xFFB0BEC5)];
 
     final Widget content = label != null
         ? Text(
@@ -37,7 +39,11 @@ class HexBadge extends StatelessWidget {
               color: Colors.white,
               height: 1.05,
               shadows: const [
-                Shadow(color: Color(0x55000000), blurRadius: 4, offset: Offset(0, 1)),
+                Shadow(
+                  color: Color(0x55000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
               ],
             ),
           )
@@ -52,7 +58,11 @@ class HexBadge extends StatelessWidget {
               shape: BoxShape.circle,
               color: Colors.white,
               boxShadow: const [
-                BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1)),
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
               ],
             ),
             child: SvgPicture.asset(tier?.icon ?? noBadgeIcon),
@@ -88,7 +98,9 @@ class _HexPainter extends CustomPainter {
         centre.dx + radius * math.cos(angle),
         centre.dy + radius * math.sin(angle),
       );
-      i == 0 ? path.moveTo(point.dx, point.dy) : path.lineTo(point.dx, point.dy);
+      i == 0
+          ? path.moveTo(point.dx, point.dy)
+          : path.lineTo(point.dx, point.dy);
     }
     return path..close();
   }
@@ -139,5 +151,6 @@ class _HexPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HexPainter old) => old.colors != colors || old.glow != glow;
+  bool shouldRepaint(_HexPainter old) =>
+      old.colors != colors || old.glow != glow;
 }

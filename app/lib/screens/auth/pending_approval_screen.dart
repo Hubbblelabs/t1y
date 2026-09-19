@@ -33,7 +33,11 @@ class PendingApprovalScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: Colors.white.withValues(alpha: 0.85),
                       ),
-                      child: const Icon(Icons.hourglass_top, size: 40, color: AppTheme.primary),
+                      child: const Icon(
+                        Icons.hourglass_top,
+                        size: 40,
+                        color: AppTheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Text(
@@ -58,7 +62,9 @@ class PendingApprovalScreen extends StatelessWidget {
                     const SizedBox(height: 28),
                     OutlinedButton(
                       onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const GetStartedScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const GetStartedScreen(),
+                        ),
                         (route) => false,
                       ),
                       child: Text(S.backToStart),

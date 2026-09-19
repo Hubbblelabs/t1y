@@ -31,9 +31,9 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           IconButton(
             icon: const Icon(Icons.workspace_premium_outlined),
             tooltip: S.myBadges,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BadgesScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const BadgesScreen())),
           ),
         const LanguageToggle(),
         const SizedBox(width: 6),
@@ -41,9 +41,9 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           icon: const Icon(Icons.person_outline),
           tooltip: 'Profile',
           onPressed: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
           },
         ),
         const SizedBox(width: 4),

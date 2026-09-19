@@ -4,14 +4,19 @@ class QuizOption {
   final String text;
   final String? matchText;
 
-  QuizOption({required this.id, required this.position, required this.text, this.matchText});
+  QuizOption({
+    required this.id,
+    required this.position,
+    required this.text,
+    this.matchText,
+  });
 
   factory QuizOption.fromJson(Map<String, dynamic> json) => QuizOption(
-        id: json['id'] as String,
-        position: json['position'] as int,
-        text: json['text'] as String,
-        matchText: json['matchText'] as String?,
-      );
+    id: json['id'] as String,
+    position: json['position'] as int,
+    text: json['text'] as String,
+    matchText: json['matchText'] as String?,
+  );
 }
 
 /// Mirrors api/lib/quizzes/grading.ts's QuizQuestionType.
@@ -51,16 +56,16 @@ class QuizQuestion {
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) => QuizQuestion(
-        id: json['id'] as String,
-        type: questionTypeFromString(json['type'] as String),
-        questionKey: json['questionKey'] as String,
-        prompt: json['prompt'] as String,
-        explanation: json['explanation'] as String?,
-        points: json['points'] as int,
-        options: (json['options'] as List)
-            .map((o) => QuizOption.fromJson(o as Map<String, dynamic>))
-            .toList(),
-      );
+    id: json['id'] as String,
+    type: questionTypeFromString(json['type'] as String),
+    questionKey: json['questionKey'] as String,
+    prompt: json['prompt'] as String,
+    explanation: json['explanation'] as String?,
+    points: json['points'] as int,
+    options: (json['options'] as List)
+        .map((o) => QuizOption.fromJson(o as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class Quiz {
@@ -90,16 +95,16 @@ class Quiz {
   });
 
   factory Quiz.fromJson(Map<String, dynamic> json) => Quiz(
-        id: json['id'] as String,
-        slug: json['slug'] as String,
-        locale: json['locale'] as String,
-        topicSlug: json['topicSlug'] as String?,
-        title: json['title'] as String,
-        description: json['description'] as String?,
-        passingScore: json['passingScore'] as int?,
-        questions: (json['questions'] as List)
-            .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
-            .toList(),
-        isFallback: json['isFallback'] as bool? ?? false,
-      );
+    id: json['id'] as String,
+    slug: json['slug'] as String,
+    locale: json['locale'] as String,
+    topicSlug: json['topicSlug'] as String?,
+    title: json['title'] as String,
+    description: json['description'] as String?,
+    passingScore: json['passingScore'] as int?,
+    questions: (json['questions'] as List)
+        .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
+        .toList(),
+    isFallback: json['isFallback'] as bool? ?? false,
+  );
 }

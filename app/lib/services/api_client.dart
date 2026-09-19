@@ -48,7 +48,11 @@ dynamic unwrapApiResponse(http.Response response) {
   try {
     body = jsonDecode(response.body) as Map<String, dynamic>;
   } catch (_) {
-    throw ApiException(response.statusCode, 'PARSE_ERROR', 'The server sent an unexpected response.');
+    throw ApiException(
+      response.statusCode,
+      'PARSE_ERROR',
+      'The server sent an unexpected response.',
+    );
   }
 
   if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -109,7 +113,10 @@ class ApiClient {
   dynamic _unwrap(http.Response response) => unwrapApiResponse(response);
 
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
-    final response = await http.get(await _uri(path, query), headers: await _headers(json: false));
+    final response = await http.get(
+      await _uri(path, query),
+      headers: await _headers(json: false),
+    );
     return _unwrap(response);
   }
 
@@ -132,7 +139,10 @@ class ApiClient {
   }
 
   Future<void> delete(String path) async {
-    final response = await http.delete(await _uri(path), headers: await _headers(json: false));
+    final response = await http.delete(
+      await _uri(path),
+      headers: await _headers(json: false),
+    );
     _unwrap(response);
   }
 }

@@ -68,7 +68,9 @@ class LanguageToggle extends StatelessWidget {
                 AnimatedAlign(
                   duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
-                  alignment: isTamil ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isTamil
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     width: _segmentWidth,
                     height: 26,

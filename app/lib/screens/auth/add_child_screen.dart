@@ -4,6 +4,7 @@ import '../../l10n/strings.dart';
 import '../../services/api_client.dart';
 import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 
 /// Enrols another child under the signed-in parent's household.
@@ -113,17 +114,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
           ),
           const SizedBox(height: 20),
           if (_error != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Colors.red, fontSize: 13),
-              ),
-            ),
+            ErrorBanner(message: _error!),
             const SizedBox(height: 16),
           ],
           LabeledField(
@@ -154,8 +145,8 @@ class _AddChildScreenState extends State<AddChildScreen> {
                   Text(
                     dob == null
                         ? S.dateOfBirth
-                        : '${dob.day.toString().padLeft(2, '0')}/'
-                              '${dob.month.toString().padLeft(2, '0')}/${dob.year}',
+                        : '${dob.day.toString().padLeft(2, '0')}-'
+                              '${dob.month.toString().padLeft(2, '0')}-${dob.year}',
                     style: TextStyle(
                       fontSize: 14.5,
                       color: dob == null

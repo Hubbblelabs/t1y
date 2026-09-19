@@ -38,7 +38,8 @@ class GlowBadge extends StatefulWidget {
   State<GlowBadge> createState() => _GlowBadgeState();
 }
 
-class _GlowBadgeState extends State<GlowBadge> with SingleTickerProviderStateMixin {
+class _GlowBadgeState extends State<GlowBadge>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 3),
@@ -84,7 +85,11 @@ class _GlowBadgeState extends State<GlowBadge> with SingleTickerProviderStateMix
               shape: BoxShape.circle,
               color: Colors.white,
               boxShadow: const [
-                BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
               ],
             ),
             child: SvgPicture.asset(widget.icon),
@@ -116,7 +121,9 @@ class _GlowBadgePainter extends CustomPainter {
         centre.dx + radius * math.cos(angle),
         centre.dy + radius * math.sin(angle),
       );
-      i == 0 ? path.moveTo(point.dx, point.dy) : path.lineTo(point.dx, point.dy);
+      i == 0
+          ? path.moveTo(point.dx, point.dy)
+          : path.lineTo(point.dx, point.dy);
     }
     return path..close();
   }

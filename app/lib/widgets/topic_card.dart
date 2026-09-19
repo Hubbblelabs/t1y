@@ -81,7 +81,8 @@ class TopicCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    if (topic.description != null && topic.description!.isNotEmpty)
+                    if (topic.description != null &&
+                        topic.description!.isNotEmpty)
                       Text(
                         topic.description!,
                         maxLines: 2,
@@ -193,7 +194,11 @@ class _Thumbnail extends StatelessWidget {
           colors: [AppTheme.lightest, AppTheme.accent.withValues(alpha: 0.7)],
         ),
       ),
-      child: Icon(fallbackIcon, size: 32, color: AppTheme.deep.withValues(alpha: 0.55)),
+      child: Icon(
+        fallbackIcon,
+        size: 32,
+        color: AppTheme.deep.withValues(alpha: 0.55),
+      ),
     );
 
     final thumb = topic.thumbnailUrl;
@@ -240,7 +245,11 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ],
       ),

@@ -30,8 +30,13 @@ class QuizService {
   static const _uuid = Uuid();
 
   Future<List<Quiz>> getQuizzes(String locale) async {
-    final data = await ApiClient.instance.get('/api/quizzes/bundle', query: {'locale': locale});
-    return (data['data']['items'] as List).map((q) => Quiz.fromJson(q as Map<String, dynamic>)).toList();
+    final data = await ApiClient.instance.get(
+      '/api/quizzes/bundle',
+      query: {'locale': locale},
+    );
+    return (data['data']['items'] as List)
+        .map((q) => Quiz.fromJson(q as Map<String, dynamic>))
+        .toList();
   }
 
   /// Submits one quiz attempt and returns the server-graded result. Grading
@@ -46,28 +51,33 @@ class QuizService {
     final now = DateTime.now().toUtc();
     final eventId = _uuid.v4();
 
-    final result = await ApiClient.instance.post('/api/sync', body: {
-      'sentAt': now.toIso8601String(),
-      'events': [
-        {
-          'clientId': eventId,
-          'type': 'QUIZ_ATTEMPT',
-          'occurredAt': now.toIso8601String(),
-          'payload': {
-            'quizSlug': quiz.slug,
-            'locale': quiz.locale,
-            'startedAt': startedAt.toUtc().toIso8601String(),
-            'completedAt': now.toIso8601String(),
-            'responses': responses,
+    final result = await ApiClient.instance.post(
+      '/api/sync',
+      body: {
+        'sentAt': now.toIso8601String(),
+        'events': [
+          {
+            'clientId': eventId,
+            'type': 'QUIZ_ATTEMPT',
+            'occurredAt': now.toIso8601String(),
+            'payload': {
+              'quizSlug': quiz.slug,
+              'locale': quiz.locale,
+              'startedAt': startedAt.toUtc().toIso8601String(),
+              'completedAt': now.toIso8601String(),
+              'responses': responses,
+            },
           },
-        }
-      ],
-    });
+        ],
+      },
+    );
 
     final accepted = (result['data']['accepted'] as List);
     final rejected = (result['data']['rejected'] as List);
     if (accepted.isEmpty) {
-      final reason = rejected.isNotEmpty ? rejected.first['message'] as String : 'Submission failed.';
+      final reason = rejected.isNotEmpty
+          ? rejected.first['message'] as String
+          : 'Submission failed.';
       throw ApiException(0, 'SYNC_REJECTED', reason);
     }
 
@@ -82,7 +92,11 @@ class QuizService {
     );
 
     if (latest == null) {
-      throw ApiException(0, 'SYNC_REJECTED', 'The attempt was recorded but its score could not be read back.');
+      throw ApiException(
+        0,
+        'SYNC_REJECTED',
+        'The attempt was recorded but its score could not be read back.',
+      );
     }
 
     return QuizAttemptResult(

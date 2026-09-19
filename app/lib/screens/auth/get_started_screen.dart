@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../config/api_config.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/orbiting_icons.dart';
@@ -10,39 +9,6 @@ import 'identifier_entry_screen.dart';
 
 class GetStartedScreen extends StatelessWidget {
   const GetStartedScreen({super.key});
-
-  Future<void> _editServerUrl(BuildContext context) async {
-    final controller = TextEditingController(
-      text: await ApiConfig.getBaseUrl(),
-    );
-    if (!context.mounted) return;
-    final result = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Server address'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.url,
-          decoration: const InputDecoration(
-            hintText: 'http://192.168.x.x:3000',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (result != null && result.trim().isNotEmpty) {
-      await ApiConfig.setBaseUrl(result);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,18 +24,6 @@ class GetStartedScreen extends StatelessWidget {
         child: SafeArea(
           child: Column(
             children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  onPressed: () => _editServerUrl(context),
-                  icon: Icon(
-                    Icons.settings_ethernet,
-                    color: AppTheme.deep.withValues(alpha: 0.4),
-                    size: 20,
-                  ),
-                  tooltip: 'Server address (dev only)',
-                ),
-              ),
               Expanded(
                 child: Center(
                   child: Stack(

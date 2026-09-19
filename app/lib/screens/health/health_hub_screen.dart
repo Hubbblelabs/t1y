@@ -307,7 +307,7 @@ class _NextReadingNote extends StatelessWidget {
 }
 
 String _formatDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 
 String _formatWhen(DateTime when) {
   final now = DateTime.now();

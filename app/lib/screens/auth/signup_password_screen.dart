@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import 'signup_chat_screen.dart';
@@ -79,20 +80,7 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                        ErrorBanner(message: _error!),
                         const SizedBox(height: 16),
                       ],
                       LabeledField(

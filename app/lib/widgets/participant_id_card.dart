@@ -70,7 +70,10 @@ class ParticipantIdCard extends StatelessWidget {
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: _CornerButton(icon: Icons.settings_outlined, onTap: onFlip),
+                  child: _CornerButton(
+                    icon: Icons.settings_outlined,
+                    onTap: onFlip,
+                  ),
                 ),
                 Align(
                   alignment: const Alignment(0, -0.30),
@@ -137,7 +140,10 @@ class ParticipantIdCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  Divider(color: AppTheme.accent.withValues(alpha: 0.55), height: 1),
+                  Divider(
+                    color: AppTheme.accent.withValues(alpha: 0.55),
+                    height: 1,
+                  ),
                   const SizedBox(height: 18),
                   Expanded(
                     child: SingleChildScrollView(
@@ -146,14 +152,19 @@ class ParticipantIdCard extends StatelessWidget {
                         children: [
                           if (participantCode != null)
                             _Row(label: S.idNo, value: participantCode!),
-                          if (_age != null) _Row(label: S.age, value: S.years(_age!)),
+                          if (_age != null)
+                            _Row(label: S.age, value: S.years(_age!)),
                           if (dateOfBirth != null)
-                            _Row(label: S.dateOfBirth, value: _formatDate(dateOfBirth!)),
+                            _Row(
+                              label: S.dateOfBirth,
+                              value: _formatDate(dateOfBirth!),
+                            ),
                           if (sex != null && sex != 'UNSPECIFIED')
                             _Row(label: S.sex, value: _prettySex(sex!)),
                           if (diagnosisYear != null)
                             _Row(label: S.diagnosed, value: '$diagnosisYear'),
-                          if (email != null) _Row(label: S.account, value: email!),
+                          if (email != null)
+                            _Row(label: S.account, value: email!),
                         ],
                       ),
                     ),
@@ -168,7 +179,11 @@ class ParticipantIdCard extends StatelessWidget {
   }
 
   static String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return '?';
     if (parts.length == 1) return parts.first[0].toUpperCase();
     return (parts.first[0] + parts.last[0]).toUpperCase();
@@ -176,8 +191,18 @@ class ParticipantIdCard extends StatelessWidget {
 
   static String _formatDate(DateTime d) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }

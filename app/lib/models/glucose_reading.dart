@@ -12,10 +12,11 @@ enum GlucoseContext {
   final String label;
   const GlucoseContext(this.apiValue, this.label);
 
-  static GlucoseContext fromApi(String? value) => GlucoseContext.values.firstWhere(
-    (c) => c.apiValue == value,
-    orElse: () => GlucoseContext.random,
-  );
+  static GlucoseContext fromApi(String? value) =>
+      GlucoseContext.values.firstWhere(
+        (c) => c.apiValue == value,
+        orElse: () => GlucoseContext.random,
+      );
 }
 
 /// One glucometer reading, entered by the parent.

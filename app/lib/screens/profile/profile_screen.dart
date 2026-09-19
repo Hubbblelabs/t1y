@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../config/api_config.dart';
 import '../../l10n/strings.dart';
 import '../../providers/app_state.dart';
 import '../../services/auth_service.dart';
@@ -35,7 +33,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _showSettings = false;
   bool _notificationsEnabled = true;
   bool _refreshing = false;
-  String _serverUrl = '';
   DateTime? _lastSynced;
 
   /// Null until the MPIN status has loaded — the row's subtitle and tap
@@ -73,9 +70,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _load() async {
+    if (mounted) setState(() => _loading = true);
     final me = await ProfileService.instance.me();
     final prefs = await SharedPreferences.getInstance();
-    final url = await ApiConfig.getBaseUrl();
     final synced = await ContentService.instance.lastSyncedAt(
       AppState.instance.locale,
     );
@@ -83,7 +80,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _me = me;
       _notificationsEnabled = prefs.getBool(_notificationsKey) ?? true;
-      _serverUrl = url;
       _lastSynced = synced;
       _loading = false;
     });
@@ -214,6 +210,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
+            : _me == null
+            ? _LoadFailedNotice(onRetry: _load)
             : SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
@@ -458,32 +456,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 ],
                               ),
-                              if (!kReleaseMode) ...[
-                                const SizedBox(height: 14),
-                                _Group(
-                                  title: 'Developer',
-                                  children: [
-                                    ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                          ),
-                                      leading: const Icon(Icons.dns_outlined),
-                                      title: const Text(
-                                        'Server',
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      subtitle: Text(
-                                        _serverUrl,
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
                               const SizedBox(height: 20),
                               // Sign out lives inside the card, per the design.
                               OutlinedButton.icon(
@@ -683,6 +655,48 @@ class _CompleteProfileNudge extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown instead of the profile card when it couldn't be fetched and there
+/// was nothing cached to fall back on (e.g. the very first load, offline).
+/// Previously this case rendered the card anyway with "Edit details" and
+/// "View all details" silently disabled (`onTap: null`) — indistinguishable
+/// from those features being broken. This says plainly what happened and
+/// gives a way to try again instead.
+class _LoadFailedNotice extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _LoadFailedNotice({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.cloud_off,
+              size: 44,
+              color: AppTheme.deep.withValues(alpha: 0.35),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              S.couldNotLoad,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.deep,
+              ),
+            ),
+            const SizedBox(height: 20),
+            OutlinedButton(onPressed: onRetry, child: Text(S.tryAgain)),
+          ],
         ),
       ),
     );

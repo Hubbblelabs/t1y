@@ -48,7 +48,10 @@ class ContentService {
     return raw == null ? null : DateTime.tryParse(raw);
   }
 
-  Future<List<Topic>> getTopics(String locale, {bool forceRefresh = false}) async {
+  Future<List<Topic>> getTopics(
+    String locale, {
+    bool forceRefresh = false,
+  }) async {
     if (!forceRefresh) {
       final cached = await _readCache(locale);
       if (cached != null) {
@@ -62,7 +65,10 @@ class ContentService {
 
   Future<List<Topic>> _refresh(String locale) async {
     try {
-      final data = await ApiClient.instance.get('/api/education/bundle', query: {'locale': locale});
+      final data = await ApiClient.instance.get(
+        '/api/education/bundle',
+        query: {'locale': locale},
+      );
       final items = (data['data']['items'] as List)
           .map((t) => Topic.fromJson(t as Map<String, dynamic>))
           .toList();
@@ -85,7 +91,13 @@ class ContentService {
 
   Future<void> _writeCache(String locale, List<Topic> topics) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_cacheKey(locale), jsonEncode(topics.map((t) => t.toJson()).toList()));
-    await prefs.setString(_syncedAtKey(locale), DateTime.now().toIso8601String());
+    await prefs.setString(
+      _cacheKey(locale),
+      jsonEncode(topics.map((t) => t.toJson()).toList()),
+    );
+    await prefs.setString(
+      _syncedAtKey(locale),
+      DateTime.now().toIso8601String(),
+    );
   }
 }

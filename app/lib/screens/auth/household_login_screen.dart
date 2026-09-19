@@ -5,6 +5,7 @@ import '../../services/api_client.dart';
 import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import 'child_select_screen.dart';
@@ -118,17 +119,7 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(color: Colors.red, fontSize: 13),
-                          ),
-                        ),
+                        ErrorBanner(message: _error!),
                         const SizedBox(height: 16),
                       ],
                       Row(

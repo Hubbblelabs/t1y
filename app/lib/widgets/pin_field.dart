@@ -76,7 +76,10 @@ class PinField extends StatelessWidget {
             helperStyle: const TextStyle(fontSize: 11.5),
             filled: true,
             fillColor: AppTheme.lightest,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: BorderSide.none,

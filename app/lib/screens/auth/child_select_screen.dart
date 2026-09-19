@@ -6,6 +6,7 @@ import '../../services/api_client.dart';
 import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/wave_header.dart';
 import '../home/home_shell.dart';
 
@@ -114,20 +115,7 @@ class _ChildSelectScreenState extends State<ChildSelectScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                        ErrorBanner(message: _error!),
                         const SizedBox(height: 16),
                       ],
                       for (final child in _children)

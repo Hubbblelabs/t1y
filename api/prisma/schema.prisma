@@ -562,13 +562,14 @@ model Profile {
   /// already collected.
   customFieldValues Json @default("{}")
 
-  /// Per-child gate for the app's IC/ISF calculator. Deliberately not the
-  /// global `ic_isf_calculator` feature flag: the ratios are prescribed per
-  /// child, so a coordinator enables it only once that child's care team has
-  /// actually given values to work from — see the app's own
-  /// "why is this locked?" explainer, which already promised this and had
-  /// nothing behind it until this field existed.
-  icIsfUnlocked Boolean @default(false)
+  /// Per-child switch for the app's IC/ISF calculator, on top of the global
+  /// `ic_isf_calculator` feature flag. Defaults to unlocked for every
+  /// child — the earlier design gated this per child until a coordinator
+  /// confirmed real prescribed ratios were on file; that per-child clinical
+  /// check was deliberately removed, so this now only exists to let a
+  /// coordinator turn the calculator back off for one child specifically
+  /// (e.g. at a care team's request), not to turn it on.
+  icIsfUnlocked Boolean @default(true)
 
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?

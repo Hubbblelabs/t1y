@@ -7,6 +7,7 @@ import '../../services/api_client.dart';
 import '../../services/profile_fields_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 
 /// A plain, full-page form — deliberately not the card the profile screen
@@ -264,17 +265,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
         children: [
           if (_error != null) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Colors.red, fontSize: 13),
-              ),
-            ),
+            ErrorBanner(message: _error!),
             const SizedBox(height: 16),
           ],
           LabeledField(
@@ -296,15 +287,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             icon: Icons.wc_outlined,
             label: S.sex,
             value: _sex,
-            options: const [
-              ('FEMALE', 'female'),
-              ('MALE', 'male'),
-              ('PREFER_NOT_TO_SAY', 'notStated'),
-            ],
+            options: const [('FEMALE', 'female'), ('MALE', 'male')],
             labelFor: (key) => switch (key) {
               'female' => S.female,
-              'male' => S.male,
-              _ => S.notStated,
+              _ => S.male,
             },
             onChanged: (v) => setState(() => _sex = v),
           ),
@@ -449,7 +435,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -605,7 +591,7 @@ class _CustomFieldsSection extends StatelessWidget {
   });
 
   static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
 
   @override
   Widget build(BuildContext context) {

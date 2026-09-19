@@ -4,6 +4,7 @@ import '../../l10n/strings.dart';
 import '../../services/api_client.dart';
 import '../../services/mpin_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/pin_field.dart';
 
@@ -123,17 +124,7 @@ class _MpinScreenState extends State<MpinScreen> {
           ),
           if (_error != null) ...[
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                _error!,
-                style: const TextStyle(color: Colors.red, fontSize: 12.5, height: 1.35),
-              ),
-            ),
+            ErrorBanner(message: _error!),
           ],
           const SizedBox(height: 26),
           FilledButton(
@@ -141,13 +132,18 @@ class _MpinScreenState extends State<MpinScreen> {
             style: FilledButton.styleFrom(
               backgroundColor: AppTheme.deep,
               padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
             ),
             child: _saving
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : Text(S.save),
           ),

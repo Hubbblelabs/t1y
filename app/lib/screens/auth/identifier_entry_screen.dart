@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
+import '../../widgets/slow_slide_route.dart';
 import '../../widgets/wave_header.dart';
 import 'household_login_screen.dart';
 import 'pending_approval_screen.dart';
@@ -69,7 +71,7 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
 
     if (!result.exists) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => SignupPasswordScreen(email: identifier)),
+        SlowSlideRoute(builder: (_) => SignupPasswordScreen(email: identifier)),
       );
       return;
     }
@@ -77,9 +79,9 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
     if (result.status == 'PENDING') {
       // Sign-in would only fail here (EMAIL_NOT_VERIFIED) — skip straight to
       // the honest explanation instead of asking for a password to reject.
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const PendingApprovalScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const PendingApprovalScreen()));
       return;
     }
 
@@ -88,7 +90,9 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
 
   void _goToPassword(String identifier) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => HouseholdLoginScreen(identifier: identifier)),
+      SlowSlideRoute(
+        builder: (_) => HouseholdLoginScreen(identifier: identifier),
+      ),
     );
   }
 
@@ -112,10 +116,7 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error != null) ...[
-                        Text(
-                          _error!,
-                          style: const TextStyle(color: Colors.red, fontSize: 13),
-                        ),
+                        ErrorBanner(message: _error!),
                         const SizedBox(height: 12),
                       ],
                       LabeledField(

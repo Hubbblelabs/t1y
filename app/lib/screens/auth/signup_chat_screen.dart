@@ -1,15 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '../../models/signup_question.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import 'signup_loading_screen.dart';
 import 'terms_screen.dart';
 
 class _ChatMessage {
+  static int _nextId = 0;
+
+  /// Unique per message instance, not per position — used as the bubble's
+  /// list key so a message that's removed and later replaced by a new one
+  /// (editing an earlier answer truncates and re-asks) always gets a fresh
+  /// widget and plays its entrance animation again, rather than Flutter
+  /// reusing the old bubble's state because it happened to land back at the
+  /// same list index.
+  final int id = _nextId++;
+
   final String text;
   final bool isUser;
-  const _ChatMessage(this.text, {required this.isUser});
+
+  /// Which [SignupQuestion.key] this message answers — only set on a user
+  /// bubble that answered a real question (not the "I Agree" bubble), and
+  /// what the edit pencil next to it needs to reopen that question.
+  final String? questionKey;
+
+  _ChatMessage(this.text, {required this.isUser, this.questionKey});
 }
 
 /// Conversational collection of the details needed alongside email/password
@@ -46,7 +64,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     super.initState();
     _messages.add(
       _ChatMessage(
-        "BA few details about the child will help us better understand their needs. Your information will remain private.",
+        "A few details about the child will help us better understand their needs. Your information will remain private.",
         isUser: false,
       ),
     );
@@ -58,7 +76,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
 
   void _askTerms() {
     _messages.add(
-      const _ChatMessage(
+      _ChatMessage(
         'One last thing — please read our Terms & Conditions and tap "I Agree" to create the account.',
         isUser: false,
       ),
@@ -74,7 +92,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
 
   Future<void> _respondToTerms() async {
     setState(() {
-      _messages.add(const _ChatMessage('I Agree', isUser: true));
+      _messages.add(_ChatMessage('I Agree', isUser: true));
     });
     _scrollToEnd();
 
@@ -132,7 +150,9 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     setState(() {
       _error = null;
       _answers[_current.key] = rawValue.trim();
-      _messages.add(_ChatMessage(rawValue.trim(), isUser: true));
+      _messages.add(
+        _ChatMessage(rawValue.trim(), isUser: true, questionKey: _current.key),
+      );
       _controller.clear();
     });
     _scrollToEnd();
@@ -149,6 +169,33 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     setState(() {
       _index += 1;
       _askCurrentQuestion();
+    });
+    _scrollToEnd();
+  }
+
+  /// Reopens an already-answered question from its edit pencil — rewinds
+  /// the chat to just after that question was asked (dropping the old
+  /// answer and anything asked after it, since a changed answer can
+  /// invalidate what came later, e.g. a diagnosis year checked against the
+  /// date of birth) and lets the parent answer it again.
+  void _editAnswer(String key) {
+    final questionIndex = signupQuestions.indexWhere((q) => q.key == key);
+    final userMsgIndex = _messages.indexWhere(
+      (m) => m.isUser && m.questionKey == key,
+    );
+    if (questionIndex == -1 || userMsgIndex == -1) return;
+
+    final previousAnswer = _answers[key] ?? '';
+
+    setState(() {
+      _messages.removeRange(userMsgIndex, _messages.length);
+      for (final q in signupQuestions.skip(questionIndex)) {
+        _answers.remove(q.key);
+      }
+      _index = questionIndex;
+      _showingTerms = false;
+      _error = null;
+      _controller.text = previousAnswer;
     });
     _scrollToEnd();
   }
@@ -173,16 +220,19 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 itemCount: _messages.length,
-                itemBuilder: (context, i) => _ChatBubble(message: _messages[i]),
+                itemBuilder: (context, i) => _ChatBubble(
+                  key: ValueKey(_messages[i].id),
+                  message: _messages[i],
+                  onEdit: _messages[i].questionKey == null
+                      ? null
+                      : () => _editAnswer(_messages[i].questionKey!),
+                ),
               ),
             ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 13),
-                ),
+                child: ErrorBanner(message: _error!),
               ),
             SafeArea(
               top: false,
@@ -204,50 +254,144 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   }
 }
 
-class _ChatBubble extends StatelessWidget {
+/// A single bubble. Plays its own slide-up-and-fade entrance once when
+/// first built — new messages arrive smoothly rather than popping in, and
+/// because it's keyed by the message's own id (not its position), editing
+/// an earlier answer and having later bubbles reappear plays this again for
+/// them rather than only for messages truly new to the whole chat.
+class _ChatBubble extends StatefulWidget {
   final _ChatMessage message;
-  const _ChatBubble({required this.message});
+
+  /// Present only for a user bubble that answered a real question — shows
+  /// a small pencil to reopen and change that answer.
+  final VoidCallback? onEdit;
+
+  const _ChatBubble({super.key, required this.message, this.onEdit});
+
+  @override
+  State<_ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<_ChatBubble>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  )..forward();
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
+  late final Animation<Offset> _slide = Tween(
+    begin: const Offset(0, 0.18),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _showActions(BuildContext context) async {
+    final action = await showModalBottomSheet<_BubbleAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.onEdit != null)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit'),
+                onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.edit),
+              ),
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('Copy'),
+              onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.copy),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    switch (action) {
+      case _BubbleAction.edit:
+        widget.onEdit?.call();
+      case _BubbleAction.copy:
+        await Clipboard.setData(ClipboardData(text: widget.message.text));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Copied'),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 1),
+            ),
+          );
+        }
+      case null:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final message = widget.message;
     final alignment = message.isUser
         ? Alignment.centerRight
         : Alignment.centerLeft;
     final color = message.isUser ? AppTheme.primary : Colors.white;
     final textColor = message.isUser ? Colors.white : Colors.black;
 
-    return Align(
-      alignment: alignment,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.75,
+      ),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(18),
+          topRight: const Radius.circular(18),
+          bottomLeft: Radius.circular(message.isUser ? 18 : 4),
+          bottomRight: Radius.circular(message.isUser ? 4 : 18),
         ),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(18),
-            topRight: const Radius.circular(18),
-            bottomLeft: Radius.circular(message.isUser ? 18 : 4),
-            bottomRight: Radius.circular(message.isUser ? 4 : 18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+        ],
+      ),
+      child: Text(
+        message.text,
+        style: TextStyle(color: textColor, fontSize: 14, height: 1.35),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(
+        position: _slide,
+        child: Align(
+          alignment: alignment,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: GestureDetector(
+              onLongPress: () => _showActions(context),
+              child: bubble,
             ),
-          ],
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(color: textColor, fontSize: 14, height: 1.35),
+          ),
         ),
       ),
     );
   }
 }
+
+enum _BubbleAction { edit, copy }
 
 /// The input control for the current question — a text field, a date
 /// picker, or choice chips, depending on `question.type`.

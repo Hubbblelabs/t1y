@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../services/mpin_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/pin_field.dart';
 import '../profile/profile_screen.dart';
 import 'glucose_entry_screen.dart';
@@ -127,7 +128,9 @@ class _PinGateState extends State<_PinGate> {
       setState(() {
         _checking = false;
         _locked = result.lockedUntil != null;
-        _error = _locked ? S.pinLocked : S.pinAttemptsLeft(result.attemptsRemaining);
+        _error = _locked
+            ? S.pinLocked
+            : S.pinAttemptsLeft(result.attemptsRemaining);
       });
     } catch (e) {
       if (!mounted) return;
@@ -157,18 +160,7 @@ class _PinGateState extends State<_PinGate> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.red, fontSize: 12.5, height: 1.35),
-                ),
-              ),
+              ErrorBanner(message: _error!, textAlign: TextAlign.center),
             ],
             const SizedBox(height: 20),
             SizedBox(
@@ -178,13 +170,18 @@ class _PinGateState extends State<_PinGate> {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.deep,
                   minimumSize: const Size.fromHeight(50),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
                 child: _checking
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : Text(S.unlock),
               ),
@@ -193,13 +190,16 @@ class _PinGateState extends State<_PinGate> {
             // The reset path lives in Profile, next to where the PIN was
             // set — kept small, since this only matters to someone stuck.
             TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              ),
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
               child: Text(
                 S.forgotPinGoToProfile,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: Colors.black.withValues(alpha: 0.55)),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.black.withValues(alpha: 0.55),
+                ),
               ),
             ),
           ],

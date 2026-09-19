@@ -64,7 +64,8 @@ class BadgeGlowView extends StatefulWidget {
   State<BadgeGlowView> createState() => _BadgeGlowViewState();
 }
 
-class _BadgeGlowViewState extends State<BadgeGlowView> with TickerProviderStateMixin {
+class _BadgeGlowViewState extends State<BadgeGlowView>
+    with TickerProviderStateMixin {
   late final AnimationController _spin = AnimationController(
     vsync: this,
     duration: const Duration(seconds: 24),
@@ -105,7 +106,10 @@ class _BadgeGlowViewState extends State<BadgeGlowView> with TickerProviderStateM
                   gradient: RadialGradient(
                     center: Alignment.center,
                     radius: 1.1,
-                    colors: [deep.withValues(alpha: 0.55), Colors.black.withValues(alpha: 0.88)],
+                    colors: [
+                      deep.withValues(alpha: 0.55),
+                      Colors.black.withValues(alpha: 0.88),
+                    ],
                   ),
                 ),
               ),
@@ -125,7 +129,10 @@ class _BadgeGlowViewState extends State<BadgeGlowView> with TickerProviderStateM
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   ScaleTransition(
-                    scale: CurvedAnimation(parent: _entrance, curve: Curves.elasticOut),
+                    scale: CurvedAnimation(
+                      parent: _entrance,
+                      curve: Curves.elasticOut,
+                    ),
                     child: GlowBadge(
                       glow: widget.glow,
                       icon: widget.icon,
@@ -216,5 +223,6 @@ class _SunburstPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SunburstPainter old) => old.turns != turns || old.color != color;
+  bool shouldRepaint(_SunburstPainter old) =>
+      old.turns != turns || old.color != color;
 }

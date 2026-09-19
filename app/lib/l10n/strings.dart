@@ -534,5 +534,8 @@ class S {
   // ── Terms ────────────────────────────────────────────────────────────────
   static String get termsTitle =>
       _t('Terms & Conditions', 'விதிமுறைகள் & நிபந்தனைகள்');
-  static String get iAgree => _t('I Agree', 'நான் ஒப்புக்கொள்கிறேன்');
+  static String get agreeToTermsCheckbox => _t(
+    'I agree to your Terms of Service and Privacy Policy',
+    'உங்கள் சேவை விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை நான் ஏற்கிறேன்',
+  );
 }

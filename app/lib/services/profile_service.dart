@@ -22,11 +22,7 @@ class ProfileService {
   static const _cacheKey = 'profile_cache';
 
   /// Chat answer -> Prisma `Sex` enum.
-  static const _sexMap = {
-    'Female': 'FEMALE',
-    'Male': 'MALE',
-    'Prefer not to say': 'PREFER_NOT_TO_SAY',
-  };
+  static const _sexMap = {'Female': 'FEMALE', 'Male': 'MALE'};
 
   /// Stashes the sign-up chat answers until there is a session to send them
   /// with. [answers] uses the keys from `models/signup_question.dart`.

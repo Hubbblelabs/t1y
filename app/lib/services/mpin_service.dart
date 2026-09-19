@@ -11,7 +11,8 @@ class MpinStatus {
     required this.attemptsRemaining,
   });
 
-  bool get isLocked => lockedUntil != null && lockedUntil!.isAfter(DateTime.now());
+  bool get isLocked =>
+      lockedUntil != null && lockedUntil!.isAfter(DateTime.now());
 
   factory MpinStatus.fromJson(Map<String, dynamic> json) => MpinStatus(
     isSet: json['isSet'] as bool? ?? false,
@@ -33,13 +34,14 @@ class MpinVerifyResult {
     required this.lockedUntil,
   });
 
-  factory MpinVerifyResult.fromJson(Map<String, dynamic> json) => MpinVerifyResult(
-    ok: json['ok'] as bool? ?? false,
-    attemptsRemaining: json['attemptsRemaining'] as int? ?? 0,
-    lockedUntil: json['lockedUntil'] == null
-        ? null
-        : DateTime.tryParse(json['lockedUntil'] as String),
-  );
+  factory MpinVerifyResult.fromJson(Map<String, dynamic> json) =>
+      MpinVerifyResult(
+        ok: json['ok'] as bool? ?? false,
+        attemptsRemaining: json['attemptsRemaining'] as int? ?? 0,
+        lockedUntil: json['lockedUntil'] == null
+            ? null
+            : DateTime.tryParse(json['lockedUntil'] as String),
+      );
 }
 
 /// The parent's MPIN, which gates glucose entry so a child holding the phone
@@ -70,7 +72,10 @@ class MpinService {
   /// remaining rather than as an error — mistyping is ordinary, and the UI
   /// needs the count to warn before the lock-out lands.
   Future<MpinVerifyResult> verify(String pin) async {
-    final data = await ApiClient.instance.post('/api/mpin/verify', body: {'pin': pin});
+    final data = await ApiClient.instance.post(
+      '/api/mpin/verify',
+      body: {'pin': pin},
+    );
     return MpinVerifyResult.fromJson(data['data'] as Map<String, dynamic>);
   }
 

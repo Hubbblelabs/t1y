@@ -102,11 +102,27 @@ enum BadgeTier {
 /// standing that summarises all of them, and it is the headline the screen
 /// is built around.
 enum LearnerRank {
-  champion(minAverage: 95, title: 'Diabetes Champion', icon: 'assets/badges/dragon.svg'),
+  champion(
+    minAverage: 95,
+    title: 'Diabetes Champion',
+    icon: 'assets/badges/dragon.svg',
+  ),
   star(minAverage: 85, title: 'Star Learner', icon: 'assets/badges/tiger.svg'),
-  explorer(minAverage: 80, title: 'Bright Explorer', icon: 'assets/badges/butterfly.svg'),
-  climber(minAverage: 65, title: 'Steady Climber', icon: 'assets/badges/hamster.svg'),
-  sprout(minAverage: 0, title: 'Curious Sprout', icon: 'assets/badges/hamster.svg');
+  explorer(
+    minAverage: 80,
+    title: 'Bright Explorer',
+    icon: 'assets/badges/butterfly.svg',
+  ),
+  climber(
+    minAverage: 65,
+    title: 'Steady Climber',
+    icon: 'assets/badges/hamster.svg',
+  ),
+  sprout(
+    minAverage: 0,
+    title: 'Curious Sprout',
+    icon: 'assets/badges/hamster.svg',
+  );
 
   final int minAverage;
   final String title;
@@ -160,7 +176,8 @@ class QuizBadge {
       tier: tier,
       scorePercent: json['scorePercent'] as int? ?? 0,
       earnedAt:
-          DateTime.tryParse(json['earnedAt'] as String? ?? '') ?? DateTime.now(),
+          DateTime.tryParse(json['earnedAt'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 }

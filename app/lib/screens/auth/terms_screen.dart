@@ -22,6 +22,8 @@ class TermsScreen extends StatefulWidget {
 }
 
 class _TermsScreenState extends State<TermsScreen> {
+  bool _agreed = false;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -54,11 +56,48 @@ class _TermsScreenState extends State<TermsScreen> {
                   ),
                 ),
               ),
+              const Divider(height: 1),
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                child: FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: Text(S.iAgree),
+                padding: const EdgeInsets.fromLTRB(12, 8, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InkWell(
+                      onTap: () => setState(() => _agreed = !_agreed),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Checkbox(
+                              value: _agreed,
+                              activeColor: AppTheme.primary,
+                              onChanged: (v) =>
+                                  setState(() => _agreed = v ?? false),
+                            ),
+                            Expanded(
+                              child: Text(
+                                S.agreeToTermsCheckbox,
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  height: 1.4,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton(
+                      onPressed: _agreed
+                          ? () => Navigator.of(context).pop(true)
+                          : null,
+                      child: Text(S.continueLabel),
+                    ),
+                  ],
                 ),
               ),
             ],

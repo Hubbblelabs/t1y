@@ -61,7 +61,8 @@ class Topic {
     isFallback: json['isFallback'] as bool? ?? false,
     thumbnailUrl: json['thumbnailUrl'] as String?,
     readingTimeMinutes: json['readingTimeMinutes'] as int?,
-    contentBlocks: (json['contentBlocks'] as List<dynamic>?)
+    contentBlocks:
+        (json['contentBlocks'] as List<dynamic>?)
             ?.map((b) => ContentBlock.fromJson(b as Map<String, dynamic>))
             .toList() ??
         const [],
