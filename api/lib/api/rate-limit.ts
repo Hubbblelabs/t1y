@@ -35,12 +35,6 @@ export const RateLimits = {
   export: { bucket: "export", limit: 10, windowSeconds: 300 },
   /** Unauthenticated endpoints, keyed by IP. */
   anonymous: { bucket: "anon", limit: 30, windowSeconds: 60 },
-  /**
-   * Credential checks — household sign-in and MPIN verification. Much
-   * tighter than `anonymous` because each request tests a secret, and an
-   * MPIN is only 4-6 digits: without this a whole keyspace is minutes away.
-   */
-  credential: { bucket: "credential", limit: 10, windowSeconds: 300 },
 } as const satisfies Record<string, RateLimitRule>;
 
 export interface RateLimitResult {

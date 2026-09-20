@@ -95,6 +95,18 @@ export class RateLimitError extends AppError {
   }
 }
 
+/**
+ * A limit a person can meet in normal use, where the message *is* the answer —
+ * unlike [RateLimitError], whose fixed "try again shortly" is for traffic
+ * control and tells a parent nothing about what to do next.
+ */
+export class DailyLimitError extends AppError {
+  constructor(message: string) {
+    super(ErrorCode.RATE_LIMITED, message, 429);
+    this.name = "DailyLimitError";
+  }
+}
+
 export class ServiceUnavailableError extends AppError {
   constructor(service: string) {
     super(

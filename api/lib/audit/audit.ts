@@ -48,9 +48,15 @@ export const AuditAction = {
   EDUCATION_DELETED: "education.deleted",
   EDUCATION_PUBLISHED: "education.published",
   EDUCATION_UNPUBLISHED: "education.unpublished",
-  EXERCISE_CONTENT_CREATED: "exercise_content.created",
-  EXERCISE_CONTENT_UPDATED: "exercise_content.updated",
-  EXERCISE_CONTENT_DELETED: "exercise_content.deleted",
+  EDUCATION_REORDERED: "education.reordered",
+  /// Calculators are immutable once created (see lib/services/calculators.ts),
+  /// so there is no "updated" action here — only creation and the
+  /// shown/hidden toggle. A changed formula is always a new calculator.
+  CALCULATOR_CREATED: "calculator.created",
+  CALCULATOR_SHOWN: "calculator.shown",
+  CALCULATOR_HIDDEN: "calculator.hidden",
+  SUPPORT_REPLIED: "support.replied",
+  SUPPORT_STATUS_CHANGED: "support.status_changed",
   QUIZ_CREATED: "quiz.created",
   QUIZ_UPDATED: "quiz.updated",
   QUIZ_DELETED: "quiz.deleted",

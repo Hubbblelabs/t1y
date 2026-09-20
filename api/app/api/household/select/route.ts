@@ -1,6 +1,5 @@
 import { ForbiddenError, NotFoundError, UnauthenticatedError } from "@/lib/api/errors";
 import { defineRoute } from "@/lib/api/handler";
-import { RateLimits } from "@/lib/api/rate-limit";
 import { ok } from "@/lib/api/response";
 import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
@@ -26,7 +25,6 @@ export const POST = defineRoute({
   // Same as ../children: the password in the body is the credential, and the
   // native app has no session token to send yet — see csrfExempt.
   csrfExempt: true,
-  rateLimit: RateLimits.credential,
   body: selectChildSchema,
   handler: async ({ body }) => {
     const household = await resolveHousehold(body.identifier);

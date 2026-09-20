@@ -112,10 +112,10 @@ export function ParticipantStatusControl({
         <div className="flex items-start gap-2">
           <Check className="text-success mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-ink text-[13px] font-medium">Account activated.</p>
+            <p className="text-ink text-xs font-medium">Account activated.</p>
             {outcome.tempPassword ? (
               <>
-                <p className="text-ink-muted mt-1 text-[13px]">
+                <p className="text-ink-muted mt-1 text-xs">
                   Temporary password — shown once, give it to the family now.
                 </p>
                 <div className="mt-2 flex items-center gap-2">
@@ -135,13 +135,13 @@ export function ParticipantStatusControl({
                     {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <p className="text-ink-subtle mt-2 text-[12px]">
+                <p className="text-ink-subtle mt-2 text-xs">
                   Copy it before continuing — this panel won&apos;t show it again. They&apos;ll
                   be asked to set their own password the first time they sign in with it.
                 </p>
               </>
             ) : (
-              <p className="text-ink-muted mt-1 text-[13px]">
+              <p className="text-ink-muted mt-1 text-xs">
                 This person already had a password from signing up themselves — it was left
                 untouched. They can sign in with it now.
               </p>
@@ -161,10 +161,10 @@ export function ParticipantStatusControl({
         <div className="flex items-start gap-2">
           <X className="text-danger mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-ink text-[13px] font-medium">
+            <p className="text-ink text-xs font-medium">
               {status === "PENDING" ? "Enrolment rejected." : "Account deactivated."}
             </p>
-            <p className="text-ink-muted mt-1 text-[13px]">
+            <p className="text-ink-muted mt-1 text-xs">
               Set to Inactive — nothing was deleted, and this can be reversed at any time.
             </p>
             <Button size="sm" variant="secondary" className="mt-2.5" onClick={() => { setOutcome(null); router.refresh(); }}>
@@ -182,8 +182,8 @@ export function ParticipantStatusControl({
         <div className="flex items-start gap-2">
           <Check className="text-success mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-ink text-[13px] font-medium">Account reactivated.</p>
-            <p className="text-ink-muted mt-1 text-[13px]">
+            <p className="text-ink text-xs font-medium">Account reactivated.</p>
+            <p className="text-ink-muted mt-1 text-xs">
               Their existing password still works — nothing was reset.
             </p>
             <Button size="sm" variant="secondary" className="mt-2.5" onClick={() => { setOutcome(null); router.refresh(); }}>
@@ -198,7 +198,7 @@ export function ParticipantStatusControl({
   const errorBanner = error ? (
     <div
       role="alert"
-      className="bg-danger-soft text-danger mt-2 flex items-start gap-2 rounded-md p-2.5 text-[13px]"
+      className="bg-danger-soft text-danger mt-2 flex items-start gap-2 rounded-md p-2.5 text-xs"
     >
       <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
       <span>{error}</span>
@@ -211,8 +211,8 @@ export function ParticipantStatusControl({
         <div className="flex items-start gap-3">
           <KeyRound className="text-warning mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <div className="flex-1">
-            <p className="text-ink text-[13px] font-medium">Awaiting a decision</p>
-            <p className="text-ink-muted mt-0.5 text-[13px]">
+            <p className="text-ink text-xs font-medium">Awaiting a decision</p>
+            <p className="text-ink-muted mt-0.5 text-xs">
               This account is Pending and cannot sign in. Accept to grant app access — either a
               temporary password (no credential yet) or verifying it in place of an unreachable
               confirmation email (already self-registered). Reject to decline the enrolment;
@@ -253,10 +253,10 @@ export function ParticipantStatusControl({
           aria-hidden="true"
         />
         <div className="flex-1">
-          <p className="text-ink text-[13px] font-medium">
+          <p className="text-ink text-xs font-medium">
             {isActive ? "Account is active" : "Account is inactive"}
           </p>
-          <p className="text-ink-muted mt-0.5 text-[13px]">
+          <p className="text-ink-muted mt-0.5 text-xs">
             {isActive
               ? "Deactivating blocks sign-in without deleting anything. Reversible at any time."
               : "This account can't sign in right now. Reactivating restores access with their existing password."}

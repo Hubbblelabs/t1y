@@ -57,7 +57,10 @@ class _HomeShellState extends State<HomeShell> {
       HomeTab(onNavigateToTab: _goTo),
       const HelpBookListScreen(),
       const QuizListScreen(),
-      HealthHubScreen(key: ValueKey(_healthRefreshTick)),
+      HealthHubScreen(
+        key: ValueKey(_healthRefreshTick),
+        onBack: () => _goTo(HomeShell.homeTabIndex),
+      ),
     ];
 
     return AnimatedBuilder(

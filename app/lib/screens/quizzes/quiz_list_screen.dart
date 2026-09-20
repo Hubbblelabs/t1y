@@ -6,7 +6,6 @@ import '../../models/quiz.dart';
 import '../../providers/app_state.dart';
 import '../../services/quiz_service.dart';
 import '../../services/rewards_service.dart';
-import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
@@ -62,6 +61,32 @@ class _QuizListScreenState extends State<QuizListScreen>
   Future<void> _refresh() async {
     setState(() => _future = _load(AppState.instance.locale));
     await _future;
+  }
+
+  /// A quiz with no Tamil version says so, and offers the English one.
+  Future<void> _open(Quiz quiz) async {
+    if (quiz.isFallback) {
+      final go = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Text(S.quizNotInTamil),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(S.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(S.takeInEnglish),
+            ),
+          ],
+        ),
+      );
+      if (go != true || !mounted) return;
+    }
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => QuizTakeScreen(quiz: quiz)));
   }
 
   @override
@@ -152,11 +177,7 @@ class _QuizListScreenState extends State<QuizListScreen>
                     ],
                   ),
                   isThreeLine: quiz.isFallback,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => QuizTakeScreen(quiz: quiz),
-                    ),
-                  ),
+                  onTap: () => _open(quiz),
                 ),
               );
             },

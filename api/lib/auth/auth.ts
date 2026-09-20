@@ -135,7 +135,8 @@ export const auth = betterAuth({
     window: 60,
     max: 60,
     customRules: {
-      "/sign-in/email": { window: 300, max: 8 },
+      // Wrong passwords are never counted or locked out, by decision of the study team.
+      "/sign-in/email": false,
       "/sign-up/email": { window: 3600, max: 5 },
       "/forget-password": { window: 3600, max: 5 },
       "/reset-password": { window: 3600, max: 8 },

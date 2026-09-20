@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,14 @@ import 'api_client.dart';
 class ContentService {
   ContentService._();
   static final ContentService instance = ContentService._();
+
+  /// The server accepts `en` and `ta`; the topics it sends back carry `EN` and
+  /// `TA` (the database's own spelling). Callers pass whichever they have — a
+  /// topic screen passes `topic.locale` — so it is normalised here, once, for
+  /// the request *and* the cache key. Without it "EN" was rejected by the
+  /// server ("query parameters are invalid") and was also a different cache
+  /// from "en", so the same content was fetched and stored twice.
+  static String normaliseLocale(String locale) => locale.trim().toLowerCase();
 
   String _cacheKey(String locale) => 'content_bundle_$locale';
   String _syncedAtKey(String locale) => 'content_synced_at_$locale';
@@ -43,6 +52,7 @@ class ContentService {
 
   /// When the given locale's content was last successfully downloaded.
   Future<DateTime?> lastSyncedAt(String locale) async {
+    locale = normaliseLocale(locale);
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_syncedAtKey(locale));
     return raw == null ? null : DateTime.tryParse(raw);
@@ -52,11 +62,14 @@ class ContentService {
     String locale, {
     bool forceRefresh = false,
   }) async {
+    locale = normaliseLocale(locale);
     if (!forceRefresh) {
       final cached = await _readCache(locale);
       if (cached != null) {
-        // Refresh in the background; the caller already has data to show.
-        _refresh(locale);
+        // Refresh in the background; the caller already has data to show. Its
+        // failure must not escape: nobody is awaiting it, so an error here used
+        // to surface as an unhandled exception rather than being ignored.
+        unawaited(_refresh(locale).then((_) {}, onError: (_) {}));
         return cached;
       }
     }
@@ -64,6 +77,7 @@ class ContentService {
   }
 
   Future<List<Topic>> _refresh(String locale) async {
+    locale = normaliseLocale(locale);
     try {
       final data = await ApiClient.instance.get(
         '/api/education/bundle',

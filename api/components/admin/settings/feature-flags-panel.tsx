@@ -68,7 +68,7 @@ export function FeatureFlagsPanel({ initial }: { initial: FlagRow[] }) {
   return (
     <div className="flex flex-col gap-3">
       {error ? (
-        <div role="alert" className="bg-danger-soft text-danger rounded-md p-3 text-[13px]">
+        <div role="alert" className="bg-danger-soft text-danger rounded-md p-3 text-xs">
           {error}
         </div>
       ) : null}
@@ -85,7 +85,7 @@ export function FeatureFlagsPanel({ initial }: { initial: FlagRow[] }) {
                 </Badge>
               ) : null}
             </div>
-            <p className="text-ink-muted text-[13px]">{flag.description}</p>
+            <p className="text-ink-muted text-xs">{flag.description}</p>
             {flag.safetyNotice ? (
               <p className="text-warning text-xs">{flag.safetyNotice}</p>
             ) : null}

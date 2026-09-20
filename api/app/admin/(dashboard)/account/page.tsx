@@ -74,10 +74,10 @@ export default async function AccountPage() {
 
           <div className="border-line mt-5 border-t pt-4">
             <Button variant="secondary" size="sm" asChild>
-              <Link href="/admin/forgot-password">Change your password</Link>
+              <Link href="/admin/change-password">Change your password</Link>
             </Button>
             <p className="text-ink-subtle mt-2 text-xs">
-              You will receive an email with a link to set a new password.
+              Choose a new password any time.
             </p>
           </div>
         </Card>
@@ -90,7 +90,7 @@ export default async function AccountPage() {
           </p>
 
           {capabilities.length === 0 ? (
-            <p className="text-ink-muted text-[13px]">
+            <p className="text-ink-muted text-xs">
               This account holds no administrative permissions.
             </p>
           ) : (

@@ -49,6 +49,10 @@ export const UPLOAD_PURPOSES = [
   "export",
 ] as const;
 
+/** Keys this module generates: purpose/year/uuid.ext — nothing else is written locally. */
+export const LOCAL_KEY_PATTERN =
+  /^(education-media|education-thumbnail|exercise-video|exercise-image|export)\/\d{4}\/[0-9a-f-]{36}\.[a-z0-9]{2,4}$/;
+
 export type UploadPurpose = (typeof UPLOAD_PURPOSES)[number];
 
 let client: S3Client | null = null;
@@ -111,6 +115,20 @@ export async function createPresignedUpload(params: {
 
   const extension = safeExtension(params.filename, params.contentType);
   const key = `${params.purpose}/${new Date().getFullYear()}/${randomUUID()}${extension}`;
+
+  // No cloud storage set up (a laptop, or a demo): keep the file in
+  // `.local-uploads` and serve it from /uploads, so pictures and videos can
+  // still be added and shown.
+  if (!isStorageConfigured()) {
+    return {
+      uploadUrl: `/api/admin/uploads/local?key=${encodeURIComponent(key)}`,
+      key,
+      publicUrl: `/uploads/${key}`,
+      kind: rules.kind,
+      expiresInSeconds: UPLOAD_URL_TTL_SECONDS,
+      requiredHeaders: { "Content-Type": params.contentType },
+    };
+  }
 
   const command = new PutObjectCommand({
     Bucket: env.R2_BUCKET_NAME,

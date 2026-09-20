@@ -111,7 +111,7 @@ export function EmptyState({
         <Icon className="size-5" />
       </div>
       <p className="text-ink text-sm font-medium">{title}</p>
-      <p className="text-ink-muted mt-1.5 max-w-sm text-[13px] leading-relaxed">
+      <p className="text-ink-muted mt-1.5 max-w-sm text-xs leading-relaxed">
         {description}
       </p>
       {action ? <div className="mt-5">{action}</div> : null}
@@ -149,7 +149,7 @@ export function ErrorState({
         <AlertCircle className="size-5" />
       </div>
       <p className="text-ink text-sm font-medium">{title}</p>
-      <p className="text-ink-muted mt-1.5 max-w-sm text-[13px] leading-relaxed">{detail}</p>
+      <p className="text-ink-muted mt-1.5 max-w-sm text-xs leading-relaxed">{detail}</p>
       {onRetry ? (
         <Button variant="secondary" size="sm" className="mt-5" onClick={onRetry}>
           Try again
@@ -170,7 +170,7 @@ export function UnauthorizedState({
         <Lock className="size-5" />
       </div>
       <p className="text-ink text-sm font-medium">Access restricted</p>
-      <p className="text-ink-muted mt-1.5 max-w-sm text-[13px] leading-relaxed">{detail}</p>
+      <p className="text-ink-muted mt-1.5 max-w-sm text-xs leading-relaxed">{detail}</p>
     </div>
   );
 }

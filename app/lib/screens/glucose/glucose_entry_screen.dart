@@ -6,6 +6,7 @@ import '../../services/api_client.dart';
 import '../../services/glucose_service.dart';
 import '../../services/profile_service.dart';
 import '../../theme/app_theme.dart';
+import '../calculators/calculators_screen.dart';
 import '../../widgets/calculator_disclaimer.dart';
 import '../../widgets/error_banner.dart';
 
@@ -173,7 +174,7 @@ class _GlucoseEntryScreenState extends State<GlucoseEntryScreen> {
       setState(() {
         _saving = false;
         _featureDisabled =
-            e.code == 'FORBIDDEN' && e.message.contains('not enabled');
+            e.code == 'FORBIDDEN' && e.rawMessage.contains('not enabled');
         _error = _featureDisabled ? S.glucoseDisabled : e.message;
       });
     } catch (e) {
@@ -220,7 +221,7 @@ class _GlucoseEntryScreenState extends State<GlucoseEntryScreen> {
                 _RuleOf15Card(reading: _selectedReading),
                 if (_icIsfUnlocked) ...[
                   const SizedBox(height: 16),
-                  const _InsulinCalculatorCard(),
+                  const _CalculatorsEntryCard(),
                 ],
                 const SizedBox(height: 10),
                 Text(
@@ -780,213 +781,65 @@ class _RuleOf15Card extends StatelessWidget {
   }
 }
 
-/// The IC/ISF section, restored to behave exactly like the original
-/// standalone calculator did — the fields stay on screen and editable at
-/// all times (no "Edit ratios" toggle to open first), and includes the
-/// meal-dose step (carbs in a meal → bolus units) that step originally had.
-/// Only difference from the original screen: it lives here, on the glucose
-/// screen, instead of being its own destination — so a reading already
-/// entered above doesn't need retyping into a second screen.
+/// The way in to the calculators.
 ///
-/// Both formulas are from the source curriculum's Nutrition and Insulin
-/// Basics articles: IC ratio = 500/TDD, ISF = 1800/TDD for rapid-acting
-/// insulin or 1500/TDD for short-acting (the 1980 Davidson formula), and
-/// meal dose = carbs ÷ IC ratio.
-class _InsulinCalculatorCard extends StatefulWidget {
-  const _InsulinCalculatorCard();
-
-  @override
-  State<_InsulinCalculatorCard> createState() => _InsulinCalculatorCardState();
-}
-
-class _InsulinCalculatorCardState extends State<_InsulinCalculatorCard> {
-  final _tddController = TextEditingController();
-  bool _rapidActing = true;
-  double? _icRatio;
-  double? _isf;
-
-  final _carbsController = TextEditingController();
-  String? _mealDoseResult;
-
-  @override
-  void dispose() {
-    _tddController.dispose();
-    _carbsController.dispose();
-    super.dispose();
-  }
-
-  void _calculateRatios() {
-    final tdd = double.tryParse(_tddController.text);
-    if (tdd == null || tdd <= 0) {
-      setState(() {
-        _icRatio = null;
-        _isf = null;
-      });
-      return;
-    }
-    setState(() {
-      _icRatio = 500 / tdd;
-      _isf = (_rapidActing ? 1800 : 1500) / tdd;
-    });
-  }
-
-  void _calculateMealDose() {
-    final icRatio = _icRatio;
-    if (icRatio == null) {
-      setState(() => _mealDoseResult = S.computeRatiosFirst);
-      return;
-    }
-    final carbs = double.tryParse(_carbsController.text);
-    if (carbs == null || carbs <= 0) {
-      setState(() => _mealDoseResult = S.enterCarbs);
-      return;
-    }
-    final units = carbs / icRatio;
-    setState(() {
-      _mealDoseResult = S.mealDoseResult(
-        units.toStringAsFixed(1),
-        carbs.toStringAsFixed(0),
-        icRatio.toStringAsFixed(0),
-      );
-    });
-  }
-
-  static InputDecoration _fieldDecoration(String label) => InputDecoration(
-    labelText: label,
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: AppTheme.deep.withValues(alpha: 0.14)),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: BorderSide(color: AppTheme.deep.withValues(alpha: 0.14)),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(14),
-      borderSide: const BorderSide(color: AppTheme.primary, width: 1.6),
-    ),
-  );
+/// This used to be the insulin-ratio calculator itself, written out in this
+/// file with its formulas (500 ÷ dose, 1800 ÷ dose) hardcoded in Dart. Those
+/// formulas now live in the dashboard as calculators the study team can see,
+/// hide and replace, and this is simply the door to them — see
+/// `screens/calculators/`.
+class _CalculatorsEntryCard extends StatelessWidget {
+  const _CalculatorsEntryCard();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: AppTheme.deep.withValues(alpha: 0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.calculate_outlined,
-                size: 18,
-                color: AppTheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                S.icIsf,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.deep,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _tddController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(color: Colors.black),
-            decoration: _fieldDecoration(S.totalDailyInsulinDose),
-          ),
-          const SizedBox(height: 10),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(
-              S.rapidActingInsulin,
-              style: const TextStyle(fontSize: 13.5),
+    return InkWell(
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CalculatorsScreen())),
+      borderRadius: BorderRadius.circular(22),
+      child: Ink(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppTheme.deep.withValues(alpha: 0.08)),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.calculate_outlined,
+              size: 22,
+              color: AppTheme.primary,
             ),
-            subtitle: Text(
-              _rapidActing ? S.uses1800Rule : S.uses1500Rule,
-              style: const TextStyle(fontSize: 12),
-            ),
-            value: _rapidActing,
-            onChanged: (v) => setState(() => _rapidActing = v),
-          ),
-          const SizedBox(height: 6),
-          FilledButton(onPressed: _calculateRatios, child: Text(S.calculate)),
-          if (_icRatio != null && _isf != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppTheme.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                S.icIsfResult(
-                  _icRatio!.toStringAsFixed(0),
-                  _isf!.toStringAsFixed(0),
-                ),
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  height: 1.4,
-                  color: AppTheme.deep,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              S.mealDoseTitle,
-              style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.deep,
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _carbsController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              style: const TextStyle(color: Colors.black),
-              decoration: _fieldDecoration(S.carbsInMeal),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: _calculateMealDose,
-              child: Text(S.calculate),
-            ),
-            if (_mealDoseResult != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  _mealDoseResult!,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    height: 1.4,
-                    color: AppTheme.deep,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    S.calculators,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.deep,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 2),
+                  Text(
+                    S.calculatorsIntro,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: Colors.black.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
+            const Icon(Icons.chevron_right, color: AppTheme.primary),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -1001,6 +854,6 @@ String _formatWhen(DateTime when) {
       when.year == now.year && when.month == now.month && when.day == now.day;
   final time =
       '${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}';
-  if (sameDay) return 'today, $time';
+  if (sameDay) return '${S.todayWord}, $time';
   return '${_formatDate(when)}, $time';
 }

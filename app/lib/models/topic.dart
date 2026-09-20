@@ -1,18 +1,76 @@
-/// One paragraph of a topic, paired with the image that illustrates it —
-/// see api/scripts/split-content-blocks.ts for how these are derived from
-/// the source content. `imageUrl` is never null once returned by the
-/// backend: a paragraph with no image of its own inherits the nearest
+/// What a single section of a topic shows.
+enum BlockKind { text, image, video }
+
+/// One section of a topic: some words, a picture, or a video, in the order
+/// the author arranged them in the admin dashboard.
+///
+/// Older topics — the ones produced by api/scripts/split-content-blocks.ts
+/// before sections could hold video — arrive without a `kind`, so it is
+/// inferred from whichever media field is present. `imageUrl` may be empty
+/// on those: a paragraph with no image of its own inherits the nearest
 /// preceding one, or the topic's thumbnail, or a generic fallback.
 class ContentBlock {
+  final BlockKind kind;
+
+  /// Optional sub-heading shown above this section's words.
+  final String heading;
   final String paragraph;
   final String imageUrl;
+  final String videoUrl;
 
-  ContentBlock({required this.paragraph, required this.imageUrl});
+  ContentBlock({
+    required this.kind,
+    required this.paragraph,
+    required this.imageUrl,
+    this.heading = '',
+    this.videoUrl = '',
+  });
 
-  factory ContentBlock.fromJson(Map<String, dynamic> json) => ContentBlock(
-    paragraph: json['paragraph'] as String? ?? '',
-    imageUrl: json['imageUrl'] as String? ?? '',
-  );
+  bool get hasVideo => videoUrl.isNotEmpty;
+  bool get hasImage => imageUrl.isNotEmpty;
+
+  static BlockKind _kindFrom(
+    String? raw, {
+    required String imageUrl,
+    required String videoUrl,
+  }) {
+    switch (raw) {
+      case 'TEXT':
+        return BlockKind.text;
+      case 'IMAGE':
+        return BlockKind.image;
+      case 'VIDEO':
+        return BlockKind.video;
+    }
+    // No `kind` stored: this row predates block kinds.
+    if (videoUrl.isNotEmpty) return BlockKind.video;
+    if (imageUrl.isNotEmpty) return BlockKind.image;
+    return BlockKind.text;
+  }
+
+  factory ContentBlock.fromJson(Map<String, dynamic> json) {
+    final imageUrl = json['imageUrl'] as String? ?? '';
+    final videoUrl = json['videoUrl'] as String? ?? '';
+    return ContentBlock(
+      kind: _kindFrom(
+        json['kind'] as String?,
+        imageUrl: imageUrl,
+        videoUrl: videoUrl,
+      ),
+      heading: json['heading'] as String? ?? '',
+      paragraph: json['paragraph'] as String? ?? '',
+      imageUrl: imageUrl,
+      videoUrl: videoUrl,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'kind': kind.name.toUpperCase(),
+    'heading': heading,
+    'paragraph': paragraph,
+    'imageUrl': imageUrl,
+    'videoUrl': videoUrl,
+  };
 }
 
 class Topic {
@@ -79,8 +137,6 @@ class Topic {
     'isFallback': isFallback,
     'thumbnailUrl': thumbnailUrl,
     'readingTimeMinutes': readingTimeMinutes,
-    'contentBlocks': contentBlocks
-        .map((b) => {'paragraph': b.paragraph, 'imageUrl': b.imageUrl})
-        .toList(),
+    'contentBlocks': contentBlocks.map((b) => b.toJson()).toList(),
   };
 }

@@ -1,8 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/bilingual.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/orbiting_icons.dart';
 import 'identifier_entry_screen.dart';
@@ -122,7 +122,16 @@ class GetStartedScreen extends StatelessWidget {
                             builder: (_) => const IdentifierEntryScreen(),
                           ),
                         ),
-                        child: const Text('Get Started'),
+                        child: Bilingual.s(
+                          () => S.getStarted,
+                          alignment: CrossAxisAlignment.center,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppTheme.deep,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -136,52 +145,27 @@ class GetStartedScreen extends StatelessWidget {
   }
 }
 
-/// Shows the English tagline for 10s, then crossfades to the Tamil
-/// translation for 10s, and repeats — so both languages get read without
-/// the user having to do anything.
-class _BilingualTagline extends StatefulWidget {
+/// The tagline in English, with the Tamil translation beneath it in a smaller
+/// size — both always visible, rather than taking turns.
+class _BilingualTagline extends StatelessWidget {
   const _BilingualTagline();
 
-  @override
-  State<_BilingualTagline> createState() => _BilingualTaglineState();
-}
-
-class _BilingualTaglineState extends State<_BilingualTagline> {
   static const _en =
       'For every brave little fighter and the family beside them';
   static const _ta =
       'ஒவ்வொரு குழந்தைக்கும், அவர்களுடன் துணை நிற்கும் குடும்பத்திற்கும்';
 
-  bool _showEnglish = true;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted) setState(() => _showEnglish = !_showEnglish);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      child: Text(
-        _showEnglish ? _en : _ta,
-        key: ValueKey(_showEnglish),
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: AppTheme.deep.withValues(alpha: 0.65),
-          fontSize: 15,
-          height: 1.4,
-        ),
+    return Bilingual(
+      _en,
+      _ta,
+      alignment: CrossAxisAlignment.center,
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: AppTheme.deep.withValues(alpha: 0.75),
+        fontSize: 15,
+        height: 1.4,
       ),
     );
   }

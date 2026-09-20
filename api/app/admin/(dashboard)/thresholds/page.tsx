@@ -49,7 +49,7 @@ export default async function ThresholdsPage() {
       />
 
       <Card className="mb-6 p-4">
-        <p className="text-ink-muted text-[13px] leading-relaxed">
+        <p className="text-ink-muted text-xs leading-relaxed">
           The platform contains no built-in target ranges. Any range shown
           alongside a recorded value originates here. Where no threshold exists
           for a participant, their values are displayed without a reference band

@@ -1,32 +1,51 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
+import '../../models/question.dart';
+import '../../providers/app_state.dart';
+import '../../services/profile_field_rules.dart';
+import '../../services/question_service.dart';
+import '../../services/question_values.dart';
 import '../../theme/app_theme.dart';
 import 'profile_edit_screen.dart';
 
-/// Every field on file for this child, filled or not — plain rows, no card.
+/// Every question on file for this child, answered or not — plain rows, no card.
 ///
-/// The compact ID card only ever shows the handful of fields that make it
-/// an identity card; everything else (contact, treatment, emergency
-/// contact) lives here instead of being squeezed into that card, which is
-/// exactly the complaint this screen exists to fix. A blank field still
-/// gets its own row, labelled "Not provided" — "view all" means all of
-/// them, not just the ones that happen to be filled in.
-class ProfileDetailsScreen extends StatelessWidget {
+/// The compact ID card only ever shows the handful of fields that make it an
+/// identity card; everything else lives here. A blank question still gets its
+/// own row, labelled "Not provided" — "view all" means all of them, not just
+/// the ones that happen to be filled in.
+///
+/// The rows come from [QuestionService], the same list the edit screen uses,
+/// so a question an admin adds appears here too. (This screen used to list a
+/// fixed set and never showed answers to added questions at all.)
+class ProfileDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> me;
 
   const ProfileDetailsScreen({super.key, required this.me});
 
   @override
+  State<ProfileDetailsScreen> createState() => _ProfileDetailsScreenState();
+}
+
+class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
+  List<Question>? _questions;
+
+  @override
+  void initState() {
+    super.initState();
+    QuestionService.instance.profileQuestions().then((questions) {
+      if (mounted) setState(() => _questions = questions);
+    });
+  }
+
+  Map<String, dynamic> get _profile =>
+      widget.me['profile'] as Map<String, dynamic>? ?? {};
+
+  @override
   Widget build(BuildContext context) {
-    final profile = me['profile'] as Map<String, dynamic>? ?? {};
-    final dobRaw = profile['dateOfBirth'] as String?;
-    final dob = dobRaw == null ? null : DateTime.tryParse(dobRaw);
-    final heightCm = (profile['heightCm'] as num?)?.toDouble();
-    final weightKg = (profile['baselineWeightKg'] as num?)?.toDouble();
-    final bmi = (heightCm != null && weightKg != null && heightCm > 0)
-        ? weightKg / ((heightCm / 100) * (heightCm / 100))
-        : null;
+    final profile = _profile;
+    final questions = _questions;
 
     return Scaffold(
       backgroundColor: AppTheme.lightest,
@@ -41,113 +60,79 @@ class ProfileDetailsScreen extends StatelessWidget {
                   builder: (_) => ProfileEditScreen(initial: profile),
                 ),
               );
-              if (changed == true && context.mounted)
+              if (changed == true && context.mounted) {
                 Navigator.of(context).pop(true);
+              }
             },
             child: Text(S.editDetails),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
-        children: [
-          Text(
-            S.viewAllDetailsHint,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: Colors.black.withValues(alpha: 0.55),
+      body: questions == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+              children: [
+                Text(
+                  S.viewAllDetailsHint,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: Colors.black.withValues(alpha: 0.55),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _Section(
+                  title: S.account,
+                  rows: [
+                    (S.idNo, profile['participantCode'] as String?),
+                    (S.account, widget.me['email'] as String?),
+                  ],
+                ),
+                ..._sections(questions, profile),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          _Section(
-            title: S.account,
-            rows: [
-              (S.idNo, profile['participantCode'] as String?),
-              (S.account, me['email'] as String?),
-            ],
-          ),
-          _Section(
-            title: S.yourDetails,
-            rows: [
-              (S.name, profile['name'] as String?),
-              (S.dateOfBirth, dob == null ? null : _formatDate(dob)),
-              (S.age, dob == null ? null : S.years(_ageFrom(dob))),
-              (S.sex, _prettySex(profile['sex'] as String?)),
-              (S.diagnosisYear, (profile['diagnosisYear'] as num?)?.toString()),
-            ],
-          ),
-          _Section(
-            title: S.contact,
-            rows: [
-              (S.phone, profile['phone'] as String?),
-              (S.city, profile['city'] as String?),
-              (S.country, profile['country'] as String?),
-            ],
-          ),
-          _Section(
-            title: S.healthDetails,
-            rows: [
-              (
-                S.treatmentModality,
-                _prettyTreatment(profile['treatmentModality'] as String?),
-              ),
-              (
-                S.height,
-                heightCm == null ? null : '${heightCm.toStringAsFixed(0)} cm',
-              ),
-              (
-                S.weight,
-                weightKg == null ? null : '${weightKg.toStringAsFixed(1)} kg',
-              ),
-              (S.bmi, bmi == null ? null : bmi.toStringAsFixed(1)),
-              (S.primaryClinician, profile['primaryClinician'] as String?),
-            ],
-          ),
-          _Section(
-            title: S.emergencyContact,
-            rows: [
-              (
-                S.emergencyContactName,
-                profile['emergencyContactName'] as String?,
-              ),
-              (
-                S.emergencyContactPhone,
-                profile['emergencyContactPhone'] as String?,
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
-  static int _ageFrom(DateTime dob) {
-    final now = DateTime.now();
-    var age = now.year - dob.year;
-    if (now.month < dob.month || (now.month == dob.month && now.day < dob.day))
-      age--;
-    return age;
+  List<Widget> _sections(
+    List<Question> questions,
+    Map<String, dynamic> profile,
+  ) {
+    final locale = AppState.instance.locale;
+
+    final dob = DateTime.tryParse(profile['dateOfBirth'] as String? ?? '');
+    final heightCm = (profile['heightCm'] as num?)?.toDouble();
+    final weightKg = (profile['baselineWeightKg'] as num?)?.toDouble();
+    final bmi = (heightCm != null && weightKg != null && heightCm > 0)
+        ? weightKg / ((heightCm / 100) * (heightCm / 100))
+        : null;
+
+    final bySection = <String, List<Question>>{};
+    for (final question in questions) {
+      bySection.putIfAbsent(question.section, () => []).add(question);
+    }
+
+    return [
+      for (final entry in bySection.entries)
+        _Section(
+          title: sectionTitle(entry.key),
+          rows: [
+            for (final question in entry.value) ...[
+              (
+                question.label(locale),
+                displayFor(question, answerFor(question, profile), locale),
+              ),
+              // Worked out rather than stored, so they are not questions —
+              // shown beside the answers they come from.
+              if (question.key == 'dateOfBirth' && dob != null)
+                (S.age, S.years(ageInYears(dob))),
+              if (question.key == 'baselineWeightKg' && bmi != null)
+                (S.bmi, bmi.toStringAsFixed(1)),
+            ],
+          ],
+        ),
+    ];
   }
-
-  static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
-
-  static String? _prettySex(String? value) => switch (value) {
-    'FEMALE' => S.female,
-    'MALE' => S.male,
-    'PREFER_NOT_TO_SAY' => S.notStated,
-    _ => null,
-  };
-
-  static String? _prettyTreatment(String? value) => switch (value) {
-    'LIFESTYLE_ONLY' => S.lifestyleOnly,
-    'ORAL_MEDICATION' => S.oralMedication,
-    'INSULIN' => S.insulinTreatment,
-    'ORAL_AND_INSULIN' => S.oralAndInsulin,
-    'NON_INSULIN_INJECTABLE' => S.nonInsulinInjectable,
-    'OTHER' => S.otherTreatment,
-    _ => null,
-  };
 }
 
 class _Section extends StatelessWidget {

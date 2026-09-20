@@ -22,7 +22,10 @@ void main() {
     });
 
     test('a normal 200 JSON envelope still decodes as before', () {
-      final response = http.Response('{"success":true,"data":{"ok":true}}', 200);
+      final response = http.Response(
+        '{"success":true,"data":{"ok":true}}',
+        200,
+      );
       expect(unwrapApiResponse(response), {
         'success': true,
         'data': {'ok': true},
@@ -34,35 +37,45 @@ void main() {
       expect(unwrapApiResponse(response), isNotNull);
     });
 
-    test('a non-2xx error envelope still throws ApiException with the server message', () {
-      final response = http.Response(
-        '{"success":false,"error":{"code":"FORBIDDEN","message":"Nope."}}',
-        403,
-      );
-      expect(
-        () => unwrapApiResponse(response),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.statusCode, 'statusCode', 403)
-              .having((e) => e.code, 'code', 'FORBIDDEN')
-              .having((e) => e.message, 'message', 'Nope.'),
-        ),
-      );
-    });
+    test(
+      'a non-2xx error envelope still throws ApiException with the server message',
+      () {
+        final response = http.Response(
+          '{"success":false,"error":{"code":"FORBIDDEN","message":"Nope."}}',
+          403,
+        );
+        expect(
+          () => unwrapApiResponse(response),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', 403)
+                .having((e) => e.code, 'code', 'FORBIDDEN')
+                .having((e) => e.message, 'message', 'Nope.'),
+          ),
+        );
+      },
+    );
 
-    test('an empty body on a non-2xx status throws rather than returning null', () {
-      final response = http.Response('', 500);
-      expect(
-        () => unwrapApiResponse(response),
-        throwsA(isA<ApiException>().having((e) => e.statusCode, 'statusCode', 500)),
-      );
-    });
+    test(
+      'an empty body on a non-2xx status throws rather than returning null',
+      () {
+        final response = http.Response('', 500);
+        expect(
+          () => unwrapApiResponse(response),
+          throwsA(
+            isA<ApiException>().having((e) => e.statusCode, 'statusCode', 500),
+          ),
+        );
+      },
+    );
 
     test('genuinely malformed JSON on a 200 still reports PARSE_ERROR', () {
       final response = http.Response('not json at all', 200);
       expect(
         () => unwrapApiResponse(response),
-        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'PARSE_ERROR')),
+        throwsA(
+          isA<ApiException>().having((e) => e.code, 'code', 'PARSE_ERROR'),
+        ),
       );
     });
   });

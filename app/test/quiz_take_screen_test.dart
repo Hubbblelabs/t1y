@@ -132,7 +132,10 @@ Quiz _twelveQuestionQuiz() {
     title: 'Scroll test quiz',
     description: null,
     passingScore: 70,
-    questions: List.generate(12, (i) => sc('q${i + 1}', 'Question number ${i + 1}')),
+    questions: List.generate(
+      12,
+      (i) => sc('q${i + 1}', 'Question number ${i + 1}'),
+    ),
   );
 }
 
@@ -166,7 +169,11 @@ void _quizTakeScreenScrollTests() {
 
     // Scroll down to where the status grid lives, as a reader would after
     // reading through the quiz.
-    await tester.dragUntilVisible(submitButton, scrollable, const Offset(0, -300));
+    await tester.dragUntilVisible(
+      submitButton,
+      scrollable,
+      const Offset(0, -300),
+    );
     final bottomOffset = _scrollOffset(tester);
     expect(bottomOffset, greaterThan(500));
 
@@ -199,13 +206,21 @@ void _quizTakeScreenScrollTests() {
       // ones are not built yet at this viewport height until scrolled near.
       for (var i = 1; i <= 6; i++) {
         final option = find.text('Yes, q$i');
-        await tester.dragUntilVisible(option, scrollable, const Offset(0, -250));
+        await tester.dragUntilVisible(
+          option,
+          scrollable,
+          const Offset(0, -250),
+        );
         await tester.tap(option);
         await tester.pumpAndSettle();
       }
 
       // Scroll down to reach Submit, as a reader finishing the quiz would.
-      await tester.dragUntilVisible(submitButton, scrollable, const Offset(0, -300));
+      await tester.dragUntilVisible(
+        submitButton,
+        scrollable,
+        const Offset(0, -300),
+      );
       final bottomOffset = _scrollOffset(tester);
 
       await tester.tap(submitButton);
@@ -216,7 +231,8 @@ void _quizTakeScreenScrollTests() {
       expect(
         _scrollOffset(tester),
         lessThan(bottomOffset - 300),
-        reason: 'a failed Submit should scroll up to the first unanswered question (Q7)',
+        reason:
+            'a failed Submit should scroll up to the first unanswered question (Q7)',
       );
       // More than one error banner is showing — not just the question the
       // page happened to land on (the exact count across every unanswered

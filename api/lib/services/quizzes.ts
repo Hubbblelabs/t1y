@@ -197,6 +197,84 @@ export async function listQuizzesForAdmin(params: {
   return { items, total };
 }
 
+/**
+ * One quiz, with both languages folded into a single entry.
+ *
+ * Same reasoning as `listHelpBookTopics` in lib/services/education.ts: a quiz
+ * is stored as an EN row and a TA row paired by the shared `slug`, but a
+ * coordinator thinks of that as one quiz that exists in two languages.
+ * Listing the rows raw made every quiz appear twice and gave no way to see
+ * which ones were still missing a translation — which is the single most
+ * useful thing this screen can tell them.
+ */
+export interface QuizGroup {
+  slug: string;
+  /** English title if there is one, otherwise the Tamil. */
+  displayTitle: string;
+  topicSlug: string | null;
+  updatedAt: Date;
+  versions: {
+    EN: QuizVersion | null;
+    TA: QuizVersion | null;
+  };
+}
+
+export interface QuizVersion {
+  id: string;
+  title: string;
+  status: ContentStatus;
+  questionCount: number;
+  attemptCount: number;
+  updatedAt: Date;
+}
+
+export async function listQuizGroups(): Promise<QuizGroup[]> {
+  const rows = await prisma.quiz.findMany({
+    select: {
+      id: true,
+      slug: true,
+      locale: true,
+      title: true,
+      status: true,
+      topicSlug: true,
+      updatedAt: true,
+      _count: { select: { questions: true, attempts: true } },
+    },
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+  });
+
+  const groups = new Map<string, QuizGroup>();
+
+  for (const row of rows) {
+    const version: QuizVersion = {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      questionCount: row._count.questions,
+      attemptCount: row._count.attempts,
+      updatedAt: row.updatedAt,
+    };
+
+    const existing = groups.get(row.slug);
+    if (!existing) {
+      groups.set(row.slug, {
+        slug: row.slug,
+        displayTitle: row.title,
+        topicSlug: row.topicSlug,
+        updatedAt: row.updatedAt,
+        versions: { EN: null, TA: null, [row.locale]: version } as QuizGroup["versions"],
+      });
+      continue;
+    }
+
+    existing.versions[row.locale] = version;
+    if (row.locale === "EN") existing.displayTitle = row.title;
+    if (row.updatedAt > existing.updatedAt) existing.updatedAt = row.updatedAt;
+  }
+
+  return [...groups.values()].sort((a, b) => a.displayTitle.localeCompare(b.displayTitle));
+}
+
 export async function getQuizById(id: string) {
   const quiz = await prisma.quiz.findUnique({ where: { id }, select: ADMIN_SELECT });
   if (!quiz) throw new NotFoundError("Quiz");
@@ -222,7 +300,8 @@ export interface QuizQuestionInput {
 }
 
 export interface QuizInput {
-  slug: string;
+  /** Omitted for a brand-new quiz; supplied to add a translation to one. */
+  slug?: string;
   locale?: ContentLocale;
   topicSlug?: string;
   title: string;
@@ -235,19 +314,37 @@ export interface QuizInput {
   questions: QuizQuestionInput[];
 }
 
+/** Readable stem plus a random suffix; see education.ts for the reasoning. */
+function generateQuizSlug(title: string): string {
+  const stem = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return stem ? `${stem}-${suffix}` : `quiz-${suffix}`;
+}
+
 export async function createQuiz(authorId: string, input: QuizInput) {
   const locale = input.locale ?? "EN";
+  const slug = input.slug ?? generateQuizSlug(input.title);
   const existing = await prisma.quiz.findUnique({
-    where: { slug_locale: { slug: input.slug, locale } },
+    where: { slug_locale: { slug, locale } },
     select: { id: true },
   });
-  if (existing) throw new ConflictError(`A ${locale} quiz with this slug already exists.`);
+  if (existing) {
+    throw new ConflictError(
+      `This quiz already has a ${locale === "TA" ? "Tamil" : "English"} version.`,
+    );
+  }
 
   const { questions, ...quizFields } = input;
 
   return prisma.quiz.create({
     data: {
       ...quizFields,
+      slug,
       locale,
       publishedAt: input.status === "PUBLISHED" ? new Date() : null,
       authorId,

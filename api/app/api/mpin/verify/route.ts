@@ -1,5 +1,4 @@
 import { defineRoute } from "@/lib/api/handler";
-import { RateLimits } from "@/lib/api/rate-limit";
 import { ok } from "@/lib/api/response";
 import { verifyMpin } from "@/lib/services/mpin";
 import { verifyMpinSchema } from "@/lib/validation/household";
@@ -18,7 +17,6 @@ import { verifyMpinSchema } from "@/lib/validation/household";
  */
 
 export const POST = defineRoute({
-  rateLimit: RateLimits.credential,
   body: verifyMpinSchema,
   handler: async ({ principal, body }) => ok(await verifyMpin(principal.userId, body.pin)),
 });

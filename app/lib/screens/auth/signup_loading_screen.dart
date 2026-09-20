@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
+
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 import '../home/home_shell.dart';
@@ -24,20 +26,23 @@ class SignupLoadingScreen extends StatelessWidget {
     required this.name,
   });
 
-  static const _steps = [
+  static List<({String title, String subtitle})> get _steps => [
     (
-      title: 'Creating your account',
-      subtitle: 'for the T1D Prajana Yandra study',
+      title: S.bothText(() => S.creatingAccount),
+      subtitle: S.bothText(() => S.forTheStudy),
     ),
     (
-      title: 'Preparing your Help Book',
-      subtitle: '8 topics, in English and Tamil',
+      title: S.bothText(() => S.preparingHelpBook),
+      subtitle: S.bothText(() => S.topicsBothLanguages),
     ),
     (
-      title: 'Getting your quizzes ready',
-      subtitle: 'so you can check understanding as you learn',
+      title: S.bothText(() => S.quizzesGettingReady),
+      subtitle: S.bothText(() => S.checkAsYouLearn),
     ),
-    (title: 'Almost done', subtitle: 'just a moment more'),
+    (
+      title: S.bothText(() => S.almostDone),
+      subtitle: S.bothText(() => S.momentMore),
+    ),
   ];
 
   @override

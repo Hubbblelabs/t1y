@@ -26,7 +26,8 @@ export const Capability = {
   RESEARCH_EXPORT: "research:export",
 
   EDUCATION_MANAGE: "education:manage",
-  EXERCISE_CONTENT_MANAGE: "exercise-content:manage",
+  CALCULATORS_MANAGE: "calculators:manage",
+  SUPPORT_RESPOND: "support:respond",
   NOTIFICATIONS_MANAGE: "notifications:manage",
   REPORTS_VIEW: "reports:view",
 
@@ -76,7 +77,8 @@ const MATRIX: Record<UserRole, readonly CapabilityValue[]> = {
     Capability.RESEARCH_MANAGE_STUDIES,
     Capability.RESEARCH_EXPORT,
     Capability.EDUCATION_MANAGE,
-    Capability.EXERCISE_CONTENT_MANAGE,
+    Capability.CALCULATORS_MANAGE,
+    Capability.SUPPORT_RESPOND,
     Capability.NOTIFICATIONS_MANAGE,
     Capability.REPORTS_VIEW,
     Capability.AUDIT_VIEW,

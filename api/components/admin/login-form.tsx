@@ -58,7 +58,7 @@ export function LoginForm() {
       {error ? (
         <div
           role="alert"
-          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-[13px]"
+          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-xs"
         >
           <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>

@@ -49,3 +49,4 @@ next-env.d.ts
 /.vitest
 # sentry
 .sentryclirc
+.local-uploads/

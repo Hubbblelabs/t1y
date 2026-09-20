@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import '../../utils/tamil_name.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../config/api_config.dart';
@@ -11,6 +12,9 @@ import '../../models/topic.dart';
 import '../../providers/app_state.dart';
 import '../../services/content_service.dart';
 import '../../services/glucose_service.dart';
+import '../../services/insulin_service.dart';
+import '../../services/quiz_service.dart';
+import '../../services/support_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/progress_service.dart';
 import '../../services/reminder_service.dart';
@@ -19,7 +23,12 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
+import '../calculators/calculators_screen.dart';
 import '../glucose/glucose_section_screen.dart';
+import '../health/insulin_screen.dart';
+import '../help/help_screen.dart';
+import 'home_cards.dart';
+import 'home_shell.dart';
 import '../helpbook/topic_detail_screen.dart';
 import '../rewards/badges_screen.dart';
 
@@ -53,6 +62,14 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
   /// [_nextTopic] instead of disappearing.
   String? _lastOpenedSlug;
 
+  /// Average glucose per day for the current week, keyed by day. A day with no
+  /// readings is absent, never zero.
+  Map<DateTime, double> _weekAverages = const {};
+  double? _insulinToday;
+  int? _quizCount;
+  int _unreadAnswers = 0;
+  bool _calculatorsOn = true;
+
   DateTime _selectedDay = DateTime.now();
   List<GlucoseReading>? _dayReadings;
   bool _glucoseAvailable = true;
@@ -64,6 +81,59 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
     _selectedDay = _dateOnly(DateTime.now());
     _load();
     _loadDay(_selectedDay);
+    _loadExtras();
+  }
+
+  /// The seven dates of the current week, Monday first — the same week the
+  /// strip at the top shows.
+  static List<DateTime> _weekDays() {
+    final today = DateTime.now();
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    return [
+      for (var i = 0; i < 7; i++)
+        DateTime(monday.year, monday.month, monday.day + i),
+    ];
+  }
+
+  /// Everything below the fold: the week's glucose, today's insulin, how many
+  /// quizzes there are, and whether the study team has answered a question.
+  ///
+  /// Each call is guarded on its own and none can hold up the rest of the
+  /// screen — these are extras, and a failure just leaves a card looking as it
+  /// would for a family with nothing yet.
+  Future<void> _loadExtras() async {
+    final week = _weekDays();
+
+    final results = await Future.wait<Object?>([
+      _guard<List<GlucoseReading>>(
+        GlucoseService.instance.recent(limit: 200),
+        const <GlucoseReading>[],
+      ),
+      _guard<List<InsulinDose>>(
+        InsulinService.instance.recent(limit: 30),
+        const <InsulinDose>[],
+      ),
+      _guard<int?>(
+        QuizService.instance
+            .getQuizzes(AppState.instance.locale)
+            .then((quizzes) => quizzes.length),
+        null,
+      ),
+      _guard<int>(SupportService.instance.unreadAnswers(), 0),
+    ]);
+    if (!mounted) return;
+
+    final readings = (results[0] as List<GlucoseReading>)
+        .where((r) => !r.measuredAt.isBefore(week.first))
+        .toList();
+    final doses = results[1] as List<InsulinDose>;
+
+    setState(() {
+      _weekAverages = dailyAverages(readings);
+      _insulinToday = InsulinService.totalOn(DateTime.now(), doses);
+      _quizCount = results[2] as int?;
+      _unreadAnswers = results[3] as int;
+    });
   }
 
   @override
@@ -71,21 +141,40 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
+  /// Runs [call], falling back to [fallback] if it fails or takes too long, so
+  /// no single request can stop the rest of the screen from appearing.
+  static Future<T> _guard<T>(Future<T> call, T fallback) => call
+      .timeout(const Duration(seconds: 12))
+      .catchError((Object _) => fallback);
+
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
-    final results = await Future.wait([
-      ContentService.instance.getTopics(AppState.instance.locale),
-      ProgressService.instance.readTopicSlugs(),
-      ReminderService.instance.upcoming(),
-      ProfileService.instance.me(),
-      ApiConfig.getBaseUrl(),
-      ProgressService.instance.fetchProgress(),
+
+    // Each call is guarded on its own. They used to run inside one
+    // `Future.wait`, which throws as soon as *any* of them does — and since
+    // `_loading` was only ever cleared after it, one unreachable request left
+    // the whole screen on a spinner for good. Now a call that fails simply
+    // contributes its empty value, and the screen shows what it did get.
+    final results = await Future.wait<Object?>([
+      _guard(
+        ContentService.instance.getTopics(AppState.instance.locale),
+        <Topic>[],
+      ),
+      _guard(ProgressService.instance.readTopicSlugs(), <String>{}),
+      _guard(ReminderService.instance.upcoming(), <Reminder>[]),
+      _guard<Map<String, dynamic>?>(ProfileService.instance.me(), null),
+      _guard(ApiConfig.getBaseUrl(), ''),
+      _guard<Map<String, dynamic>?>(
+        ProgressService.instance.fetchProgress(),
+        null,
+      ),
     ]);
     // Best-effort, separately: a rewards outage should never block the rest
     // of the dashboard from loading.
-    final badges = await RewardsService.instance.collection().catchError(
-      (_) => BadgeCollection.empty,
-    );
+    final badges = await RewardsService.instance
+        .collection()
+        .timeout(const Duration(seconds: 12))
+        .catchError((_) => BadgeCollection.empty);
     if (!mounted) return;
 
     final me = results[3] as Map<String, dynamic>?;
@@ -103,6 +192,8 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
           ? (profile!['name'] as String).split(' ').first
           : ((me?['name'] as String?)?.split(' ').first ?? '');
       _baseUrl = results[4] as String;
+      // Off only when a coordinator has switched it off for this child.
+      _calculatorsOn = profile?['icIsfUnlocked'] != false;
       _badges = badges;
       _lastOpenedSlug = (progressTopics != null && progressTopics.isNotEmpty)
           ? progressTopics.first['topicSlug'] as String?
@@ -154,6 +245,63 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
     ).push(MaterialPageRoute(builder: (_) => const GlucoseSectionScreen()));
   }
 
+  /// The doorways under "More for you" — each with something live on it — laid
+  /// out two to a row.
+  List<Widget> _tiles() {
+    String units(double v) =>
+        v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+    final tiles = <Widget>[
+      HomeTile(
+        icon: Icons.quiz_outlined,
+        title: S.quizzes,
+        line: (_quizCount ?? 0) > 0
+            ? S.quizzesReady(_quizCount!)
+            : S.testWhatYouLearn,
+        onTap: () => widget.onNavigateToTab(HomeShell.quizzesTabIndex),
+      ),
+      // Insulin recording sits behind the same switch as glucose, so it is only
+      // offered where glucose is.
+      if (_glucoseAvailable)
+        HomeTile(
+          icon: Icons.vaccines_outlined,
+          title: S.insulin,
+          line: (_insulinToday ?? 0) > 0
+              ? S.todayTotal(units(_insulinToday!))
+              : S.recordDose,
+          onTap: () async {
+            await Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const InsulinScreen()));
+            _loadExtras();
+          },
+        ),
+      if (_calculatorsOn)
+        HomeTile(
+          icon: Icons.calculate_outlined,
+          title: S.calculators,
+          line: S.calculatorsLine,
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const CalculatorsScreen())),
+        ),
+      HomeTile(
+        icon: Icons.support_agent_outlined,
+        title: S.helpAndSupport,
+        line: _unreadAnswers > 0 ? S.newAnswerFromTeam : S.questionsAndAnswers,
+        highlight: _unreadAnswers > 0,
+        onTap: () async {
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const HelpScreen()));
+          _loadExtras();
+        },
+      ),
+    ];
+
+    return [TileGrid(tiles: tiles)];
+  }
+
   /// First unread topic in curriculum order — "continue where you left off".
   Topic? get _nextTopic {
     for (final t in _topics) {
@@ -187,7 +335,8 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: () => Future.wait([_load(), _loadDay(_selectedDay)]),
+              onRefresh: () =>
+                  Future.wait([_load(), _loadDay(_selectedDay), _loadExtras()]),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                 children: [
@@ -195,7 +344,10 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 18, left: 2),
                       child: Text(
-                        S.greetingForHour(DateTime.now().hour, _name),
+                        S.greetingForHour(
+                          DateTime.now().hour,
+                          localName(_name),
+                        ),
                         style: GoogleFonts.dancingScript(
                           fontSize: 32,
                           fontWeight: FontWeight.w700,
@@ -207,6 +359,7 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
                   _WeekPillCalendar(
                     selected: _selectedDay,
                     onSelect: _selectDay,
+                    marked: _weekAverages.keys.toSet(),
                   ),
                   const SizedBox(height: 14),
                   if (_glucoseAvailable)
@@ -216,6 +369,25 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
                       loading: _loadingDay,
                       onTap: _openGlucose,
                     ),
+                  if (_glucoseAvailable && _weekAverages.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    WeekTrendCard(
+                      days: _weekDays(),
+                      averages: _weekAverages,
+                      selected: _selectedDay,
+                      dayLabels: AppState.instance.isTamil
+                          ? S.weekdaysShortTa
+                          : S.weekdaysShort,
+                      onSelect: _selectDay,
+                    ),
+                  ],
+                  if (total > 0) ...[
+                    const SizedBox(height: 20),
+                    LearningProgressCard(
+                      read: _topics.where((t) => _read.contains(t.slug)).length,
+                      total: total,
+                    ),
+                  ],
                   if (featured != null) ...[
                     const SizedBox(height: 20),
                     _ContinueReadingCard(
@@ -239,6 +411,9 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
                   ],
                   const SizedBox(height: 20),
                   _RankBadgeStrip(badges: _badges, onTap: _openBadges),
+                  const SizedBox(height: 20),
+                  _SectionLabel(S.moreForYou),
+                  ..._tiles(),
                   if (_reminders.isNotEmpty) ...[
                     const SizedBox(height: 20),
                     _SectionLabel(S.reminders),
@@ -281,7 +456,15 @@ class _WeekPillCalendar extends StatelessWidget {
   final DateTime selected;
   final ValueChanged<DateTime> onSelect;
 
-  const _WeekPillCalendar({required this.selected, required this.onSelect});
+  /// Days that have at least one reading; each gets a small dot beneath it, so
+  /// the week shows at a glance which days have something to look at.
+  final Set<DateTime> marked;
+
+  const _WeekPillCalendar({
+    required this.selected,
+    required this.onSelect,
+    this.marked = const {},
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +522,19 @@ class _WeekPillCalendar extends StatelessWidget {
                           ? Colors.white
                           : Colors.black.withValues(alpha: 0.75),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Always occupies its space, so the strip does not change
+                // height as readings come in.
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: marked.contains(day)
+                        ? AppTheme.primary
+                        : Colors.transparent,
                   ),
                 ),
               ],
@@ -663,10 +859,10 @@ class _ReminderTile extends StatelessWidget {
     final t = reminder.nextTriggerAt;
     if (t == null) return reminder.timeOfDay ?? '';
     final diff = t.difference(DateTime.now());
-    if (diff.isNegative) return 'due now';
-    if (diff.inHours < 1) return 'in ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'in ${diff.inHours} h';
-    return 'in ${diff.inDays} d';
+    if (diff.isNegative) return S.dueNow;
+    if (diff.inHours < 1) return S.inMinutes(diff.inMinutes);
+    if (diff.inHours < 24) return S.inHours(diff.inHours);
+    return S.inDays(diff.inDays);
   }
 
   @override

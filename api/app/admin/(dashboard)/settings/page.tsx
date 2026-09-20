@@ -95,7 +95,7 @@ export default async function SettingsPage() {
       >
         <Card className="p-5">
           {thresholds.length === 0 ? (
-            <p className="text-ink-muted text-[13px]">
+            <p className="text-ink-muted text-xs">
               No thresholds are configured. Recorded values are displayed without a
               reference range until a clinical reviewer defines one.
             </p>
@@ -107,14 +107,14 @@ export default async function SettingsPage() {
                   className="flex flex-wrap items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="text-ink text-[13px] font-medium">{threshold.label}</p>
+                    <p className="text-ink text-xs font-medium">{threshold.label}</p>
                     <p className="text-ink-subtle text-xs">
                       {threshold.key} · {threshold.source}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone="neutral">{threshold.scope.toLowerCase()}</Badge>
-                    <span className="text-ink tabular text-[13px]">
+                    <span className="text-ink tabular text-xs">
                       {threshold.lowValue ?? "—"}–{threshold.highValue ?? "—"}{" "}
                       {threshold.unit}
                     </span>

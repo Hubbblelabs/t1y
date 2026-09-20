@@ -11,8 +11,8 @@ import { createStaffSchema, staffListQuerySchema } from "@/lib/validation/admin"
 /**
  * Staff accounts. Restricted to super administrators.
  *
- * New accounts are created with no password; the invitee sets their own via
- * the reset flow, so no administrator ever handles another person's credentials.
+ * New accounts get a temporary password the administrator hands over; the new
+ * staff member must replace it at first sign-in.
  */
 
 export const GET = defineRoute({
@@ -48,7 +48,7 @@ export const POST = defineRoute({
         resourceType: "staff-account",
         resourceId: staff.id,
         description: `Created ${body.role} account for ${body.email}`,
-        metadata: { role: body.role, inviteSent: staff.inviteSent },
+        metadata: { role: body.role },
       },
       audit,
     );

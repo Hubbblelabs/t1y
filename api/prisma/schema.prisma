@@ -384,8 +384,10 @@ model User {
   auditLogsAsActor   AuditLog[] @relation("AuditActor")
   auditLogsAsSubject AuditLog[] @relation("AuditSubject")
 
+  authoredCalculators Calculator[]         @relation("CalculatorCreator")
+  supportThreads      SupportThread[]      @relation("SupportSubject")
+  supportMessages     SupportMessage[]     @relation("SupportAuthor")
   authoredEducation EducationContent[]     @relation("EducationAuthor")
-  authoredExercises ExerciseContent[]      @relation("ExerciseAuthor")
   authoredQuizzes   Quiz[]                 @relation("QuizAuthor")
   createdCampaigns  NotificationCampaign[] @relation("CampaignCreator")
   createdStudies    ResearchStudy[]        @relation("StudyCreator")
@@ -623,7 +625,60 @@ model ProfileFieldDefinition {
   hintEn  String?
   hintTa  String?
 
-  /// For `fieldType: CHOICE` only — `[{ "value": "...", "labelEn": "...", "labelTa": "..." }]`.
+  /// True for a question the app has always asked, whose answer is stored in
+  /// a real `Profile` column (name, dateOfBirth, phone, heightCm…) rather than
+  /// in `customFieldValues`. `key` is then the column's name.
+  ///
+  /// These are registered here so the whole set of questions — built in and
+  /// added — can be seen and described in one place, with its type and
+  /// validation. They are deliberately kept out of what the app fetches and
+  /// out of the save-time "required" check (see profile-fields.ts): the app
+  /// still asks them from its own screens, and treating one as an ordinary
+  /// custom answer would both duplicate it on screen and fail every save.
+  builtIn Boolean @default(false)
+
+  /// Asked in the chat when a parent first signs up, rather than left to the
+  /// profile screen afterwards.
+  showOnSignup Boolean @default(false)
+
+  /// The sentence the sign-up chat asks ("What year were they diagnosed with
+  /// Type 1 diabetes?"), which is not the same thing as the field's label
+  /// ("Diagnosis year"). Only used when `showOnSignup` is on; falls back to
+  /// the label when blank.
+  promptEn String?
+  promptTa String?
+
+  /// The checks an answer must pass, in the shape that suits `fieldType`:
+  ///   TEXT   { minLength, maxLength, format: "ANY" | "LETTERS" }
+  ///   NUMBER { min, max, wholeNumber, upToCurrentYear, notBeforeYearOf }
+  ///   DATE   { notInFuture, minAgeYears, maxAgeYears }
+  ///   CHOICE — none; the options are the validation.
+  /// Validated and described by lib/services/profile-field-rules.ts.
+  rules Json?
+
+  /// Marks this as clinical information about the child rather than
+  /// administrative detail, which is what makes it available to calculators
+  /// as a named value (see lib/services/health-data-catalogue.ts).
+  ///
+  /// Off by default, deliberately. A field has to be deliberately declared
+  /// medical before a dosing formula can read it — nobody should be able to
+  /// wire "preferred contact time" into an insulin calculation by accident,
+  /// and the flag is also the honest boundary for what this study treats as
+  /// health data rather than contact detail.
+  isMedical Boolean @default(false)
+
+  /// The unit a numeric medical field is recorded in ("kg", "cm", "mg/dL").
+  /// Shown beside the value everywhere it appears, so a formula author can
+  /// see what they are dividing by.
+  unit String?
+
+  /// For `fieldType: CHOICE` only —
+  /// `[{ "value": "...", "labelEn": "...", "labelTa": "...", "numericValue": 1 }]`.
+  ///
+  /// `numericValue` is what a calculator sees when this choice is selected,
+  /// and is required only on a field that is both CHOICE and medical: a
+  /// formula cannot do arithmetic on the word "male", so if such a field is
+  /// to be usable in one, each option has to say what number it stands for.
   options Json?
 
   createdAt DateTime @default(now())
@@ -851,7 +906,6 @@ model ExerciseLog {
   userId String
 
   exerciseId      String?
-  programId       String?
   activityName    String
   category        ExerciseCategory  @default(OTHER)
   durationMinutes Int
@@ -867,7 +921,6 @@ model ExerciseLog {
 
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercise Exercise?        @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
-  program  ExerciseContent? @relation(fields: [programId], references: [id], onDelete: SetNull)
 
   @@index([userId, performedAt])
   @@index([userId, category, performedAt])
@@ -1168,38 +1221,148 @@ model EducationContent {
   @@index([status, publishedAt])
 }
 
-model ExerciseContent {
-  id    String @id @default(cuid())
-  slug  String @unique
-  title String
+// ---------------------------------------------------------------------------
+// Calculators
+//
+// Study staff define these through the dashboard: a set of named inputs a
+// parent fills in, and a set of results computed from them by formulas
+// written in the closed arithmetic language in lib/utils/formula.ts.
+//
+// A calculator is IMMUTABLE once created. There is no edit path for its
+// inputs, outputs or formulas — only `active`, which hides it. This is
+// deliberate and is the feature's main safety property: these formulas
+// produce insulin guidance shown to a parent, so a calculator a family used
+// on Tuesday must still mean the same thing when a clinician reviews it on
+// Friday. Changing a formula means creating a new calculator and hiding the
+// old one, which leaves both on the record.
+// ---------------------------------------------------------------------------
 
-  description     String
-  category        ExerciseCategory
-  difficulty      Difficulty       @default(BEGINNER)
-  durationMinutes Int
-  /// Rich text stored as sanitised HTML.
-  instructions    String
-  equipment       String[]
-  precautions     String?
+model Calculator {
+  id  String @id @default(cuid())
+  /// Stable identity for the mobile client. Generated, never author-typed.
+  key String @unique
 
-  videoUrl String?
-  videoKey String?
-  imageUrl String?
-  imageKey String?
+  nameEn        String
+  nameTa        String?
+  descriptionEn String?
+  descriptionTa String?
 
-  status      ContentStatus @default(DRAFT)
-  publishedAt DateTime?
-  sortOrder   Int           @default(0)
+  /// Ordered `{key, labelEn, labelTa, unit, min, max, decimals, helpEn,
+  /// helpTa}[]` — the numbers a parent is asked for. `key` is what the
+  /// formulas below refer to.
+  inputs Json
 
-  authorId  String
+  /// Ordered `{key, labelEn, labelTa, unit, decimals, expression}[]` — each
+  /// result and the formula producing it. A formula may reference any input
+  /// key, and any output key declared before it.
+  outputs Json
+
+  /// Shown with the results. The place for "check with your doctor before
+  /// changing a dose" — every calculator in this product needs one.
+  noteEn String?
+  noteTa String?
+
+  /// The only mutable field. False hides the calculator from the app while
+  /// leaving it, and its formulas, on the record.
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  /// Set when a newer calculator supersedes this one, purely for display
+  /// ("replaced by…") — superseding never rewrites the old row.
+  supersededById String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  /// Tracks `active` flips only; the rest of the row never changes.
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation("CalculatorCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([active, sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Help and support
+//
+// A parent asks a question about their child; a coordinator answers it. One
+// thread per question, so a conversation stays together and the answer is
+// never separated from what was asked.
+//
+// Threads hang off the child's own `User` account rather than a household,
+// because that is who the parent is signed in as — which makes a message
+// automatically about the right child, with no way to file it against a
+// sibling by mistake.
+// ---------------------------------------------------------------------------
+
+enum SupportThreadStatus {
+  /// A parent has written and nobody has answered yet. The only state that
+  /// needs anyone to do anything, so it is what the inbox sorts to the top.
+  AWAITING_REPLY
+  /// A coordinator has answered. A parent writing again flips it back.
+  ANSWERED
+  /// Dealt with, and kept for the record. Nothing is ever deleted.
+  CLOSED
+}
+
+enum SupportAuthorRole {
+  PARENT
+  ADMIN
+}
+
+model SupportThread {
+  id String @id @default(cuid())
+
+  /// The child this question is about — the account the parent was signed
+  /// in as when they asked.
+  userId String
+
+  subject String
+  status  SupportThreadStatus @default(AWAITING_REPLY)
+
+  /// Sorts the inbox without counting messages on every row.
+  lastMessageAt DateTime @default(now())
+  /// When a coordinator first answered, for "how long are families waiting".
+  firstRepliedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author User          @relation("ExerciseAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  logs   ExerciseLog[]
+  user     User             @relation("SupportSubject", fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
 
-  @@index([status, category])
-  @@index([status, difficulty])
+  @@index([status, lastMessageAt])
+  @@index([userId, lastMessageAt])
+}
+
+model SupportMessage {
+  id       String @id @default(cuid())
+  threadId String
+
+  authorId String
+  /// Stored rather than derived from the author's current role: a staff
+  /// member whose account is later changed must not retroactively turn their
+  /// past replies into parent messages.
+  authorRole SupportAuthorRole
+
+  body String
+
+  /// An optional link to something the family wants to show — a photo of a
+  /// meter, a clinic letter. Restricted to Google Drive (see
+  /// lib/services/support.ts): this study has no file-storage or virus-
+  /// scanning story for parent uploads, and a link to a service they already
+  /// use is a far smaller surface than accepting arbitrary files or URLs.
+  linkUrl String?
+
+  /// When the other side actually opened it, which is what the app shows as
+  /// "read" beside a sent message.
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  thread SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User          @relation("SupportAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([threadId, createdAt])
 }
 
 model MediaAsset {

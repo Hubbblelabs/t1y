@@ -8,6 +8,7 @@ import 'services/auth_service.dart';
 import 'services/content_service.dart';
 import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
+import 'l10n/strings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,7 +32,38 @@ Future<void> main() async {
   // choice on every cold start.
   await AppState.instance.load();
 
+  // If a widget ever throws while it is being drawn, Flutter's default is a
+  // blank or grey box in a release build — which reads as the app having
+  // frozen. Show a plain message instead, so a fault on one screen is
+  // recognisable as a fault rather than a dead phone.
+  ErrorWidget.builder = (details) => const _DrawingFailed();
+
   runApp(const T1dpeApp());
+}
+
+/// What replaces a widget that failed to draw.
+class _DrawingFailed extends StatelessWidget {
+  const _DrawingFailed();
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: ColoredBox(
+        color: Color(0xFFF7F8FA),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(
+              S.screenFailed,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 15, color: Color(0xFF445566)),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class T1dpeApp extends StatefulWidget {

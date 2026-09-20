@@ -131,7 +131,7 @@ export function ParticipantForm() {
             <h2 className="text-ink text-sm font-semibold">
               Participant {created.participantCode} created
             </h2>
-            <p className="text-ink-muted text-[13px]">
+            <p className="text-ink-muted text-xs">
               {value.name} — {value.email}
             </p>
           </div>
@@ -140,7 +140,7 @@ export function ParticipantForm() {
         {error ? (
           <div
             role="alert"
-            className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-[13px]"
+            className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-xs"
           >
             <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
@@ -149,7 +149,7 @@ export function ParticipantForm() {
 
         {tempPassword ? (
           <div className="border-line rounded-md border p-4">
-            <p className="text-ink-muted mb-2 text-[13px]">
+            <p className="text-ink-muted mb-2 text-xs">
               One-time temporary password — shown once. Give it to the family now; it is not
               stored anywhere and cannot be shown again. They should change it after signing in.
             </p>
@@ -165,7 +165,7 @@ export function ParticipantForm() {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-ink-muted text-[13px]">
+            <p className="text-ink-muted text-xs">
               The record exists but has no way to sign in yet — email delivery isn&apos;t
               configured for this deployment, so there is no verification link to send.
               Activating generates a temporary password to hand to the family directly (in
@@ -207,7 +207,7 @@ export function ParticipantForm() {
       {error ? (
         <div
           role="alert"
-          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-[13px]"
+          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-xs"
         >
           <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>
@@ -232,7 +232,7 @@ export function ParticipantForm() {
         <Field label="Diabetes type" htmlFor="diabetesType">
           <div className="flex h-9 items-center">
             <Badge tone="neutral">Type 1</Badge>
-            <span className="text-ink-subtle ml-2 text-[12px]">
+            <span className="text-ink-subtle ml-2 text-xs">
               This study is Type 1 only — nothing else to choose.
             </span>
           </div>

@@ -50,6 +50,28 @@ export interface NavSection {
   matchPrefix?: boolean;
 }
 
+/**
+ * Removed from this navigation, deliberately:
+ *
+ * - **Announcements** (push campaigns). Nothing in this study sends them,
+ *   and a section whose only function was to schedule messages nobody was
+ *   writing is just a place to get lost. The routes and tables still exist.
+ * - **Settings**. "General settings" and the global feature-flag switches are
+ *   both being replaced by per-account permissions, which is where deciding
+ *   what a member of staff can do belongs. Until that lands there is nothing
+ *   here a coordinator needs, so it is not shown.
+ *
+ * Neither was deleted — no data is lost and either can come back by
+ * restoring its entry. "Questions we ask them" keeps its own route under
+ * /admin/settings/profile-fields and is reached from the Families section.
+ *
+ * Wording rule for everything in this file, and for the pages it points at:
+ * the people running this dashboard are study coordinators and nurses, not
+ * developers. Labels name the thing in the language they already use —
+ * "Help Book", "Questions we ask families", "Who can sign in" — never the
+ * language the database uses. Internal vocabulary (slug, locale, flag,
+ * definition) stays in the code and out of the interface.
+ */
 export const NAVIGATION: NavSection[] = [
   {
     label: "Dashboard",
@@ -58,11 +80,22 @@ export const NAVIGATION: NavSection[] = [
     capability: Capability.ADMIN_AREA_ACCESS,
   },
   {
-    label: "Participants",
+    label: "Families",
     icon: "Users",
-    href: "/admin/participants",
     capability: Capability.PARTICIPANTS_VIEW,
-    matchPrefix: true,
+    items: [
+      {
+        label: "Children and parents",
+        href: "/admin/participants",
+        capability: Capability.PARTICIPANTS_VIEW,
+        matchPrefix: true,
+      },
+      {
+        label: "Questions we ask them",
+        href: "/admin/settings/profile-fields",
+        capability: Capability.SETTINGS_MANAGE,
+      },
+    ],
   },
   // "Health data" (Glucose/Medications/Insulin/Meals/Exercise/HbA1c/Health
   // metrics) and "Research" (Studies/Data export) are deliberately not
@@ -76,20 +109,14 @@ export const NAVIGATION: NavSection[] = [
   // coordinator wondering why. The routes and admin pages still exist
   // (nothing was deleted) — they're just not surfaced in this nav.
   {
-    label: "Content",
+    label: "What families see",
     icon: "BookOpen",
     capability: Capability.EDUCATION_MANAGE,
     items: [
       {
-        label: "Education",
+        label: "Help Book",
         href: "/admin/content/education",
         capability: Capability.EDUCATION_MANAGE,
-        matchPrefix: true,
-      },
-      {
-        label: "Exercise programmes",
-        href: "/admin/content/exercises",
-        capability: Capability.EXERCISE_CONTENT_MANAGE,
         matchPrefix: true,
       },
       {
@@ -98,13 +125,19 @@ export const NAVIGATION: NavSection[] = [
         capability: Capability.EDUCATION_MANAGE,
         matchPrefix: true,
       },
+      {
+        label: "Calculators",
+        href: "/admin/content/calculators",
+        capability: Capability.CALCULATORS_MANAGE,
+        matchPrefix: true,
+      },
     ],
   },
   {
-    label: "Notifications",
+    label: "Help requests",
     icon: "ClipboardList",
-    href: "/admin/notifications",
-    capability: Capability.NOTIFICATIONS_MANAGE,
+    href: "/admin/support",
+    capability: Capability.SUPPORT_RESPOND,
     matchPrefix: true,
   },
   {
@@ -114,45 +147,23 @@ export const NAVIGATION: NavSection[] = [
     capability: Capability.REPORTS_VIEW,
   },
   {
-    label: "Audit logs",
+    label: "Activity history",
     icon: "ScrollText",
     href: "/admin/audit-logs",
     capability: Capability.AUDIT_VIEW,
   },
   {
-    label: "Administrators",
+    label: "Who can sign in",
     icon: "ShieldCheck",
     href: "/admin/administrators",
     capability: Capability.ADMINS_MANAGE,
     matchPrefix: true,
   },
-  {
-    label: "Settings",
-    icon: "Cog",
-    capability: Capability.SETTINGS_MANAGE,
-    items: [
-      {
-        label: "Settings",
-        href: "/admin/settings",
-        capability: Capability.SETTINGS_MANAGE,
-      },
-      {
-        label: "Feature flags",
-        href: "/admin/settings/feature-flags",
-        capability: Capability.FEATURE_FLAGS_MANAGE,
-      },
-      {
-        label: "Profile fields",
-        href: "/admin/settings/profile-fields",
-        capability: Capability.SETTINGS_MANAGE,
-      },
-    ],
-  },
 ];
 
 /** Secondary entry used by clinical reviewers who manage thresholds. */
 export const THRESHOLDS_NAV: NavSection = {
-  label: "Clinical thresholds",
+  label: "Safe glucose ranges",
   icon: "Dumbbell",
   href: "/admin/thresholds",
   capability: Capability.THRESHOLDS_MANAGE,

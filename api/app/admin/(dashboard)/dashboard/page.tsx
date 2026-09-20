@@ -27,7 +27,7 @@ export default async function DashboardPage(props: PageProps<"/admin/dashboard">
     <PageContainer>
       <PageHeader
         title="Dashboard"
-        description="Overview of the diabetes management platform"
+        description="How families are getting on with the app"
         actions={<DateRangePicker />}
       />
 

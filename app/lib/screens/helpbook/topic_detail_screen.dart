@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../config/api_config.dart';
 import '../../l10n/strings.dart';
@@ -9,7 +10,7 @@ import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/locale_aware.dart';
-import '../../widgets/topic_card.dart' show categoryIcons;
+import '../../widgets/topic_card.dart' show categoryIcons, categoryName;
 
 final _paragraphStyle = {
   'p': Style(
@@ -111,10 +112,24 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
     super.dispose();
   }
 
+  /// The picture to show above section [index].
+  ///
+  /// A section authored as words-only carries no picture of its own, so the
+  /// nearest earlier one stays on screen — the header is meant to illustrate
+  /// where the reader is, and blanking it mid-topic reads as a loading
+  /// failure. Falls back to the topic's own main picture, then to nothing.
+  String? _imageForBlock(int index) {
+    for (var i = index; i >= 0; i--) {
+      final block = _topic.contentBlocks[i];
+      if (block.hasImage) return _absolute(block.imageUrl);
+    }
+    return _topic.thumbnailUrl != null ? _absolute(_topic.thumbnailUrl!) : null;
+  }
+
   Future<void> _init() async {
     _baseUrl = await ApiConfig.getBaseUrl();
     if (_topic.contentBlocks.isNotEmpty) {
-      _headerImage.value = _absolute(_topic.contentBlocks.first.imageUrl);
+      _headerImage.value = _imageForBlock(0);
     } else if (_topic.thumbnailUrl != null) {
       _headerImage.value = _absolute(_topic.thumbnailUrl!);
     }
@@ -205,7 +220,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
 
     if (bestIndex != null && bestIndex != _currentBlockIndex) {
       _currentBlockIndex = bestIndex!;
-      _headerImage.value = _absolute(_topic.contentBlocks[bestIndex!].imageUrl);
+      _headerImage.value = _imageForBlock(bestIndex!);
       _headerImageFailed.value = false;
     }
   }
@@ -230,7 +245,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
         });
         _progress.value = 0;
         _headerImage.value = _topic.contentBlocks.isNotEmpty
-            ? _absolute(_topic.contentBlocks.first.imageUrl)
+            ? _imageForBlock(0)
             : (_topic.thumbnailUrl != null
                   ? _absolute(_topic.thumbnailUrl!)
                   : null);
@@ -441,9 +456,38 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                               Container(
                                 key: _blockKeys[i],
                                 padding: const EdgeInsets.only(bottom: 14),
-                                child: Html(
-                                  data: blocks[i].paragraph,
-                                  style: _paragraphStyle,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (blocks[i].heading.isNotEmpty)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        child: Text(
+                                          blocks[i].heading,
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppTheme.deep,
+                                          ),
+                                        ),
+                                      ),
+                                    if (blocks[i].hasVideo)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        child: _VideoBlock(
+                                          url: _absolute(blocks[i].videoUrl),
+                                        ),
+                                      ),
+                                    if (blocks[i].paragraph.trim().isNotEmpty)
+                                      Html(
+                                        data: blocks[i].paragraph,
+                                        style: _paragraphStyle,
+                                      ),
+                                  ],
                                 ),
                               )
                           else
@@ -500,12 +544,7 @@ class _CategoryChip extends StatelessWidget {
 
   const _CategoryChip({required this.category});
 
-  static String _label(String category) {
-    final words = category.split('_');
-    return words
-        .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
-        .join(' ');
-  }
+  static String _label(String category) => categoryName(category);
 
   @override
   Widget build(BuildContext context) {
@@ -619,6 +658,126 @@ class _MarkReadButton extends StatelessWidget {
           ),
         ),
         label: Text(isRead ? S.markedAsRead : S.markAsRead),
+      ),
+    );
+  }
+}
+
+/// A video section of a topic.
+///
+/// Starts paused on its own first frame rather than autoplaying: these are
+/// read by children, often in a classroom or a clinic waiting room, and a
+/// video that starts talking the moment it scrolls into view is both
+/// startling and a good way to get the app turned off. Loads its own
+/// controller and disposes it when scrolled away for good.
+class _VideoBlock extends StatefulWidget {
+  final String url;
+
+  const _VideoBlock({required this.url});
+
+  @override
+  State<_VideoBlock> createState() => _VideoBlockState();
+}
+
+class _VideoBlockState extends State<_VideoBlock> {
+  VideoPlayerController? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final uri = Uri.tryParse(widget.url);
+    if (uri == null) {
+      if (mounted) setState(() => _failed = true);
+      return;
+    }
+    final controller = VideoPlayerController.networkUrl(uri);
+    try {
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _controller = controller);
+    } catch (_) {
+      await controller.dispose();
+      // A video that won't load leaves no broken frame behind — the section
+      // simply shows its words, exactly as an unloadable image does.
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) return const SizedBox.shrink();
+
+    final controller = _controller;
+    if (controller == null) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppTheme.deep.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(controller),
+            ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: controller,
+              builder: (context, value, _) => GestureDetector(
+                onTap: () =>
+                    value.isPlaying ? controller.pause() : controller.play(),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 200),
+                  opacity: value.isPlaying ? 0 : 1,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.28),
+                    child: const Center(
+                      child: Icon(
+                        Icons.play_circle_fill,
+                        size: 58,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: VideoProgressIndicator(
+                controller,
+                allowScrubbing: true,
+                colors: const VideoProgressColors(
+                  playedColor: AppTheme.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

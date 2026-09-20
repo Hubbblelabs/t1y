@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
-import '../../models/profile_field.dart';
+import '../../models/question.dart';
 import '../../providers/app_state.dart';
 import '../../services/api_client.dart';
-import '../../services/profile_fields_service.dart';
+import '../../services/profile_field_rules.dart';
 import '../../services/profile_service.dart';
+import '../../services/question_service.dart';
+import '../../services/question_values.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 
 /// A plain, full-page form — deliberately not the card the profile screen
 /// otherwise uses. The ID card stays a compact identity face; editing the
-/// fuller set of details (contact, treatment, emergency contact) needs room
-/// a small flip-card was never meant to hold, and mixing an edit form into
-/// that card's own layout was what made it feel cramped in the first place.
+/// fuller set of details needs room a small flip-card was never meant to hold.
+///
+/// The questions are not written into this screen. They come from
+/// [QuestionService], which is the list the dashboard controls, so a question
+/// added or reworded there appears here without an app release. Each one is
+/// drawn according to its type and checked against its own rules before saving.
 class ProfileEditScreen extends StatefulWidget {
   final Map<String, dynamic> initial;
 
@@ -24,191 +29,131 @@ class ProfileEditScreen extends StatefulWidget {
   State<ProfileEditScreen> createState() => _ProfileEditScreenState();
 }
 
-const _treatmentOptions = [
-  ('LIFESTYLE_ONLY', 'lifestyleOnly'),
-  ('ORAL_MEDICATION', 'oralMedication'),
-  ('INSULIN', 'insulinTreatment'),
-  ('ORAL_AND_INSULIN', 'oralAndInsulin'),
-  ('NON_INSULIN_INJECTABLE', 'nonInsulinInjectable'),
-  ('OTHER', 'otherTreatment'),
-];
-
-String _treatmentLabel(String key) => switch (key) {
-  'lifestyleOnly' => S.lifestyleOnly,
-  'oralMedication' => S.oralMedication,
-  'insulinTreatment' => S.insulinTreatment,
-  'oralAndInsulin' => S.oralAndInsulin,
-  'nonInsulinInjectable' => S.nonInsulinInjectable,
-  _ => S.otherTreatment,
-};
-
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
-  late final _name = TextEditingController(
-    text: widget.initial['name'] as String? ?? '',
-  );
-  late final _phone = TextEditingController(
-    text: widget.initial['phone'] as String? ?? '',
-  );
-  late final _city = TextEditingController(
-    text: widget.initial['city'] as String? ?? '',
-  );
-  late final _country = TextEditingController(
-    text: widget.initial['country'] as String? ?? '',
-  );
-  late final _height = TextEditingController(
-    text: (widget.initial['heightCm'] as num?)?.toString() ?? '',
-  );
-  late final _weight = TextEditingController(
-    text: (widget.initial['baselineWeightKg'] as num?)?.toString() ?? '',
-  );
-  late final _diagnosisYear = TextEditingController(
-    text: (widget.initial['diagnosisYear'] as num?)?.toString() ?? '',
-  );
-  late final _emergencyName = TextEditingController(
-    text: widget.initial['emergencyContactName'] as String? ?? '',
-  );
-  late final _emergencyPhone = TextEditingController(
-    text: widget.initial['emergencyContactPhone'] as String? ?? '',
-  );
-  late final _primaryClinician = TextEditingController(
-    text: widget.initial['primaryClinician'] as String? ?? '',
-  );
+  /// Null only while the list is being read — normally from the phone's own
+  /// copy, so this is not perceptible.
+  List<Question>? _questions;
 
-  late DateTime? _dateOfBirth = DateTime.tryParse(
-    widget.initial['dateOfBirth'] as String? ?? '',
-  );
-  late String _sex = widget.initial['sex'] as String? ?? 'UNSPECIFIED';
-  late String _treatment =
-      widget.initial['treatmentModality'] as String? ?? 'UNSPECIFIED';
+  final Map<String, TextEditingController> _text = {};
+  final Map<String, DateTime?> _dates = {};
+  final Map<String, String?> _choices = {};
 
   bool _saving = false;
   String? _error;
 
-  /// Admin-defined fields (see api/lib/services/profile-fields.ts), fetched
-  /// once when the screen opens. Additive to the fixed fields above — a slow
-  /// or failed fetch never blocks editing the built-in ones.
-  List<ProfileField> _customFields = [];
-  final Map<String, TextEditingController> _customControllers = {};
-  final Map<String, DateTime?> _customDates = {};
-  final Map<String, String?> _customChoices = {};
-
   @override
   void initState() {
     super.initState();
-    _loadCustomFields();
+    _load();
   }
 
-  Future<void> _loadCustomFields() async {
-    final fields = await ProfileFieldsService.instance.fetchActiveFields();
+  Future<void> _load() async {
+    final questions = await QuestionService.instance.profileQuestions();
     if (!mounted) return;
-    final existing =
-        widget.initial['customFieldValues'] as Map<String, dynamic>? ??
-        const {};
-    setState(() {
-      _customFields = fields;
-      for (final field in fields) {
-        final value = existing[field.key];
-        switch (field.fieldType) {
-          case 'DATE':
-            _customDates[field.key] = value == null
-                ? null
-                : DateTime.tryParse(value as String);
-          case 'CHOICE':
-            _customChoices[field.key] = value as String?;
-          default:
-            _customControllers[field.key] = TextEditingController(
-              text: value?.toString() ?? '',
-            );
-        }
+
+    for (final question in questions) {
+      final stored = answerFor(question, widget.initial);
+      switch (question.fieldType) {
+        case 'DATE':
+          _dates[question.key] = stored is String
+              ? DateTime.tryParse(stored)
+              : null;
+        case 'CHOICE':
+          final value = stored?.toString();
+          // A stored value that is not one of today's options (an old record
+          // that says "prefer not to say") is left unselected, not kept.
+          _choices[question.key] = question.options.any((o) => o.value == value)
+              ? value
+              : null;
+        default:
+          _text[question.key] = TextEditingController(
+            text: stored == null
+                ? ''
+                : (stored is num && stored == stored.roundToDouble()
+                      ? stored.toStringAsFixed(0)
+                      : stored.toString()),
+          );
       }
-    });
+    }
+    setState(() => _questions = questions);
   }
 
   @override
   void dispose() {
-    _name.dispose();
-    _phone.dispose();
-    _city.dispose();
-    _country.dispose();
-    _height.dispose();
-    _weight.dispose();
-    _diagnosisYear.dispose();
-    _emergencyName.dispose();
-    _emergencyPhone.dispose();
-    _primaryClinician.dispose();
-    for (final controller in _customControllers.values) {
+    for (final controller in _text.values) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _pickCustomDate(ProfileField field) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _customDates[field.key] ?? now,
-      firstDate: DateTime(now.year - 100),
-      lastDate: now,
-      helpText: field.label(AppState.instance.locale),
-    );
-    if (picked != null) setState(() => _customDates[field.key] = picked);
+  /// Every answer as the raw string the checks and the payload builder read.
+  Map<String, String> _rawAnswers() {
+    final answers = <String, String>{};
+    for (final question in _questions ?? const <Question>[]) {
+      switch (question.fieldType) {
+        case 'DATE':
+          final date = _dates[question.key];
+          if (date != null) {
+            answers[question.key] = date.toIso8601String().split('T').first;
+          }
+        case 'CHOICE':
+          final value = _choices[question.key];
+          if (value != null) answers[question.key] = value;
+        default:
+          final text = _text[question.key]?.text.trim() ?? '';
+          if (text.isNotEmpty) answers[question.key] = text;
+      }
+    }
+    return answers;
   }
 
-  /// `null` when every currently-required active field has an answer;
-  /// otherwise the label of the first one that doesn't, so the error can
-  /// name it rather than just saying "something's missing".
-  String? _missingRequiredCustomField() {
+  /// The first thing wrong with the form, worded for a parent, or null.
+  String? _firstProblem(Map<String, String> answers) {
     final locale = AppState.instance.locale;
-    for (final field in _customFields) {
-      if (!field.required) continue;
-      final filled = switch (field.fieldType) {
-        'DATE' => _customDates[field.key] != null,
-        'CHOICE' => (_customChoices[field.key]?.isNotEmpty ?? false),
-        _ => (_customControllers[field.key]?.text.trim().isNotEmpty ?? false),
-      };
-      if (!filled) return field.label(locale);
+    for (final question in _questions!) {
+      final raw = answers[question.key];
+
+      if (raw == null) {
+        if (question.required) {
+          return '${question.label(locale)} ${S.isRequired}';
+        }
+        continue;
+      }
+
+      final Object? typed = question.fieldType == 'NUMBER'
+          ? num.tryParse(raw)
+          : raw;
+      if (question.fieldType == 'CHOICE') continue;
+
+      final problem = checkAnswer(question, typed, answers: {...answers});
+      if (problem != null) return problem;
     }
     return null;
   }
 
-  Map<String, dynamic> _customFieldValuesPayload() {
-    final values = <String, dynamic>{};
-    for (final field in _customFields) {
-      switch (field.fieldType) {
-        case 'DATE':
-          values[field.key] = _customDates[field.key]?.toIso8601String();
-        case 'CHOICE':
-          values[field.key] = _customChoices[field.key];
-        case 'NUMBER':
-          final text = _customControllers[field.key]?.text.trim() ?? '';
-          values[field.key] = text.isEmpty ? null : num.tryParse(text);
-        default:
-          values[field.key] = _emptyToNull(
-            _customControllers[field.key]?.text ?? '',
-          );
-      }
-    }
-    return values;
-  }
-
-  Future<void> _pickDateOfBirth() async {
+  Future<void> _pickDate(Question question) async {
     final now = DateTime.now();
+    final years = (question.rules['maxAgeYears'] as num?)?.toInt() ?? 100;
+    final allowFuture = question.rules['notInFuture'] != true;
+
     final picked = await showDatePicker(
       context: context,
-      initialDate: _dateOfBirth ?? DateTime(now.year - 10),
-      firstDate: DateTime(now.year - 20),
-      lastDate: now,
-      helpText: S.dateOfBirth,
+      initialDate:
+          _dates[question.key] ?? (years > 10 ? DateTime(now.year - 10) : now),
+      firstDate: DateTime(now.year - years),
+      lastDate: allowFuture ? DateTime(now.year + 5) : now,
+      helpText: question.label(AppState.instance.locale),
     );
-    if (picked != null) setState(() => _dateOfBirth = picked);
+    if (picked != null) setState(() => _dates[question.key] = picked);
   }
 
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
 
-    final missingField = _missingRequiredCustomField();
-    if (missingField != null) {
-      setState(() => _error = '$missingField ${S.isRequired}');
+    final answers = _rawAnswers();
+    final problem = _firstProblem(answers);
+    if (problem != null) {
+      setState(() => _error = problem);
       return;
     }
 
@@ -217,26 +162,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       _error = null;
     });
 
-    final fields = <String, dynamic>{
-      if (_name.text.trim().isNotEmpty) 'name': _name.text.trim(),
-      'dateOfBirth': _dateOfBirth?.toIso8601String(),
-      'sex': _sex,
-      'phone': _emptyToNull(_phone.text),
-      'city': _emptyToNull(_city.text),
-      'country': _emptyToNull(_country.text),
-      'diagnosisYear': int.tryParse(_diagnosisYear.text.trim()),
-      'treatmentModality': _treatment,
-      'heightCm': double.tryParse(_height.text.trim()),
-      'baselineWeightKg': double.tryParse(_weight.text.trim()),
-      'emergencyContactName': _emptyToNull(_emergencyName.text),
-      'emergencyContactPhone': _emptyToNull(_emergencyPhone.text),
-      'primaryClinician': _emptyToNull(_primaryClinician.text),
-      if (_customFields.isNotEmpty)
-        'customFieldValues': _customFieldValuesPayload(),
-    };
-
     try {
-      await ProfileService.instance.updateProfile(fields);
+      await ProfileService.instance.updateProfile(
+        ProfileService.buildProfilePayload(
+          answers,
+          _questions!,
+          // Editing, unlike signing up, must be able to *clear* an answer.
+          sendBlanksAsNull: true,
+        )..remove('diabetesType'),
+      );
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
@@ -254,188 +188,144 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     }
   }
 
-  static String? _emptyToNull(String value) =>
-      value.trim().isEmpty ? null : value.trim();
-
   @override
   Widget build(BuildContext context) {
+    final questions = _questions;
     return Scaffold(
       appBar: AppBar(title: Text(S.editDetails)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        children: [
-          if (_error != null) ...[
-            ErrorBanner(message: _error!),
-            const SizedBox(height: 16),
-          ],
-          LabeledField(
-            icon: Icons.person_outline,
-            label: S.name,
-            hint: S.name,
-            controller: _name,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 14),
-          _TapField(
-            icon: Icons.cake_outlined,
-            label: S.dateOfBirth,
-            value: _dateOfBirth == null ? null : _formatDate(_dateOfBirth!),
-            onTap: _pickDateOfBirth,
-          ),
-          const SizedBox(height: 14),
-          _ChoiceField(
-            icon: Icons.wc_outlined,
-            label: S.sex,
-            value: _sex,
-            options: const [('FEMALE', 'female'), ('MALE', 'male')],
-            labelFor: (key) => switch (key) {
-              'female' => S.female,
-              _ => S.male,
-            },
-            onChanged: (v) => setState(() => _sex = v),
-          ),
-          const SizedBox(height: 14),
-          LabeledField(
-            icon: Icons.event_note_outlined,
-            label: S.diagnosisYear,
-            hint: S.diagnosisYear,
-            controller: _diagnosisYear,
-            keyboardType: TextInputType.number,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 24),
-          _SectionLabel(S.phone),
-          const SizedBox(height: 10),
-          LabeledField(
-            icon: Icons.call_outlined,
-            label: S.phone,
-            hint: S.phone,
-            controller: _phone,
-            keyboardType: TextInputType.phone,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 14),
-          LabeledField(
-            icon: Icons.location_city_outlined,
-            label: S.city,
-            hint: S.city,
-            controller: _city,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 14),
-          LabeledField(
-            icon: Icons.public_outlined,
-            label: S.country,
-            hint: S.country,
-            controller: _country,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 24),
-          _SectionLabel(S.treatmentModality),
-          const SizedBox(height: 10),
-          _ChoiceField(
-            icon: Icons.medical_services_outlined,
-            label: S.treatmentModality,
-            value: _treatment,
-            options: _treatmentOptions,
-            labelFor: _treatmentLabel,
-            onChanged: (v) => setState(() => _treatment = v),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: LabeledField(
-                  icon: Icons.height_outlined,
-                  label: S.heightHint,
-                  hint: S.heightHint,
-                  controller: _height,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  whiteFill: true,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: LabeledField(
-                  icon: Icons.monitor_weight_outlined,
-                  label: S.weightHint,
-                  hint: S.weightHint,
-                  controller: _weight,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  whiteFill: true,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          LabeledField(
-            icon: Icons.local_hospital_outlined,
-            label: S.primaryClinician,
-            hint: S.primaryClinician,
-            controller: _primaryClinician,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 24),
-          _SectionLabel(S.emergencyContact),
-          const SizedBox(height: 10),
-          LabeledField(
-            icon: Icons.contact_emergency_outlined,
-            label: S.emergencyContactName,
-            hint: S.emergencyContactName,
-            controller: _emergencyName,
-            whiteFill: true,
-          ),
-          const SizedBox(height: 14),
-          LabeledField(
-            icon: Icons.call_outlined,
-            label: S.emergencyContactPhone,
-            hint: S.emergencyContactPhone,
-            controller: _emergencyPhone,
-            keyboardType: TextInputType.phone,
-            whiteFill: true,
-          ),
-          if (_customFields.isNotEmpty)
-            _CustomFieldsSection(
-              fields: _customFields,
-              controllers: _customControllers,
-              dates: _customDates,
-              choices: _customChoices,
-              onDateTap: _pickCustomDate,
-              onChoiceChanged: (key, value) =>
-                  setState(() => _customChoices[key] = value),
-            ),
-          const SizedBox(height: 28),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.deep,
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-            ),
-            child: _saving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+      body: questions == null
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+              children: [
+                if (_error != null) ...[
+                  ErrorBanner(message: _error!),
+                  const SizedBox(height: 16),
+                ],
+                ..._sections(questions),
+                const SizedBox(height: 28),
+                FilledButton(
+                  onPressed: _saving ? null : _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppTheme.deep,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                  )
-                : Text(S.save),
-          ),
-        ],
-      ),
+                  ),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(S.save),
+                ),
+              ],
+            ),
     );
   }
 
-  static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
+  /// The questions grouped under their section headings, in the order the
+  /// dashboard set.
+  List<Widget> _sections(List<Question> questions) {
+    final bySection = <String, List<Question>>{};
+    for (final question in questions) {
+      bySection.putIfAbsent(question.section, () => []).add(question);
+    }
+
+    final widgets = <Widget>[];
+    var first = true;
+    for (final entry in bySection.entries) {
+      if (!first) widgets.add(const SizedBox(height: 24));
+      first = false;
+      widgets
+        ..add(_SectionLabel(sectionTitle(entry.key)))
+        ..add(const SizedBox(height: 10));
+      for (var i = 0; i < entry.value.length; i++) {
+        if (i > 0) widgets.add(const SizedBox(height: 14));
+        widgets.add(_field(entry.value[i]));
+      }
+    }
+    return widgets;
+  }
+
+  Widget _field(Question question) {
+    final locale = AppState.instance.locale;
+    final base = question.label(locale);
+    final withUnit = question.unit == null ? base : '$base (${question.unit})';
+    final label = question.required ? '$withUnit *' : withUnit;
+    final icon = _iconFor(question);
+
+    switch (question.fieldType) {
+      case 'DATE':
+        final date = _dates[question.key];
+        return _TapField(
+          icon: icon,
+          label: label,
+          value: date == null ? null : formatDate(date),
+          onTap: () => _pickDate(question),
+        );
+
+      case 'CHOICE':
+        return _ChoiceField(
+          icon: icon,
+          label: label,
+          value: _choices[question.key],
+          options: question.options,
+          locale: locale,
+          onChanged: (v) => setState(() => _choices[question.key] = v),
+        );
+
+      case 'NUMBER':
+        return LabeledField(
+          icon: icon,
+          label: label,
+          hint: question.hint(locale) ?? withUnit,
+          controller: _text[question.key]!,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          whiteFill: true,
+        );
+
+      default:
+        return LabeledField(
+          icon: icon,
+          label: label,
+          hint: question.hint(locale) ?? base,
+          controller: _text[question.key]!,
+          keyboardType: question.key.toLowerCase().contains('phone')
+              ? TextInputType.phone
+              : TextInputType.text,
+          whiteFill: true,
+        );
+    }
+  }
+
+  /// Familiar icons for the questions the app has always had; a sensible one
+  /// by type for anything added since.
+  static IconData _iconFor(Question question) => switch (question.key) {
+    'name' => Icons.person_outline,
+    'dateOfBirth' => Icons.cake_outlined,
+    'sex' => Icons.wc_outlined,
+    'diagnosisYear' => Icons.event_note_outlined,
+    'phone' || 'emergencyContactPhone' => Icons.call_outlined,
+    'city' => Icons.location_city_outlined,
+    'country' => Icons.public_outlined,
+    'treatmentModality' => Icons.medical_services_outlined,
+    'heightCm' => Icons.height_outlined,
+    'baselineWeightKg' => Icons.monitor_weight_outlined,
+    'primaryClinician' => Icons.local_hospital_outlined,
+    'emergencyContactName' => Icons.contact_emergency_outlined,
+    _ => switch (question.fieldType) {
+      'DATE' => Icons.event_outlined,
+      'CHOICE' => Icons.list_alt_outlined,
+      'NUMBER' => Icons.pin_outlined,
+      _ => Icons.edit_note_outlined,
+    },
+  };
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -454,8 +344,8 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
-/// A field whose value is picked, not typed — matches [LabeledField]'s
-/// look so the form reads as one consistent set of rows.
+/// A field whose value is picked, not typed — matches [LabeledField]'s look so
+/// the form reads as one consistent set of rows.
 class _TapField extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -485,16 +375,17 @@ class _TapField extends StatelessWidget {
           children: [
             Icon(icon, size: 18, color: AppTheme.deep),
             const SizedBox(width: 10),
-            Text(
-              value ?? label,
-              style: TextStyle(
-                fontSize: 14.5,
-                color: value == null
-                    ? Colors.black.withValues(alpha: 0.5)
-                    : AppTheme.deep,
+            Expanded(
+              child: Text(
+                value ?? label,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: value == null
+                      ? Colors.black.withValues(alpha: 0.5)
+                      : AppTheme.deep,
+                ),
               ),
             ),
-            const Spacer(),
             const Icon(Icons.chevron_right, color: AppTheme.primary),
           ],
         ),
@@ -503,14 +394,14 @@ class _TapField extends StatelessWidget {
   }
 }
 
-/// A row of choice chips for a small enum — cheaper to scan than a dropdown
-/// for the handful of options every field here has.
+/// A row of choice chips — cheaper to scan than a dropdown for the handful of
+/// options every choice question here has.
 class _ChoiceField extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String value;
-  final List<(String, String)> options;
-  final String Function(String) labelFor;
+  final String? value;
+  final List<QuestionOption> options;
+  final String locale;
   final ValueChanged<String> onChanged;
 
   const _ChoiceField({
@@ -518,7 +409,7 @@ class _ChoiceField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.options,
-    required this.labelFor,
+    required this.locale,
     required this.onChanged,
   });
 
@@ -531,12 +422,14 @@ class _ChoiceField extends StatelessWidget {
           children: [
             Icon(icon, size: 16, color: AppTheme.deep.withValues(alpha: 0.7)),
             const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.black.withValues(alpha: 0.6),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black.withValues(alpha: 0.6),
+                ),
               ),
             ),
           ],
@@ -546,12 +439,11 @@ class _ChoiceField extends StatelessWidget {
           spacing: 8,
           runSpacing: 8,
           children: options.map((option) {
-            final (key, labelKey) = option;
-            final selected = key == value;
+            final selected = option.value == value;
             return ChoiceChip(
-              label: Text(labelFor(labelKey)),
+              label: Text(option.label(locale)),
               selected: selected,
-              onSelected: (_) => onChanged(key),
+              onSelected: (_) => onChanged(option.value),
               labelStyle: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
@@ -566,105 +458,5 @@ class _ChoiceField extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-/// Admin-defined fields, grouped under their configured section headings and
-/// rendered after every built-in field — additive, never mixed into a
-/// built-in section, so the fixed layout above never shifts around
-/// depending on what an admin has configured.
-class _CustomFieldsSection extends StatelessWidget {
-  final List<ProfileField> fields;
-  final Map<String, TextEditingController> controllers;
-  final Map<String, DateTime?> dates;
-  final Map<String, String?> choices;
-  final ValueChanged<ProfileField> onDateTap;
-  final void Function(String key, String value) onChoiceChanged;
-
-  const _CustomFieldsSection({
-    required this.fields,
-    required this.controllers,
-    required this.dates,
-    required this.choices,
-    required this.onDateTap,
-    required this.onChoiceChanged,
-  });
-
-  static String _formatDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
-
-  @override
-  Widget build(BuildContext context) {
-    final locale = AppState.instance.locale;
-    final bySection = <String, List<ProfileField>>{};
-    for (final field in fields) {
-      bySection.putIfAbsent(field.section, () => []).add(field);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final entry in bySection.entries) ...[
-          const SizedBox(height: 24),
-          _SectionLabel(entry.key),
-          const SizedBox(height: 10),
-          for (var i = 0; i < entry.value.length; i++) ...[
-            if (i > 0) const SizedBox(height: 14),
-            _buildField(entry.value[i], locale),
-          ],
-        ],
-      ],
-    );
-  }
-
-  Widget _buildField(ProfileField field, String locale) {
-    final label = field.required
-        ? '${field.label(locale)} *'
-        : field.label(locale);
-
-    switch (field.fieldType) {
-      case 'DATE':
-        final value = dates[field.key];
-        return _TapField(
-          icon: Icons.event_outlined,
-          label: label,
-          value: value == null ? null : _formatDate(value),
-          onTap: () => onDateTap(field),
-        );
-      case 'CHOICE':
-        return _ChoiceField(
-          icon: Icons.list_alt_outlined,
-          label: label,
-          value: choices[field.key] ?? '',
-          options: field.options.map((o) => (o.value, o.value)).toList(),
-          labelFor: (value) {
-            final option = field.options.firstWhere(
-              (o) => o.value == value,
-              orElse: () => field.options.first,
-            );
-            return locale == 'ta' && (option.labelTa?.isNotEmpty ?? false)
-                ? option.labelTa!
-                : option.labelEn;
-          },
-          onChanged: (v) => onChoiceChanged(field.key, v),
-        );
-      case 'NUMBER':
-        return LabeledField(
-          icon: Icons.pin_outlined,
-          label: label,
-          hint: field.hint(locale) ?? field.label(locale),
-          controller: controllers[field.key]!,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          whiteFill: true,
-        );
-      default:
-        return LabeledField(
-          icon: Icons.edit_note_outlined,
-          label: label,
-          hint: field.hint(locale) ?? field.label(locale),
-          controller: controllers[field.key]!,
-          whiteFill: true,
-        );
-    }
   }
 }

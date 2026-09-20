@@ -135,7 +135,7 @@ class _Hero extends StatelessWidget {
             icon: icon,
             colors: colors,
             glow: collection.attemptedFraction,
-            title: rank?.title ?? S.startFirstQuiz,
+            title: rank?.localTitle ?? S.startFirstQuiz,
             subtitle: S.takenOfQuizzes(
               collection.quizzesAttempted,
               collection.totalQuizzes,
@@ -163,7 +163,7 @@ class _Hero extends StatelessWidget {
         const SizedBox(height: 10),
         // The headline: who this child is, from their average score.
         Text(
-          rank?.title ?? S.startFirstQuiz,
+          rank?.localTitle ?? S.startFirstQuiz,
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 26,
@@ -249,7 +249,7 @@ class _BadgeCard extends StatelessWidget {
         icon: badge.tier.icon,
         colors: badge.tier.colors,
         glow: 1,
-        title: S.youHaveEarned(badge.tier.animalName),
+        title: S.youHaveEarned(badge.tier.localAnimalName),
         subtitle: badge.quizTitle,
       ),
       child: Container(
@@ -272,7 +272,7 @@ class _BadgeCard extends StatelessWidget {
             Center(child: HexBadge(tier: badge.tier, size: 72)),
             const SizedBox(height: 12),
             Text(
-              S.youHaveEarned(badge.tier.animalName),
+              S.youHaveEarned(badge.tier.localAnimalName),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

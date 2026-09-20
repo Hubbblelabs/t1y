@@ -16,20 +16,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { humaniseEnum } from "@/lib/utils/format";
-import { slugify } from "@/lib/utils/sanitize-core";
 
 const LOCALES = ["EN", "TA"] as const;
 const STATUSES = ["DRAFT", "PUBLISHED", "ARCHIVED"] as const;
 const QUESTION_TYPES = ["SINGLE_CHOICE", "TRUE_FALSE", "MATCHING", "ORDERING"] as const;
 type QuestionType = (typeof QUESTION_TYPES)[number];
 
-interface OptionValue {
+export interface OptionValue {
   text: string;
   matchText: string;
   isCorrect: boolean;
 }
 
-interface QuestionValue {
+export interface QuestionValue {
   key: string; // client-side React key, not sent
   questionKey: string;
   prompt: string;
@@ -39,7 +38,7 @@ interface QuestionValue {
   options: OptionValue[];
 }
 
-interface QuizFormValue {
+export interface QuizFormValue {
   id?: string;
   slug: string;
   locale: (typeof LOCALES)[number];
@@ -82,26 +81,34 @@ const EMPTY: QuizFormValue = {
  * this form enforces the same rules client-side so a save attempt fails
  * fast with a specific message instead of a generic 400.
  */
-export function QuizForm({ initial, mode }: { initial?: QuizFormValue; mode: "create" | "edit" }) {
+export function QuizForm({
+  initial,
+  mode,
+  addingLanguageTo,
+}: {
+  initial?: QuizFormValue;
+  mode: "create" | "edit";
+  /** Set when this is the second language of an existing quiz. */
+  addingLanguageTo?: { slug: string; language: "EN" | "TA" };
+}) {
   const router = useRouter();
-  const [value, setValue] = React.useState<QuizFormValue>(initial ?? EMPTY);
+  const [value, setValue] = React.useState<QuizFormValue>(
+    initial ??
+      (addingLanguageTo
+        ? { ...EMPTY, slug: addingLanguageTo.slug, locale: addingLanguageTo.language }
+        : EMPTY),
+  );
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [questionErrors, setQuestionErrors] = React.useState<Record<string, string>>({});
-  const [slugTouched, setSlugTouched] = React.useState(mode === "edit");
-
   function set<K extends keyof QuizFormValue>(key: K, val: QuizFormValue[K]) {
     setValue((prev) => ({ ...prev, [key]: val }));
   }
 
-  function setTitle(title: string) {
-    setValue((prev) => ({
-      ...prev,
-      title,
-      slug: mode === "create" && !slugTouched ? slugify(title) : prev.slug,
-    }));
-  }
-
+  // The title never touches the slug. The server mints one for a new quiz,
+  // and when a second language is being added the slug arrives already set
+  // to the existing quiz's — deriving it from the title here would overwrite
+  // that and silently split the pair into two unrelated quizzes.
   function updateQuestion(key: string, patch: Partial<QuestionValue>) {
     setValue((prev) => ({
       ...prev,
@@ -236,7 +243,7 @@ export function QuizForm({ initial, mode }: { initial?: QuizFormValue; mode: "cr
     const passingScore = value.passingScore.trim() === "" ? null : Number(value.passingScore);
 
     const payload = {
-      slug: value.slug,
+      ...(value.slug ? { slug: value.slug } : {}),
       ...(mode === "create" ? { locale: value.locale } : {}),
       title: value.title,
       description: value.description || undefined,
@@ -273,7 +280,7 @@ export function QuizForm({ initial, mode }: { initial?: QuizFormValue; mode: "cr
       {error ? (
         <div
           role="alert"
-          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-[13px]"
+          className="bg-danger-soft text-danger flex items-start gap-2 rounded-md p-3 text-xs"
         >
           <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
           <span>{error}</span>
@@ -282,24 +289,7 @@ export function QuizForm({ initial, mode }: { initial?: QuizFormValue; mode: "cr
 
       <Card className="space-y-4 p-5">
         <Field label="Title" htmlFor="quiz-title" required>
-          <Input id="quiz-title" value={value.title} onChange={(e) => setTitle(e.target.value)} />
-        </Field>
-
-        <Field
-          label="Slug"
-          htmlFor="quiz-slug"
-          required
-          hint="Cannot change after creation."
-        >
-          <Input
-            id="quiz-slug"
-            value={value.slug}
-            onChange={(e) => {
-              setSlugTouched(true);
-              set("slug", e.target.value);
-            }}
-            disabled={mode === "edit"}
-          />
+          <Input id="quiz-title" value={value.title} onChange={(e) => set("title", e.target.value)} />
         </Field>
 
         <Field label="Description" htmlFor="quiz-description">

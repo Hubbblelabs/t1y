@@ -39,7 +39,7 @@ export function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
 }
 
 export function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
-  return <p className={cn("text-ink-muted text-[13px]", className)} {...props} />;
+  return <p className={cn("text-ink-muted text-xs", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.ComponentProps<"div">) {

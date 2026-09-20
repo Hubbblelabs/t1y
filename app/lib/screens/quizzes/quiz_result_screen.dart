@@ -34,8 +34,8 @@ class QuizResultScreen extends StatelessWidget {
       icon: tier?.icon ?? noBadgeIcon,
       colors: tier?.colors ?? const [Color(0xFFCFD8DC), Color(0xFF90A4AE)],
       glow: 1,
-      title: tier?.animalName ?? S.gaveYourBest,
-      subtitle: tier?.quote ?? S.tryAgainQuote,
+      title: tier?.localAnimalName ?? S.gaveYourBest,
+      subtitle: tier?.localQuote ?? S.tryAgainQuote,
     );
   }
 }

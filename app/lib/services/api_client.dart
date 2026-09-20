@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show SocketException;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../l10n/strings.dart';
 
 /// Thrown for any non-2xx response. Carries the server's own error message
 /// (from the `{success:false,error:{code,message}}` envelope every route in
@@ -13,8 +16,25 @@ import '../config/api_config.dart';
 class ApiException implements Exception {
   final int statusCode;
   final String code;
-  final String message;
-  ApiException(this.statusCode, this.code, this.message);
+  final String rawMessage;
+  ApiException(this.statusCode, this.code, this.rawMessage);
+
+  /// The message in the app's language. The server writes English; in Tamil it
+  /// is translated, never shown untranslated.
+  String get message => S.apiMessage(statusCode, code, rawMessage);
+
+  /// English with the Tamil beneath, for the sign-in and sign-up screens.
+  String get bothMessage {
+    final en = S.inLocale(
+      'en',
+      () => S.apiMessage(statusCode, code, rawMessage),
+    );
+    final ta = S.inLocale(
+      'ta',
+      () => S.apiMessage(statusCode, code, rawMessage),
+    );
+    return en == ta ? en : '$en\n$ta';
+  }
 
   @override
   String toString() => message;
@@ -67,6 +87,16 @@ dynamic unwrapApiResponse(http.Response response) {
   );
 }
 
+/// How long any single request may take before it is abandoned.
+///
+/// `package:http` has no timeout of its own. A request to an address that
+/// does not answer — a laptop that changed Wi-Fi, a server that is not
+/// running, a phone in a lift — simply waits for the operating system to give
+/// up, which on iOS is over a minute. Every screen that awaited one sat on a
+/// blank spinner for that long, which from the outside is indistinguishable
+/// from the app having crashed.
+const apiRequestTimeout = Duration(seconds: 15);
+
 /// Thin wrapper around `http` that attaches the bearer token (Better Auth's
 /// `bearer()` plugin — see api/lib/auth/auth.ts) and unwraps the response
 /// envelope. One instance per app, held by the widget tree via a
@@ -112,37 +142,69 @@ class ApiClient {
 
   dynamic _unwrap(http.Response response) => unwrapApiResponse(response);
 
+  /// Sends a request, giving up after [apiRequestTimeout] and turning every
+  /// way the network can fail into one [ApiException] a parent can act on.
+  ///
+  /// Status code 0 marks "never got an answer", which is how callers can tell
+  /// a dead connection from the server refusing something.
+  Future<http.Response> _send(Future<http.Response> Function() request) async {
+    try {
+      return await request().timeout(apiRequestTimeout);
+    } on TimeoutException {
+      throw ApiException(
+        0,
+        'TIMEOUT',
+        'The server is taking too long to answer. Check your connection and try again.',
+      );
+    } on SocketException {
+      throw ApiException(
+        0,
+        'NETWORK',
+        'Could not reach the server. Check your connection and try again.',
+      );
+    } on http.ClientException {
+      throw ApiException(
+        0,
+        'NETWORK',
+        'Could not reach the server. Check your connection and try again.',
+      );
+    }
+  }
+
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
-    final response = await http.get(
-      await _uri(path, query),
-      headers: await _headers(json: false),
-    );
-    return _unwrap(response);
+    final uri = await _uri(path, query);
+    final headers = await _headers(json: false);
+    return _unwrap(await _send(() => http.get(uri, headers: headers)));
+  }
+
+  /// A GET for the public sign-up endpoints, which must work before there is a
+  /// token and must not send a stale one.
+  Future<dynamic> getPublic(String path, {Map<String, String>? query}) async {
+    final uri = await _uri(path, query);
+    return _unwrap(await _send(() => http.get(uri)));
   }
 
   Future<dynamic> post(String path, {Object? body}) async {
-    final response = await http.post(
-      await _uri(path),
-      headers: await _headers(),
-      body: body == null ? null : jsonEncode(body),
+    final uri = await _uri(path);
+    final headers = await _headers();
+    final encoded = body == null ? null : jsonEncode(body);
+    return _unwrap(
+      await _send(() => http.post(uri, headers: headers, body: encoded)),
     );
-    return _unwrap(response);
   }
 
   Future<dynamic> patch(String path, {Object? body}) async {
-    final response = await http.patch(
-      await _uri(path),
-      headers: await _headers(),
-      body: body == null ? null : jsonEncode(body),
+    final uri = await _uri(path);
+    final headers = await _headers();
+    final encoded = body == null ? null : jsonEncode(body);
+    return _unwrap(
+      await _send(() => http.patch(uri, headers: headers, body: encoded)),
     );
-    return _unwrap(response);
   }
 
   Future<void> delete(String path) async {
-    final response = await http.delete(
-      await _uri(path),
-      headers: await _headers(json: false),
-    );
-    _unwrap(response);
+    final uri = await _uri(path);
+    final headers = await _headers(json: false);
+    _unwrap(await _send(() => http.delete(uri, headers: headers)));
   }
 }

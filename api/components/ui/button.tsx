@@ -19,7 +19,7 @@ const buttonVariants = cva(
       },
       size: {
         // Touch targets stay at least 36px tall; `sm` is for dense table rows.
-        sm: "h-8 px-2.5 text-[13px]",
+        sm: "h-8 px-2.5 text-xs",
         md: "h-9 px-3.5",
         lg: "h-10 px-4",
         icon: "size-9",

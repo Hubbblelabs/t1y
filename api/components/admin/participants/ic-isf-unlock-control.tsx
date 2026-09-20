@@ -57,10 +57,10 @@ export function IcIsfUnlockControl({
           aria-hidden="true"
         />
         <div className="flex-1">
-          <p className="text-ink text-[13px] font-medium">
+          <p className="text-ink text-xs font-medium">
             {unlocked ? "IC / ISF calculator unlocked" : "IC / ISF calculator locked"}
           </p>
-          <p className="text-ink-muted mt-0.5 text-[13px]">
+          <p className="text-ink-muted mt-0.5 text-xs">
             {unlocked
               ? "This family can use the app's insulin-to-carb and correction-factor calculator."
               : "Locked until the care team's IC ratio and ISF for this child are on file and confirmed."}
@@ -68,7 +68,7 @@ export function IcIsfUnlockControl({
           {error ? (
             <div
               role="alert"
-              className="bg-danger-soft text-danger mt-2 flex items-start gap-2 rounded-md p-2.5 text-[13px]"
+              className="bg-danger-soft text-danger mt-2 flex items-start gap-2 rounded-md p-2.5 text-xs"
             >
               <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
               <span>{error}</span>

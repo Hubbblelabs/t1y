@@ -2,12 +2,15 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
+import '../../widgets/pin_gate.dart';
+
 import '../../l10n/strings.dart';
 import '../../models/glucose_reading.dart';
 import '../../services/glucose_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../glucose/glucose_section_screen.dart';
+import 'insulin_screen.dart';
 
 /// The Health tab: a single glance at where things stand — the most recent
 /// glucose reading, and when the next one is due — with one action, "Enter
@@ -17,14 +20,25 @@ import '../glucose/glucose_section_screen.dart';
 /// be separate destinations reached from this hub, but both now live on
 /// that same screen, fed directly from a reading instead of asking the
 /// parent to type the number in twice.
-class HealthHubScreen extends StatefulWidget {
-  const HealthHubScreen({super.key});
+class HealthHubScreen extends StatelessWidget {
+  /// Where the PIN screen's Back goes when this is a tab.
+  final VoidCallback? onBack;
+
+  const HealthHubScreen({super.key, this.onBack});
 
   @override
-  State<HealthHubScreen> createState() => _HealthHubScreenState();
+  Widget build(BuildContext context) =>
+      PinGate(onBack: onBack, child: const _HealthHubBody());
 }
 
-class _HealthHubScreenState extends State<HealthHubScreen> {
+class _HealthHubBody extends StatefulWidget {
+  const _HealthHubBody();
+
+  @override
+  State<_HealthHubBody> createState() => __HealthHubBodyState();
+}
+
+class __HealthHubBodyState extends State<_HealthHubBody> {
   // A field initializer, not `late` + initState: this screen is kept alive
   // inside HomeShell's IndexedStack, and a `late` field assigned in
   // initState has thrown LateInitializationError there before — assigning
@@ -59,6 +73,15 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
     final next = _loadSnapshot();
     setState(() => _snapshot = next);
     await next;
+  }
+
+  /// Waking hours only, and only once the last reading is a few hours old —
+  /// a reminder to keep the record going, not a nag at night.
+  static bool _isDueForReading(GlucoseReading? latest) {
+    final now = DateTime.now();
+    if (now.hour < 6 || now.hour >= 22) return false;
+    if (latest == null) return true;
+    return now.difference(latest.measuredAt) > const Duration(hours: 4);
   }
 
   Future<void> _openGlucose() async {
@@ -111,6 +134,10 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
               padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
               children: [
                 Center(child: _GlucoseDial(reading: data.latest)),
+                if (_isDueForReading(data.latest)) ...[
+                  const SizedBox(height: 18),
+                  _RecordNudge(onTap: _openGlucose),
+                ],
                 const SizedBox(height: 18),
                 Center(
                   child: Text(
@@ -139,6 +166,27 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                       ),
                     ),
                     child: Text(S.enterRecentReading),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const InsulinScreen()),
+                    ),
+                    icon: const Icon(Icons.vaccines_outlined, size: 20),
+                    label: Text(S.logInsulin),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.deep,
+                      side: BorderSide(
+                        color: AppTheme.deep.withValues(alpha: 0.25),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -315,6 +363,44 @@ String _formatWhen(DateTime when) {
       when.year == now.year && when.month == now.month && when.day == now.day;
   final time =
       '${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}';
-  if (sameDay) return 'today, $time';
+  if (sameDay) return '${S.todayWord}, $time';
   return '${_formatDate(when)}, $time';
+}
+
+/// "Time to record a reading", shown when the last one is a few hours old.
+class _RecordNudge extends StatelessWidget {
+  final VoidCallback onTap;
+  const _RecordNudge({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.primary.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              const Icon(Icons.edit_note_rounded, color: AppTheme.deep),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  S.timeToRecord,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.deep,
+                  ),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppTheme.deep),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

@@ -53,7 +53,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
     FocusScope.of(context).unfocus();
     final name = _name.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = S.fillAllFields);
+      setState(() => _error = S.bothText(() => S.fillAllFields));
       return;
     }
 
@@ -73,13 +73,13 @@ class _AddChildScreenState extends State<AddChildScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = e.message;
+        _error = e.bothMessage;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = S.couldNotLoad;
+        _error = S.bothText(() => S.couldNotLoad);
       });
     }
   }

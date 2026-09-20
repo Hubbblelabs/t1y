@@ -3,6 +3,11 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
+import {
+  checkAnswer,
+  parseRules,
+  type ProfileFieldRules,
+} from "@/lib/services/profile-field-rules";
 
 /**
  * Admin-defined fields on the parent-facing profile form, on top of the
@@ -11,6 +16,16 @@ import { prisma } from "@/lib/db/prisma";
  * Values a parent enters for these live in `Profile.customFieldValues`, a
  * JSON bucket keyed by [ProfileFieldDefinition.key] — see the schema's own
  * doc comment for why that's a bucket rather than a column per field.
+ *
+ * ## Built-in questions
+ *
+ * The questions the app has always asked (name, date of birth, phone…) are
+ * registered here too, flagged `builtIn`, so the whole set can be seen and
+ * described in one place. They are **not** part of what the app fetches or of
+ * the save-time required check below: their answers live in real `Profile`
+ * columns and the app still asks them from its own screens. Letting one into
+ * either path would show it twice and make every save fail on a "missing"
+ * custom answer that was never meant to exist.
  *
  * Deactivating a field is the only way to retire one (see
  * [updateProfileFieldDefinition]): there is no delete, because a hard
@@ -31,6 +46,13 @@ const FIELD_SELECT = {
   hintEn: true,
   hintTa: true,
   options: true,
+  isMedical: true,
+  unit: true,
+  builtIn: true,
+  showOnSignup: true,
+  promptEn: true,
+  promptTa: true,
+  rules: true,
   createdAt: true,
   updatedAt: true,
 } satisfies Prisma.ProfileFieldDefinitionSelect;
@@ -41,10 +63,23 @@ export type ProfileFieldDefinition = Prisma.ProfileFieldDefinitionGetPayload<{
 
 const KEY_PATTERN = /^[a-z][a-zA-Z0-9]*$/;
 
+/**
+ * The four questions sign-up cannot work without. They cannot be switched
+ * off, made optional, or moved off the sign-up chat: the child's account is
+ * created from them.
+ */
+export const CORE_BUILT_IN_KEYS = ["name", "dateOfBirth", "sex", "diagnosisYear"] as const;
+
+export function isCoreBuiltIn(key: string): boolean {
+  return (CORE_BUILT_IN_KEYS as readonly string[]).includes(key);
+}
+
 export interface ChoiceOption {
   value: string;
   labelEn: string;
   labelTa?: string;
+  /** What this choice counts as in a calculator. See the validation schema. */
+  numericValue?: number | null;
 }
 
 /** Admin view: every field, including inactive ones, oldest-defined first within each sort position. */
@@ -55,10 +90,17 @@ export async function listAllProfileFieldDefinitions(): Promise<ProfileFieldDefi
   });
 }
 
-/** App-facing view: only what a parent should currently be asked to fill in. */
+/**
+ * App-facing view: only what a parent should currently be asked to fill in.
+ *
+ * Excludes built-in questions on purpose — see the note at the top of this
+ * file. This one function is both what the app renders as extra fields and
+ * what the save-time required check runs over, so a built-in here would be
+ * drawn twice and fail every save.
+ */
 export async function listActiveProfileFieldDefinitions(): Promise<ProfileFieldDefinition[]> {
   return prisma.profileFieldDefinition.findMany({
-    where: { active: true },
+    where: { active: true, builtIn: false },
     select: FIELD_SELECT,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
@@ -76,6 +118,25 @@ export interface CreateProfileFieldInput {
   hintEn?: string | null;
   hintTa?: string | null;
   options?: ChoiceOption[] | null;
+  isMedical?: boolean;
+  unit?: string | null;
+  /** Asked in the sign-up chat rather than left to the profile screen. */
+  showOnSignup?: boolean;
+  /** The sentence the sign-up chat asks, when `showOnSignup` is on. */
+  promptEn?: string | null;
+  promptTa?: string | null;
+  /** Checks the answer must pass; shape depends on `fieldType`. */
+  rules?: unknown;
+}
+
+/** Cleans submitted rules for a question type, or throws the message to show. */
+function cleanRules(
+  fieldType: "TEXT" | "NUMBER" | "DATE" | "CHOICE",
+  raw: unknown,
+): ProfileFieldRules | null {
+  const result = parseRules(fieldType, raw);
+  if (!result.ok) throw new ValidationError(result.message);
+  return result.rules;
 }
 
 function assertValidOptions(fieldType: string, options: ChoiceOption[] | null | undefined): void {
@@ -111,6 +172,7 @@ export async function createProfileFieldDefinition(
     throw new ValidationError("An English label is required.");
   }
   assertValidOptions(input.fieldType, input.options);
+  const rules = cleanRules(input.fieldType, input.rules);
 
   const clash = await prisma.profileFieldDefinition.findUnique({ where: { key } });
   if (clash) throw new ConflictError("A field with that key already exists.");
@@ -128,6 +190,15 @@ export async function createProfileFieldDefinition(
       hintEn: input.hintEn?.trim() || null,
       hintTa: input.hintTa?.trim() || null,
       options: (input.options ?? undefined) as Prisma.InputJsonValue | undefined,
+      isMedical: input.isMedical ?? false,
+      unit: input.unit?.trim() || null,
+      showOnSignup: input.showOnSignup ?? false,
+      promptEn: input.promptEn?.trim() || null,
+      promptTa: input.promptTa?.trim() || null,
+      rules: rules === null ? undefined : (rules as unknown as Prisma.InputJsonValue),
+      // Only the seed script creates built-in questions; the dashboard's
+      // "add a question" can never mint one.
+      builtIn: false,
     },
     select: FIELD_SELECT,
   });
@@ -143,6 +214,12 @@ export interface UpdateProfileFieldInput {
   hintEn?: string | null;
   hintTa?: string | null;
   options?: ChoiceOption[] | null;
+  isMedical?: boolean;
+  unit?: string | null;
+  showOnSignup?: boolean;
+  promptEn?: string | null;
+  promptTa?: string | null;
+  rules?: unknown;
 }
 
 /**
@@ -172,6 +249,10 @@ export async function updateProfileFieldDefinition(
     assertValidOptions(existing.fieldType, input.options);
   }
 
+  if (existing.builtIn) assertBuiltInEditIsAllowed(existing, input);
+
+  const rules = input.rules === undefined ? undefined : cleanRules(existing.fieldType, input.rules);
+
   const active = input.active ?? existing.active;
   const required = active ? (input.required ?? existing.required) : false;
 
@@ -190,9 +271,66 @@ export async function updateProfileFieldDefinition(
         input.options === undefined
           ? undefined
           : ((input.options ?? Prisma.JsonNull) as unknown as Prisma.InputJsonValue),
+      isMedical: input.isMedical,
+      unit: input.unit === undefined ? undefined : input.unit?.trim() || null,
+      showOnSignup: input.showOnSignup,
+      promptEn: input.promptEn === undefined ? undefined : input.promptEn?.trim() || null,
+      promptTa: input.promptTa === undefined ? undefined : input.promptTa?.trim() || null,
+      rules:
+        rules === undefined
+          ? undefined
+          : rules === null
+            ? Prisma.JsonNull
+            : (rules as unknown as Prisma.InputJsonValue),
     },
     select: FIELD_SELECT,
   });
+}
+
+/**
+ * What may and may not change on a question the app has always asked.
+ *
+ * Labels, hints, section, order and the medical flag are free to change. What
+ * is fixed is what the system itself depends on: the checks the answer must
+ * pass (the server enforces its own, so a looser rule here would tell the
+ * app to accept what the server then rejects), the unit, and — for the four
+ * core questions — that they are asked, required, and asked at sign-up.
+ */
+function assertBuiltInEditIsAllowed(
+  existing: { key: string; options: Prisma.JsonValue; fieldType: string },
+  input: UpdateProfileFieldInput,
+): void {
+  if (input.rules !== undefined) {
+    throw new ValidationError("The checks on a built-in question are fixed by the app.");
+  }
+  if (input.unit !== undefined) {
+    throw new ValidationError("The unit of a built-in question is fixed by the app.");
+  }
+
+  if (isCoreBuiltIn(existing.key)) {
+    if (input.active === false) {
+      throw new ValidationError("This question is needed to sign up, so it cannot be switched off.");
+    }
+    if (input.required === false) {
+      throw new ValidationError("This question is needed to sign up, so it cannot be optional.");
+    }
+    if (input.showOnSignup === false) {
+      throw new ValidationError("This question is always asked when a parent signs up.");
+    }
+  }
+
+  // A built-in choice stores the option's `value` in a real database column,
+  // so the set of values is fixed. Wording and numbers may change.
+  if (input.options !== undefined && existing.fieldType === "CHOICE") {
+    const before = new Set(
+      ((existing.options as unknown as ChoiceOption[] | null) ?? []).map((o) => o.value),
+    );
+    const after = new Set((input.options ?? []).map((o) => o.value));
+    const same = before.size === after.size && [...before].every((value) => after.has(value));
+    if (!same) {
+      throw new ValidationError("The choices on a built-in question cannot be added or removed.");
+    }
+  }
 }
 
 /**
@@ -224,15 +362,26 @@ export async function mergeAndValidateCustomFieldValues(
     const value = incoming[key];
     if (value === null || value === "") continue;
 
-    if (def.fieldType === "NUMBER" && typeof value !== "number") {
-      throw new ValidationError(`"${def.labelEn}" must be a number.`);
-    }
     if (def.fieldType === "CHOICE") {
       const options = (def.options as unknown as ChoiceOption[] | null) ?? [];
       if (!options.some((o) => o.value === value)) {
         throw new ValidationError(`"${def.labelEn}" has an invalid value.`);
       }
+      continue;
     }
+
+    // Type and rules together: the same checks the dashboard describes to
+    // whoever set them, so what they wrote is what is enforced.
+    const problem = checkAnswer(
+      {
+        labelEn: def.labelEn,
+        fieldType: def.fieldType,
+        rules: def.rules as unknown as ProfileFieldRules | null,
+      },
+      value,
+      { answers: merged },
+    );
+    if (problem) throw new ValidationError(problem);
   }
 
   for (const def of definitions) {
@@ -244,4 +393,88 @@ export async function mergeAndValidateCustomFieldValues(
   }
 
   return merged;
+}
+
+// ---------------------------------------------------------------------------
+// What the app is given
+// ---------------------------------------------------------------------------
+
+/**
+ * A question as the app receives it.
+ *
+ * Deliberately narrower than what the dashboard sees: no medical flag and no
+ * per-choice calculator numbers. Those govern what a *calculator* may read and
+ * mean nothing to the screen a parent fills in.
+ */
+const APP_QUESTION_SELECT = {
+  id: true,
+  key: true,
+  fieldType: true,
+  section: true,
+  required: true,
+  sortOrder: true,
+  labelEn: true,
+  labelTa: true,
+  hintEn: true,
+  hintTa: true,
+  promptEn: true,
+  promptTa: true,
+  options: true,
+  unit: true,
+  builtIn: true,
+  showOnSignup: true,
+  rules: true,
+} satisfies Prisma.ProfileFieldDefinitionSelect;
+
+type AppQuestionRow = Prisma.ProfileFieldDefinitionGetPayload<{
+  select: typeof APP_QUESTION_SELECT;
+}>;
+
+export type AppQuestion = Omit<AppQuestionRow, "options"> & {
+  options: Array<{ value: string; labelEn: string; labelTa?: string }> | null;
+};
+
+function toAppQuestion(row: AppQuestionRow): AppQuestion {
+  const options = Array.isArray(row.options)
+    ? (row.options as unknown as ChoiceOption[]).map((option) => ({
+        value: option.value,
+        labelEn: option.labelEn,
+        ...(option.labelTa ? { labelTa: option.labelTa } : {}),
+      }))
+    : null;
+  return { ...row, options };
+}
+
+/**
+ * The questions asked in the sign-up chat, in the order they are asked.
+ *
+ * Public, because sign-up happens before anyone is signed in. It exposes
+ * nothing that is not already on screen in the app: wording, the kind of
+ * answer, and what counts as a good one.
+ */
+export async function listSignupQuestions(): Promise<AppQuestion[]> {
+  const rows = await prisma.profileFieldDefinition.findMany({
+    where: { active: true, showOnSignup: true },
+    select: APP_QUESTION_SELECT,
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map(toAppQuestion);
+}
+
+/**
+ * Every question the profile screen asks — built-in and added together, so the
+ * app can draw the whole screen from one list.
+ *
+ * This is separate from `listActiveProfileFieldDefinitions` on purpose. That
+ * one returns only *added* questions and is what older installs of the app
+ * read; changing what it returns would make them show every built-in question
+ * twice. This one is for versions of the app that know about `builtIn`.
+ */
+export async function listProfileQuestions(): Promise<AppQuestion[]> {
+  const rows = await prisma.profileFieldDefinition.findMany({
+    where: { active: true },
+    select: APP_QUESTION_SELECT,
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
+  return rows.map(toAppQuestion);
 }

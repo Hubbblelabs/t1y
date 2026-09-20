@@ -31,7 +31,7 @@ export function RecentActivityPanel({ entries }: { entries: ActivityEntry[] }) {
             {entries.map((entry) => (
               <li key={entry.id} className="flex items-start gap-3 px-5 py-2.5">
                 <div className="min-w-0 flex-1">
-                  <p className="text-ink truncate text-[13px]">
+                  <p className="text-ink truncate text-xs">
                     <span className="font-medium">{entry.kind}</span>
                     <span className="text-ink-muted"> · {entry.summary}</span>
                   </p>
@@ -89,9 +89,9 @@ export function Timeline({
                   aria-hidden="true"
                   className="bg-line-strong absolute top-1.5 -left-[1.3rem] size-1.5 rounded-full"
                 />
-                <p className="text-ink text-[13px] font-medium">{entry.summary}</p>
+                <p className="text-ink text-xs font-medium">{entry.summary}</p>
                 {entry.detail ? (
-                  <p className="text-ink-muted mt-0.5 text-[13px]">{entry.detail}</p>
+                  <p className="text-ink-muted mt-0.5 text-xs">{entry.detail}</p>
                 ) : null}
                 <p className="text-ink-subtle mt-0.5 text-xs">
                   {new Intl.DateTimeFormat("en-GB", {

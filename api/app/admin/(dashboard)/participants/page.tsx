@@ -38,7 +38,7 @@ export default async function ParticipantsPage(
       <PageHeader
         title="Participants"
         // ADMIN is the only staff role now — always sees every participant.
-        description="All participants registered on the platform"
+        description="Every child and parent signed up to the app"
         actions={
           can(principal, Capability.PARTICIPANTS_CREATE) ? (
             <div className="flex gap-2">

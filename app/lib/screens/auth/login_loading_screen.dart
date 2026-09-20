@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
+
 import '../../services/household_service.dart';
 import '../../services/profile_service.dart';
 import '../home/home_shell.dart';
@@ -29,17 +31,23 @@ class LoginLoadingScreen extends StatelessWidget {
     required this.password,
   });
 
-  static const _steps = [
-    (title: 'Signing you in', subtitle: 'welcome back to T1D Prajana Yandra'),
+  static List<({String title, String subtitle})> get _steps => [
     (
-      title: 'Loading your Help Book',
-      subtitle: '8 topics, in English and Tamil',
+      title: S.bothText(() => S.signingYouIn),
+      subtitle: S.bothText(() => S.welcomeBackApp),
     ),
     (
-      title: 'Getting your quizzes ready',
-      subtitle: 'so you can check understanding as you learn',
+      title: S.bothText(() => S.loadingHelpBook),
+      subtitle: S.bothText(() => S.topicsBothLanguages),
     ),
-    (title: 'Almost done', subtitle: 'just a moment more'),
+    (
+      title: S.bothText(() => S.quizzesGettingReady),
+      subtitle: S.bothText(() => S.checkAsYouLearn),
+    ),
+    (
+      title: S.bothText(() => S.almostDone),
+      subtitle: S.bothText(() => S.momentMore),
+    ),
   ];
 
   @override

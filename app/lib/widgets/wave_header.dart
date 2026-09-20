@@ -12,6 +12,10 @@ import '../theme/app_theme.dart';
 class WaveHeader extends StatefulWidget {
   final String title;
   final String? subtitle;
+
+  /// The Tamil translation, shown in a smaller size beneath each English line.
+  final String? titleTa;
+  final String? subtitleTa;
   final bool showBack;
   final double height;
 
@@ -19,6 +23,8 @@ class WaveHeader extends StatefulWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.titleTa,
+    this.subtitleTa,
     this.showBack = true,
     this.height = 300,
   });
@@ -119,6 +125,18 @@ class _WaveHeaderState extends State<WaveHeader>
                       height: 1.1,
                     ),
                   ),
+                  if (widget.titleTa != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.titleTa!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 15),
                     Text(
@@ -128,6 +146,16 @@ class _WaveHeaderState extends State<WaveHeader>
                         fontSize: 14,
                       ),
                     ),
+                    if (widget.subtitleTa != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.subtitleTa!,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
                   ],
                   const SizedBox(height: 48),
                 ],

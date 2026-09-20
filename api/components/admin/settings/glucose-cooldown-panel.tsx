@@ -113,7 +113,7 @@ export function GlucoseCooldownPanel({
       <div className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-ink text-[13px] font-medium">Enable glucose entry</span>
+            <span className="text-ink text-xs font-medium">Enable glucose entry</span>
             <Badge tone="warning">Clinical safety</Badge>
           </div>
           <p className="text-ink-subtle max-w-md text-xs">
@@ -169,7 +169,7 @@ export function GlucoseCooldownPanel({
           <div className="flex flex-col gap-1">
             <label
               htmlFor="glucose-cooldown-hours"
-              className="text-ink text-[13px] font-medium"
+              className="text-ink text-xs font-medium"
             >
               Hours between glucose entries
             </label>
@@ -188,7 +188,7 @@ export function GlucoseCooldownPanel({
               onChange={(e) => setValue(e.target.value)}
               className="w-24"
             />
-            <span className="text-ink-subtle text-[13px]">hours</span>
+            <span className="text-ink-subtle text-xs">hours</span>
             <Button size="sm" onClick={saveCooldown} disabled={!dirty || saving}>
               {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
             </Button>

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/tamil_name.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/child.dart';
@@ -7,6 +8,7 @@ import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/bilingual.dart';
 import '../../widgets/wave_header.dart';
 import '../home/home_shell.dart';
 
@@ -64,13 +66,13 @@ class _ChildSelectScreenState extends State<ChildSelectScreen> {
       if (!mounted) return;
       setState(() {
         _busyChildId = null;
-        _error = e.message;
+        _error = e.bothMessage;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _busyChildId = null;
-        _error = S.couldNotLoad;
+        _error = S.bothText(() => S.couldNotLoad);
       });
     }
   }
@@ -105,7 +107,8 @@ class _ChildSelectScreenState extends State<ChildSelectScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 WaveHeader(
-                  title: S.whoIsLearning,
+                  title: S.both(() => S.whoIsLearning).en,
+                  titleTa: S.both(() => S.whoIsLearning).ta,
                   subtitle: widget.lookup.parentName,
                   showBack: true,
                 ),
@@ -131,7 +134,16 @@ class _ChildSelectScreenState extends State<ChildSelectScreen> {
                           Icons.person_add_alt_1_outlined,
                           size: 18,
                         ),
-                        label: Text(S.addAnotherChild),
+                        label: Bilingual.s(
+                          () => S.addAnotherChild,
+                          alignment: CrossAxisAlignment.center,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.deep,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -211,7 +223,7 @@ class _ChildCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        child.name,
+                        localName(child.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

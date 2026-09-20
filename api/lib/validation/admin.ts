@@ -12,7 +12,7 @@ import {
   sortOrderSchema,
 } from "@/lib/validation/common";
 import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
-import { exerciseCategorySchema, notificationTypeSchema } from "@/lib/validation/health";
+import { notificationTypeSchema } from "@/lib/validation/health";
 
 /** Input schemas for the administration and research APIs. */
 
@@ -195,36 +195,97 @@ export const educationListQuerySchema = z
   })
   .and(paginationSchema);
 
-/** One paragraph + the image it's shown with in the Help Book reading
- *  screen — see scripts/split-content-blocks.ts. `imageUrl` is a site-
- *  relative `/content/...` path or absolute URL, not validated as a strict
- *  URL, since the importer writes the former. */
-export const contentBlockSchema = z.object({
-  paragraph: z.string().min(1).max(20_000),
-  imageUrl: z.string().trim().min(1).max(2000),
-  imageKey: z.string().trim().max(2000).nullish(),
+/**
+ * One block of a Help Book topic.
+ *
+ * A topic is authored as an ordered list of these rather than as one rich-text
+ * body: authors are clinical staff, not writers of Markdown, and the reading
+ * screen needs to know where each image belongs rather than guessing from a
+ * blob of HTML. A block carries text, an image, a video, or a heading with any
+ * combination of those — including a video with no words at all, which several
+ * source topics are.
+ *
+ * `kind` is optional for backward compatibility: rows written before blocks
+ * grew images-or-video (the importer's `{paragraph, imageUrl}` shape, see
+ * scripts/split-content-blocks.ts) have no `kind`, and readers infer it from
+ * whichever media field is present. `imageUrl` is a site-relative
+ * `/content/...` path or an absolute URL, not validated as a strict URL,
+ * because the importer writes the former.
+ */
+/**
+ * Where a picture or video lives: a full web address, or a path on this site
+ * (`/uploads/...`, `/content/...`) — what uploads give back when there is no
+ * cloud storage set up.
+ */
+const mediaLocationSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine(
+    (value) => (value.startsWith("/") && !value.startsWith("//")) || z.url().safeParse(value).success,
+    { message: "Use a full web address or a path starting with /" },
+  );
+
+export const contentBlockSchema = z
+  .object({
+    kind: z.enum(["TEXT", "IMAGE", "VIDEO"]).optional(),
+    /** Optional sub-heading shown above the block. */
+    heading: z.string().trim().max(200).nullish(),
+    /** May be empty for an image-only or video-only block. */
+    paragraph: z.string().max(20_000).default(""),
+    imageUrl: z.string().trim().max(2000).nullish(),
+    imageKey: z.string().trim().max(2000).nullish(),
+    videoUrl: z.string().trim().max(2000).nullish(),
+  })
+  .refine(
+    (block) =>
+      Boolean(block.paragraph?.trim() || block.heading?.trim() || block.imageUrl || block.videoUrl),
+    { message: "A block needs words, a heading, an image or a video — it cannot be empty." },
+  )
+  .refine((block) => !(block.imageUrl && block.videoUrl), {
+    message: "A block shows either an image or a video, not both.",
+  });
+
+/**
+ * The ordered list of topics as a drag-and-drop left them. Slugs, not titles:
+ * the two language versions of a topic share one slug and must move together.
+ */
+export const reorderTopicsSchema = z.object({
+  order: z.array(slugSchema).min(1).max(500),
 });
 
 export const createEducationSchema = z.object({
-  slug: slugSchema,
+  /**
+   * Generated, not authored. A slug is a database join key here — it is what
+   * pairs the English and Tamil versions of a topic — and nothing an admin
+   * would recognise or should have to invent. Supplying one is still allowed,
+   * because adding a *translation* means deliberately reusing the existing
+   * topic's slug; omitting it mints a fresh one.
+   */
+  slug: slugSchema.optional(),
   locale: contentLocaleSchema.default("EN"),
   title: shortTextSchema(200),
   description: z.string().trim().max(500).optional(),
   excerpt: z.string().trim().max(300).optional(),
   category: educationCategorySchema,
-  /** Rich text; sanitised server-side before storage. */
-  body: z.string().min(1).max(200_000),
+  /**
+   * Rich text; sanitised server-side before storage. Optional because a
+   * block-authored topic has no separate body — the server derives one from
+   * the blocks so that older readers, search and reading-time estimation all
+   * keep working.
+   */
+  body: z.string().max(200_000).optional(),
   /** Author-editable source. When bodyFormat is MARKDOWN, `body` above is
    *  derived from this on save — see lib/utils/markdown.ts. */
   bodySource: z.string().max(200_000).optional(),
   bodyFormat: contentBodyFormatSchema.default("MARKDOWN"),
-  /** Optional: the Help Book's image-paired paragraph layout. Omitted
-   *  entirely leaves whatever's already stored untouched on an update. */
+  /** The Help Book's block layout. Omitted entirely leaves whatever's
+   *  already stored untouched on an update. */
   contentBlocks: z.array(contentBlockSchema).max(1000).optional(),
   mediaType: z.enum(["NONE", "IMAGE", "VIDEO", "PDF", "AUDIO"]).default("NONE"),
-  mediaUrl: z.url().max(2000).nullish(),
+  mediaUrl: mediaLocationSchema.nullish(),
   mediaKey: z.string().trim().max(500).nullish(),
-  thumbnailUrl: z.url().max(2000).nullish(),
+  thumbnailUrl: mediaLocationSchema.nullish(),
   durationMinutes: z.number().int().min(0).max(1000).nullish(),
   externalReferences: z.array(z.string().trim().max(500)).max(30).default([]),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
@@ -237,37 +298,109 @@ export const createEducationSchema = z.object({
 export const updateEducationSchema = createEducationSchema.partial().omit({ locale: true });
 
 // ---------------------------------------------------------------------------
-// Exercise programmes
+// Calculators
+//
+// A calculator is created once and never edited (see
+// lib/services/calculators.ts), so there is deliberately no update schema
+// here beyond the active/hidden toggle.
 // ---------------------------------------------------------------------------
 
-export const programListQuerySchema = z
-  .object({
-    status: contentStatusSchema.optional(),
-    category: exerciseCategorySchema.optional(),
-    difficulty: difficultySchema.optional(),
-    search: searchSchema,
-  })
-  .and(paginationSchema);
+/** Names a formula can refer to: a letter or underscore, then word characters. */
+const formulaNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(40)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "Use letters, numbers and underscores, starting with a letter.");
 
-export const createProgramSchema = z.object({
-  slug: slugSchema,
-  title: shortTextSchema(200),
-  description: shortTextSchema(1000),
-  category: exerciseCategorySchema,
-  difficulty: difficultySchema.default("BEGINNER"),
-  durationMinutes: z.number().int().min(1).max(600),
-  instructions: z.string().min(1).max(100_000),
-  equipment: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
-  precautions: z.string().trim().max(2000).nullish(),
-  videoUrl: z.url().max(2000).nullish(),
-  videoKey: z.string().trim().max(500).nullish(),
-  imageUrl: z.url().max(2000).nullish(),
-  imageKey: z.string().trim().max(500).nullish(),
-  status: contentStatusSchema.default("DRAFT"),
-  sortOrder: z.number().int().min(0).max(10_000).default(0),
+export const calculatorInputSchema = z.object({
+  key: formulaNameSchema,
+  labelEn: shortTextSchema(120),
+  labelTa: z.string().trim().max(120).nullish(),
+
+  /**
+   * What kind of value this is. Only numbers can take part in arithmetic, so
+   * this is the single option today — it is declared explicitly rather than
+   * assumed so that the definition sent to the app is self-describing, and so
+   * adding a second kind later cannot silently change what existing
+   * calculators mean.
+   */
+  valueType: z.enum(["NUMBER"]).default("NUMBER"),
+
+  /**
+   * Required, always.
+   *
+   * A calculator is a specification handed to the app, and a number with no
+   * unit is not a specification — "enter your glucose" is ambiguous in a way
+   * that "enter your glucose (mg/dL)" is not, and the difference between
+   * mg/dL and mmol/L is a factor of eighteen in the resulting dose. The unit
+   * is declared here, shown to the parent on the input, and shown again in
+   * the admin's read-only view of the formula.
+   */
+  unit: z.string().trim().min(1).max(24),
+
+  min: z.number().finite().nullish(),
+  max: z.number().finite().nullish(),
+  decimals: z.number().int().min(0).max(4).nullish(),
+
+  /**
+   * Free note shown under the input — the place for "only use this when the
+   * reading is below 70" or "count the carbohydrates in the whole meal".
+   */
+  helpEn: z.string().trim().max(300).nullish(),
+  helpTa: z.string().trim().max(300).nullish(),
+
+  /**
+   * Where the number comes from.
+   *
+   * ASK  — the parent types it on the calculator screen.
+   * DATA — it is filled in from something already on file, named by
+   *        `sourceKey` and drawn from the closed catalogue in
+   *        lib/services/health-data-catalogue.ts.
+   *
+   * A DATA value is always shown to the parent with the time it was
+   * recorded, and is always editable, so nothing is ever calculated from a
+   * stale reading without it being visible.
+   */
+  source: z.enum(["ASK", "DATA"]).default("ASK"),
+  sourceKey: z.string().trim().max(60).nullish(),
 });
 
-export const updateProgramSchema = createProgramSchema.partial();
+export const calculatorOutputSchema = z.object({
+  key: formulaNameSchema,
+  labelEn: shortTextSchema(120),
+  labelTa: z.string().trim().max(120).nullish(),
+  /** Required for the same reason as an input's unit — see above. */
+  unit: z.string().trim().min(1).max(24),
+  decimals: z.number().int().min(0).max(4).nullish(),
+  /** Checked against the calculator's own inputs in the service layer. */
+  expression: z.string().trim().min(1).max(500),
+});
+
+export const createCalculatorSchema = z.object({
+  nameEn: shortTextSchema(120),
+  nameTa: z.string().trim().max(120).nullish(),
+  descriptionEn: z.string().trim().max(1000).nullish(),
+  descriptionTa: z.string().trim().max(1000).nullish(),
+  inputs: z.array(calculatorInputSchema).min(1).max(12),
+  outputs: z.array(calculatorOutputSchema).min(1).max(12),
+  noteEn: z.string().trim().max(1000).nullish(),
+  noteTa: z.string().trim().max(1000).nullish(),
+  sortOrder: z.number().int().min(0).max(10_000).default(0),
+  supersedesId: z.string().trim().max(40).nullish(),
+});
+
+/** The only change a stored calculator ever accepts. */
+export const calculatorVisibilitySchema = z.object({
+  active: z.boolean(),
+});
+
+/** Admin "try it" preview: run a draft calculator against sample numbers. */
+export const calculatorPreviewSchema = z.object({
+  inputs: z.array(calculatorInputSchema).min(1).max(12),
+  outputs: z.array(calculatorOutputSchema).min(1).max(12),
+  values: z.record(z.string(), z.number().finite()),
+});
 
 // ---------------------------------------------------------------------------
 // Notifications
@@ -443,6 +576,9 @@ export const createStaffSchema = z.object({
   email: z.email().max(254),
   name: shortTextSchema(120),
   role: staffRoleSchema,
+  /** A temporary password the administrator hands over. The new staff member
+   *  is made to replace it the first time they sign in. */
+  password: z.string().min(8, "Use at least 8 characters.").max(128),
   jobTitle: z.string().trim().max(120).optional(),
   department: z.string().trim().max(120).optional(),
   organization: z.string().trim().max(160).optional(),
@@ -568,7 +704,39 @@ const choiceOptionSchema = z.object({
   value: z.string().trim().min(1).max(60),
   labelEn: z.string().trim().min(1).max(120),
   labelTa: z.string().trim().max(120).optional(),
+  /**
+   * What this choice counts as in a calculator.
+   *
+   * Only meaningful on a field marked as medical: a formula cannot do
+   * arithmetic on the word "male", so a medical CHOICE field has to say what
+   * number each option stands for before it can be used in one. Left unset,
+   * the field simply never appears in the calculator data list.
+   */
+  numericValue: z.number().finite().nullish(),
 });
+
+/** Fields shared by creating and updating a profile question. */
+const profileFieldMedicalFields = {
+  /**
+   * Declares this as clinical information about the child, which is what
+   * makes it available to calculators. Off unless deliberately set — see the
+   * model comment in schema.prisma.
+   */
+  isMedical: z.boolean().optional(),
+  /** The unit a numeric medical field is recorded in: "kg", "cm", "mg/dL". */
+  unit: z.string().trim().max(24).nullish(),
+  /** Asked in the sign-up chat rather than left to the profile screen. */
+  showOnSignup: z.boolean().optional(),
+  /** The sentence the sign-up chat asks, when `showOnSignup` is on. */
+  promptEn: z.string().trim().max(200).nullish(),
+  promptTa: z.string().trim().max(200).nullish(),
+  /**
+   * The checks an answer must pass. Shape depends on the question's type, so
+   * it is validated against that type in lib/services/profile-field-rules.ts
+   * rather than here, where the type is not yet known for an update.
+   */
+  rules: z.record(z.string(), z.unknown()).nullish(),
+};
 
 export const createProfileFieldSchema = z.object({
   key: z
@@ -587,6 +755,7 @@ export const createProfileFieldSchema = z.object({
   hintEn: z.string().trim().max(200).nullish(),
   hintTa: z.string().trim().max(200).nullish(),
   options: z.array(choiceOptionSchema).max(30).nullish(),
+  ...profileFieldMedicalFields,
 });
 
 export const updateProfileFieldSchema = z.object({
@@ -599,4 +768,26 @@ export const updateProfileFieldSchema = z.object({
   hintEn: z.string().trim().max(200).nullish(),
   hintTa: z.string().trim().max(200).nullish(),
   options: z.array(choiceOptionSchema).max(30).nullish(),
+  ...profileFieldMedicalFields,
+});
+
+// ---------------------------------------------------------------------------
+// Help and support
+// ---------------------------------------------------------------------------
+
+export const supportThreadListQuerySchema = z.object({
+  status: z.enum(["AWAITING_REPLY", "ANSWERED", "CLOSED"]).optional(),
+});
+
+export const supportReplySchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+});
+
+export const supportStatusSchema = z.object({
+  status: z.enum(["AWAITING_REPLY", "ANSWERED", "CLOSED"]),
+});
+
+export const changeOwnPasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(128),
+  newPassword: z.string().min(12, "Use at least 12 characters.").max(128),
 });

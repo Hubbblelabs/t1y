@@ -19,6 +19,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Integration files share one development database, and several assert on
+    // counts of things another file also creates (waiting help requests, say).
+    // Run one file at a time so those counts mean what they say. Unit tests are
+    // fast enough that this costs nothing noticeable.
+    fileParallelism: false,
     include: ["tests/**/*.test.ts"],
     exclude: [
       "node_modules/**",

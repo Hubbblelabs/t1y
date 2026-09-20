@@ -9,7 +9,8 @@ import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/locale_aware.dart';
-import '../../widgets/topic_card.dart' show TopicCard, categoryIcons;
+import '../../widgets/topic_card.dart'
+    show TopicCard, categoryIcons, categoryName;
 import 'topic_detail_screen.dart';
 
 class HelpBookListScreen extends StatefulWidget {
@@ -274,12 +275,7 @@ class _CategoryIconRow extends StatelessWidget {
   }
 }
 
-String _categoryLabel(String category) {
-  final words = category.split('_');
-  return words
-      .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
-      .join(' ');
-}
+String _categoryLabel(String category) => categoryName(category);
 
 /// A single quick-action icon tile — dips slightly on press, same treatment
 /// as the home screen's own quick-action tiles, so the two read as the same

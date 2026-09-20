@@ -1,6 +1,5 @@
 import { UnauthenticatedError } from "@/lib/api/errors";
 import { defineRoute } from "@/lib/api/handler";
-import { RateLimits } from "@/lib/api/rate-limit";
 import { ok } from "@/lib/api/response";
 import { auth } from "@/lib/auth/auth";
 import { resolveHousehold } from "@/lib/services/households";
@@ -31,7 +30,6 @@ export const POST = defineRoute({
   // Authenticates from the password in its own body, not from a cookie, and
   // is called by the native app before any session exists — see csrfExempt.
   csrfExempt: true,
-  rateLimit: RateLimits.credential,
   body: householdSignInSchema,
   handler: async ({ body }) => {
     // A missing account and a wrong password must be indistinguishable from

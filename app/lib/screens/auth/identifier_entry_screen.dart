@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/bilingual.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/slow_slide_route.dart';
@@ -43,7 +44,7 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
     FocusScope.of(context).unfocus();
     final identifier = _controller.text.trim();
     if (identifier.length < 3) {
-      setState(() => _error = S.enterEmailPhoneOrId);
+      setState(() => _error = S.bothText(() => S.enterEmailPhoneOrId));
       return;
     }
 
@@ -56,7 +57,7 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
     }
 
     if (!_emailPattern.hasMatch(identifier)) {
-      setState(() => _error = S.enterValidEmail);
+      setState(() => _error = S.bothText(() => S.enterValidEmail));
       return;
     }
 
@@ -106,8 +107,10 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 WaveHeader(
-                  title: S.welcome,
-                  subtitle: S.signInSubtitle,
+                  title: S.both(() => S.welcome).en,
+                  titleTa: S.both(() => S.welcome).ta,
+                  subtitle: S.both(() => S.signInSubtitle).en,
+                  subtitleTa: S.both(() => S.signInSubtitle).ta,
                   showBack: true,
                 ),
                 Padding(
@@ -121,8 +124,9 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
                       ],
                       LabeledField(
                         icon: Icons.person_outline,
-                        label: S.emailPhoneOrChildId,
-                        hint: S.emailPhoneOrChildIdHint,
+                        label: S.both(() => S.emailPhoneOrChildId).en,
+                        labelTa: S.both(() => S.emailPhoneOrChildId).ta,
+                        hint: S.both(() => S.emailPhoneOrChildIdHint).en,
                         controller: _controller,
                         keyboardType: TextInputType.emailAddress,
                         autofillHints: const [AutofillHints.username],
@@ -141,7 +145,16 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Text(S.continueLabel),
+                            : Bilingual.s(
+                                () => S.continueLabel,
+                                alignment: CrossAxisAlignment.center,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ],
                   ),

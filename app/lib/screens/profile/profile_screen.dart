@@ -6,9 +6,11 @@ import '../../providers/app_state.dart';
 import '../../services/auth_service.dart';
 import '../../services/content_service.dart';
 import '../../services/mpin_service.dart';
+import '../../services/calculator_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
+import '../help/help_screen.dart';
 import '../../widgets/flip_card.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/participant_id_card.dart';
@@ -131,6 +133,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _signOut() async {
     await AuthService.instance.signOut();
     await ProfileService.instance.clearCache();
+    await CalculatorService.instance.clearCache();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const GetStartedScreen()),
@@ -142,10 +145,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final t = _lastSynced;
     if (t == null) return S.never;
     final diff = DateTime.now().difference(t);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inHours < 1) return '${diff.inMinutes} min ago';
-    if (diff.inDays < 1) return '${diff.inHours} h ago';
-    return '${diff.inDays} d ago';
+    if (diff.inMinutes < 1) return S.justNow;
+    if (diff.inHours < 1) return S.minutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return S.hoursAgo(diff.inHours);
+    return S.daysAgo(diff.inDays);
   }
 
   /// How many of the fields collected on [ProfileEditScreen] are still
@@ -400,6 +403,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               const SizedBox(height: 14),
                               _Group(
+                                title: S.helpAndSupport,
+                                children: [
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    leading: const Icon(
+                                      Icons.support_agent_outlined,
+                                    ),
+                                    title: Text(
+                                      S.askAQuestion,
+                                      style: const TextStyle(
+                                        fontSize: 14.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      S.helpIntro,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const HelpScreen(),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              _Group(
                                 title: S.privacyAndData,
                                 children: [
                                   ListTile(
@@ -452,6 +489,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ? 'உங்கள் ஆய்வு ஒருங்கிணைப்பாளரிடம் எந்த நேரத்திலும் கேட்கலாம்.'
                                           : 'Ask your study coordinator at any time.',
                                       style: const TextStyle(fontSize: 12),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_right),
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => const HelpScreen(),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -605,7 +648,13 @@ class _Group extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           clipBehavior: Clip.antiAlias,
-          child: Column(children: children),
+          // A Material of its own for the rows to paint on. Without it a
+          // ListTile finds the screen's Material *behind* this coloured box, so
+          // its highlight is hidden and Flutter asserts on every row.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(children: children),
+          ),
         ),
       ],
     );

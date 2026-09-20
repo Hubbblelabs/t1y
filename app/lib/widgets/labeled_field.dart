@@ -13,6 +13,9 @@ import '../theme/app_theme.dart';
 class LabeledField extends StatefulWidget {
   final IconData icon;
   final String label;
+
+  /// The Tamil translation of [label], shown smaller beneath it.
+  final String? labelTa;
   final String hint;
   final TextEditingController controller;
   final bool obscureText;
@@ -33,6 +36,7 @@ class LabeledField extends StatefulWidget {
     super.key,
     required this.icon,
     required this.label,
+    this.labelTa,
     required this.hint,
     required this.controller,
     this.obscureText = false,
@@ -108,6 +112,19 @@ class _LabeledFieldState extends State<LabeledField> {
                 color: AppTheme.deep.withValues(alpha: 0.85),
               ),
             ),
+            if (widget.labelTa != null) ...[
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  widget.labelTa!,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.deep.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 8),

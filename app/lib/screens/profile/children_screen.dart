@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/tamil_name.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/child.dart';
@@ -146,7 +147,7 @@ class _ChildRow extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Text(
-                        child.name,
+                        localName(child.name),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

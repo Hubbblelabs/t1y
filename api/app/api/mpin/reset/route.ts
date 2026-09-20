@@ -1,6 +1,5 @@
 import { UnauthenticatedError } from "@/lib/api/errors";
 import { defineRoute } from "@/lib/api/handler";
-import { RateLimits } from "@/lib/api/rate-limit";
 import { noContent } from "@/lib/api/response";
 import { auth } from "@/lib/auth/auth";
 import { resetMpin } from "@/lib/services/mpin";
@@ -17,7 +16,6 @@ import { resetMpinSchema } from "@/lib/validation/household";
  */
 
 export const POST = defineRoute({
-  rateLimit: RateLimits.credential,
   body: resetMpinSchema,
   handler: async ({ principal, body }) => {
     // `asResponse` returns a 401 rather than throwing it, so the status is

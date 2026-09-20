@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
+import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../l10n/strings.dart';
 
 /// Per-category artwork for topics whose source document has no figures
 /// (insulin-pump, exercise, school-travel), and as the loading/error
@@ -17,6 +19,31 @@ const categoryIcons = <String, IconData>{
   'DIABAG': Icons.medical_services_outlined,
   'GENERAL_WELLNESS': Icons.fact_check_outlined,
 };
+
+const _categoryTamil = <String, String>{
+  'INSULIN': 'இன்சுலின்',
+  'GLUCOSE_MANAGEMENT': 'குளுக்கோஸ் மேலாண்மை',
+  'HYPOGLYCAEMIA': 'குறைந்த சர்க்கரை',
+  'NUTRITION': 'ஊட்டச்சத்து',
+  'EXERCISE': 'உடற்பயிற்சி',
+  'SCHOOL_MANAGEMENT': 'பள்ளியில் மேலாண்மை',
+  'TRAVEL': 'பயணம்',
+  'DIABAG': 'நீரிழிவு பை',
+  'GENERAL_WELLNESS': 'பொது நலம்',
+};
+
+/// A Help Book category's name in the app's current language. An unknown
+/// category (one an administrator added) falls back to tidied English.
+String categoryName(String category) {
+  if (AppState.instance.locale == 'ta') {
+    final ta = _categoryTamil[category];
+    if (ta != null) return ta;
+  }
+  return category
+      .split('_')
+      .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
+      .join(' ');
+}
 
 /// Wide Help Book card — artwork on the left, details stacked on the right,
 /// following the supplied listing-card reference.
@@ -135,14 +162,14 @@ class TopicCard extends StatelessWidget {
                         runSpacing: 4,
                         children: [
                           if (isRead)
-                            const _Pill(
-                              label: 'Read',
+                            _Pill(
+                              label: S.readLabel,
                               icon: Icons.check_circle,
                               color: Color(0xFF2E7D32),
                             ),
                           if (topic.isFallback)
-                            const _Pill(
-                              label: 'English only',
+                            _Pill(
+                              label: S.englishOnly,
                               icon: Icons.translate,
                               color: Color(0xFFB26A00),
                             ),
@@ -159,12 +186,7 @@ class TopicCard extends StatelessWidget {
     );
   }
 
-  static String _categoryLabel(String category) {
-    final words = category.split('_');
-    return words
-        .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
-        .join(' ');
-  }
+  static String _categoryLabel(String category) => categoryName(category);
 }
 
 class _Thumbnail extends StatelessWidget {
@@ -228,7 +250,7 @@ class _Pill extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _Pill({required this.label, required this.icon, required this.color});
+  _Pill({required this.label, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {

@@ -14,9 +14,280 @@ import '../providers/app_state.dart';
 class S {
   S._();
 
-  static String get _l => AppState.instance.locale;
+  /// Set only while [inLocale] is reading a string, so a screen can ask for
+  /// the same wording in each language without touching the app's language.
+  static String? _forced;
+
+  static String get _l => _forced ?? AppState.instance.locale;
+
+  /// Reads [read] as if the app were set to [locale]. Synchronous and restored
+  /// afterwards, so nothing else observes the change and no listener fires.
+  static T inLocale<T>(String locale, T Function() read) {
+    final previous = _forced;
+    _forced = locale;
+    try {
+      return read();
+    } finally {
+      _forced = previous;
+    }
+  }
+
+  /// One string in both languages, for the sign-in and sign-up screens, which
+  /// show English with the Tamil beneath rather than following a language
+  /// switch. Reusing the existing strings keeps a single source for the Tamil.
+  static ({String en, String ta}) both(String Function() read) =>
+      (en: inLocale('en', read), ta: inLocale('ta', read));
+
+  static bool get isTamilNow => _l == 'ta';
 
   static String _t(String en, String ta) => _l == 'ta' ? ta : en;
+
+  // ── Errors from the server and the network ───────────────────────────────
+  /// A server or network message in the app's language. The server writes in
+  /// English; in Tamil the known messages are translated, and any other one is
+  /// replaced by a Tamil line for its kind of problem rather than shown in
+  /// English.
+  static String apiMessage(int status, String code, String raw) {
+    if (_l != 'ta') return raw;
+    final m = raw.toLowerCase();
+    bool has(String s) => m.contains(s);
+
+    if (code == 'TIMEOUT') {
+      return 'சேவையகம் பதிலளிக்க நீண்ட நேரம் ஆகிறது. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
+    }
+    if (code == 'NETWORK') {
+      return 'சேவையகத்தை அடைய முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
+    }
+    if (code == 'EMAIL_NOT_VERIFIED' || has('yet to be updated by the admin')) {
+      return 'உங்கள் நிலையை நிர்வாகி இன்னும் புதுப்பிக்கவில்லை. பொறுமைக்கு நன்றி.';
+    }
+    if (has('already sent')) {
+      return 'இன்று நீங்கள் ஏற்கனவே 3 செய்திகளை அனுப்பிவிட்டீர்கள். நாளை மேலும் அனுப்பலாம் — குழு இங்கே பதிலளிக்கும்.';
+    }
+    if (has("didn't match") ||
+        has('invalid email or password') ||
+        code == 'INVALID_EMAIL_OR_PASSWORD' ||
+        has('sign-in failed')) {
+      return 'உள்நுழைவு விவரங்கள் பொருந்தவில்லை. சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
+    }
+    if (has('4-digit pin') || has('enter a 4')) {
+      return '4 இலக்க பின்னை உள்ளிடவும்.';
+    }
+    if (has('no pin has been set')) {
+      return 'இன்னும் பின் அமைக்கப்படவில்லை. முதலில் சுயவிவரத்தில் அமைக்கவும்.';
+    }
+    if (has('already exists') || code.contains('ALREADY_EXISTS')) {
+      return 'இந்த விவரங்களுடன் ஒரு கணக்கு ஏற்கனவே உள்ளது.';
+    }
+    if (has('too short') || has('at least')) {
+      return 'கடவுச்சொல் மிகச் சிறியதாக உள்ளது. நீளமான ஒன்றைத் தேர்ந்தெடுக்கவும்.';
+    }
+    if (has('too long') || has('at most')) {
+      return 'கடவுச்சொல் மிக நீளமாக உள்ளது. சிறியதைத் தேர்ந்தெடுக்கவும்.';
+    }
+    if (has('not part of this household')) {
+      return 'அந்தக் குழந்தை இந்தக் குடும்பத்தில் இல்லை.';
+    }
+    if (has('unexpected response')) {
+      return 'சேவையகத்திலிருந்து எதிர்பாராத பதில் வந்தது. மீண்டும் முயற்சிக்கவும்.';
+    }
+
+    switch (code) {
+      case 'SYNC_REJECTED':
+        return 'உங்கள் முயற்சியைச் சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.';
+      case 'VALIDATION_ERROR':
+        return 'நீங்கள் உள்ளிட்டதைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.';
+      case 'UNAUTHENTICATED':
+        return 'உங்கள் அமர்வு முடிந்துவிட்டது. மீண்டும் உள்நுழையவும்.';
+      case 'FORBIDDEN':
+        return 'இதைச் செய்ய உங்களுக்கு அனுமதி இல்லை.';
+      case 'NOT_FOUND':
+        return 'நீங்கள் தேடியது கிடைக்கவில்லை.';
+      case 'CONFLICT':
+        return 'இது ஏற்கனவே உள்ளது அல்லது மாறிவிட்டது. புதுப்பித்து மீண்டும் முயற்சிக்கவும்.';
+      case 'RATE_LIMITED':
+        return 'மிக அதிகமான கோரிக்கைகள். சிறிது நேரம் கழித்து முயற்சிக்கவும்.';
+      case 'SERVICE_UNAVAILABLE':
+        return 'சேவை தற்போது கிடைக்கவில்லை. சிறிது நேரம் கழித்து முயற்சிக்கவும்.';
+    }
+    if (status >= 500) {
+      return 'ஏதோ தவறு நடந்துவிட்டது. சிறிது நேரம் கழித்து முயற்சிக்கவும்.';
+    }
+    return 'ஏதோ தவறு நடந்துவிட்டது. மீண்டும் முயற்சிக்கவும்.';
+  }
+
+  // ── Messages that used to be English only ────────────────────────────────
+  /// One string as "English\nTamil", for the sign-in and sign-up screens,
+  /// which always show both.
+  static String bothText(String Function() read) {
+    final b = both(read);
+    return b.en == b.ta ? b.en : '${b.en}\n${b.ta}';
+  }
+
+  static String get screenFailed => _t(
+    'Something went wrong showing this part of the screen. Please go back and try again.',
+    'திரையின் இந்தப் பகுதியைக் காட்டுவதில் தவறு ஏற்பட்டது. தயவுசெய்து திரும்பிச் சென்று மீண்டும் முயற்சிக்கவும்.',
+  );
+  static String get couldNotReach => _t(
+    'Could not reach the server. Check your connection and try again.',
+    'சேவையகத்தை அடைய முடியவில்லை. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.',
+  );
+  static String get tryAgainLabel => _t('Try again', 'மீண்டும் முயற்சிக்கவும்');
+  static String passwordTooShort(int n) => _t(
+    'Password must be at least $n characters.',
+    'கடவுச்சொல் குறைந்தது $n எழுத்துகள் இருக்க வேண்டும்.',
+  );
+  static String passwordTooLong(int n) => _t(
+    'Password must be at most $n characters.',
+    'கடவுச்சொல் அதிகபட்சம் $n எழுத்துகள் இருக்கலாம்.',
+  );
+  static String get passwordsDontMatch =>
+      _t('Passwords do not match.', 'கடவுச்சொற்கள் பொருந்தவில்லை.');
+  static String get passwordSameAsOld => _t(
+    'Choose a password different from the one you signed in with.',
+    'நீங்கள் உள்நுழைந்த கடவுச்சொல்லிலிருந்து வேறுபட்ட ஒன்றைத் தேர்ந்தெடுக்கவும்.',
+  );
+  static String get welcomeToApp => _t(
+    'Welcome to T1D Prajana Yandra',
+    'T1D பிரஜன யந்திரத்திற்கு வரவேற்கிறோம்',
+  );
+  static String get setOwnPassword => _t(
+    'Please set your own password to continue',
+    'தொடர, உங்கள் சொந்த கடவுச்சொல்லை அமைக்கவும்',
+  );
+  static String get setNewPasswordHint =>
+      _t('Set your new password', 'உங்கள் புதிய கடவுச்சொல்லை அமைக்கவும்');
+  static String get confirmNewPassword =>
+      _t('Confirm new password', 'புதிய கடவுச்சொல்லை உறுதிப்படுத்தவும்');
+  static String get retypeNewPassword => _t(
+    'Re-type your new password',
+    'உங்கள் புதிய கடவுச்சொல்லை மீண்டும் உள்ளிடவும்',
+  );
+  static String get changePasswordContinue =>
+      _t('Change password & continue', 'கடவுச்சொல்லை மாற்றி தொடரவும்');
+
+  // Sign-up answers
+  static String get answerRequired => _t('This is required.', 'இது கட்டாயம்.');
+  static String get chooseOption => _t(
+    'Choose one of the options.',
+    'விருப்பங்களில் ஒன்றைத் தேர்ந்தெடுக்கவும்.',
+  );
+  static String validYear(int y) =>
+      _t('Enter a valid year, e.g. $y.', 'சரியான ஆண்டை உள்ளிடவும், எ.கா. $y.');
+  static String get validNumber =>
+      _t('Enter a valid number.', 'சரியான எண்ணை உள்ளிடவும்.');
+  static String get validDate =>
+      _t('Enter a valid date.', 'சரியான தேதியை உள்ளிடவும்.');
+  static String get tapToChooseDate =>
+      _t('Tap to choose a date', 'தேதியைத் தேர்ந்தெடுக்கத் தட்டவும்');
+  static String get typeYourAnswer =>
+      _t('Type your answer', 'உங்கள் பதிலை உள்ளிடவும்');
+  static String get editLabel => _t('Edit', 'திருத்து');
+  static String get copyLabel => _t('Copy', 'நகலெடு');
+  static String get copiedLabel => _t('Copied', 'நகலெடுக்கப்பட்டது');
+  static String get skipLabel => _t('Skip', 'தவிர்');
+
+  // Answer rules (profile and calculators)
+  static String mustBeText(String l) =>
+      _t('"$l" must be text.', '"$l" உரையாக இருக்க வேண்டும்.');
+  static String needsAtLeastChars(String l, int n) => _t(
+    '"$l" needs at least $n characters.',
+    '"$l" குறைந்தது $n எழுத்துகள் இருக்க வேண்டும்.',
+  );
+  static String keepUnder(String l, int n) => _t(
+    'Please keep "$l" under $n characters.',
+    '"$l" $n எழுத்துகளுக்குள் இருக்கட்டும்.',
+  );
+  static String lettersOnly(String l) => _t(
+    '"$l" should use letters only.',
+    '"$l" எழுத்துகளை மட்டும் கொண்டிருக்க வேண்டும்.',
+  );
+  static String mustBeNumber(String l) =>
+      _t('"$l" must be a number.', '"$l" ஒரு எண்ணாக இருக்க வேண்டும்.');
+  static String mustBeWhole(String l) =>
+      _t('"$l" must be a whole number.', '"$l" முழு எண்ணாக இருக்க வேண்டும்.');
+  static String cannotBeLess(String l, String v) => _t(
+    '"$l" cannot be less than $v.',
+    '"$l" $v-க்குக் குறைவாக இருக்கக்கூடாது.',
+  );
+  static String cannotBeMore(String l, String v) =>
+      _t('"$l" cannot be more than $v.', '"$l" $v-க்கு மேல் இருக்கக்கூடாது.');
+  static String cannotBeLaterThan(String l, int year) => _t(
+    '"$l" cannot be later than $year.',
+    '"$l" $year-க்குப் பிறகு இருக்கக்கூடாது.',
+  );
+  static String cannotBeEarlierThan(String l, int year) => _t(
+    '"$l" cannot be earlier than $year. Please check the year.',
+    '"$l" $year-க்கு முன் இருக்கக்கூடாது. ஆண்டைச் சரிபார்க்கவும்.',
+  );
+  static String mustBeValidDate(String l) =>
+      _t('"$l" must be a valid date.', '"$l" சரியான தேதியாக இருக்க வேண்டும்.');
+  static String cannotBeFuture(String l) => _t(
+    '"$l" cannot be in the future.',
+    '"$l" எதிர்காலத் தேதியாக இருக்கக்கூடாது.',
+  );
+  static String dateTooRecent(String l) => _t(
+    '"$l" is too recent. Please check the date.',
+    '"$l" மிகச் சமீபத்தியது. தேதியைச் சரிபார்க்கவும்.',
+  );
+  static String dateTooOld(String l) => _t(
+    '"$l" is too long ago. Please check the date.',
+    '"$l" மிகவும் பழையது. தேதியைச் சரிபார்க்கவும்.',
+  );
+  static String enterNumberFor(String l) =>
+      _t('Enter a number for "$l".', '"$l" க்கு ஒரு எண்ணை உள்ளிடவும்.');
+  static String mustBeMoreThanZero(String l) => _t(
+    '"$l" must be more than zero. Please check the number and enter it again.',
+    '"$l" பூஜ்யத்தை விட அதிகமாக இருக்க வேண்டும். எண்ணைச் சரிபார்த்து மீண்டும் உள்ளிடவும்.',
+  );
+  static String get calcCouldNotWork => _t(
+    'This could not be worked out with those numbers. Please check them.',
+    'இந்த எண்களைக் கொண்டு கணக்கிட முடியவில்லை. அவற்றைச் சரிபார்க்கவும்.',
+  );
+  static String get timeInFuture =>
+      _t('That time is in the future.', 'அந்த நேரம் எதிர்காலத்தில் உள்ளது.');
+
+  // Times
+  static String get dueNow => _t('due now', 'இப்போது');
+  static String inMinutes(int n) => _t('in $n min', '$n நிமிடத்தில்');
+  static String inHours(int n) => _t('in $n h', '$n மணியில்');
+  static String inDays(int n) => _t('in $n d', '$n நாளில்');
+  static String get justNow => _t('just now', 'இப்போது');
+  static String minutesAgo(int n) => _t('$n min ago', '$n நிமிடம் முன்');
+  static String hoursAgo(int n) => _t('$n h ago', '$n மணி முன்');
+  static String daysAgo(int n) => _t('$n d ago', '$n நாள் முன்');
+  static String get readLabel => _t('Read', 'படித்தது');
+
+  // Loading screens
+  static String get signingYouIn =>
+      _t('Signing you in', 'உங்களை உள்நுழைக்கிறோம்');
+  static String get welcomeBackApp => _t(
+    'welcome back to T1D Prajana Yandra',
+    'T1D பிரஜன யந்திரத்திற்கு மீண்டும் வரவேற்கிறோம்',
+  );
+  static String get loadingHelpBook =>
+      _t('Loading your Help Book', 'உங்கள் உதவி புத்தகத்தை ஏற்றுகிறோம்');
+  static String get preparingHelpBook => _t(
+    'Preparing your Help Book',
+    'உங்கள் உதவி புத்தகத்தைத் தயார் செய்கிறோம்',
+  );
+  static String get topicsBothLanguages => _t(
+    '8 topics, in English and Tamil',
+    '8 தலைப்புகள், ஆங்கிலத்திலும் தமிழிலும்',
+  );
+  static String get quizzesGettingReady =>
+      _t('Getting your quizzes ready', 'உங்கள் தேர்வுகளைத் தயார் செய்கிறோம்');
+  static String get checkAsYouLearn => _t(
+    'so you can check understanding as you learn',
+    'கற்றுக்கொள்ளும்போதே புரிதலைச் சோதிக்கலாம்',
+  );
+  static String get almostDone => _t('Almost done', 'கிட்டத்தட்ட முடிந்தது');
+  static String get momentMore =>
+      _t('just a moment more', 'இன்னும் சிறிது நேரம்');
+  static String get creatingAccount =>
+      _t('Creating your account', 'உங்கள் கணக்கை உருவாக்குகிறோம்');
+  static String get forTheStudy =>
+      _t('for the T1D Prajana Yandra study', 'T1D பிரஜன யந்திர ஆய்வுக்காக');
 
   // ── Navigation ───────────────────────────────────────────────────────────
   static String get home => _t('Home', 'முகப்பு');
@@ -52,6 +323,14 @@ class S {
   static String get markAsRead => _t('Mark as read', 'படித்ததாகக் குறி');
   static String get markedAsRead =>
       _t('Marked as read', 'படித்ததாகக் குறிக்கப்பட்டது');
+  static String get quizNotInTamil => _t(
+    'This quiz is not available in Tamil yet. Please take it in English.',
+    'இந்தத் தேர்வு இன்னும் தமிழில் இல்லை. தயவுசெய்து ஆங்கிலத்தில் எழுதுங்கள்.',
+  );
+  static String get takeInEnglish =>
+      _t('Take in English', 'ஆங்கிலத்தில் எழுது');
+  static String get unitsShort => _t('u', 'அலகு');
+  static String get todayWord => _t('today', 'இன்று');
   static String get englishOnly => _t('English only', 'ஆங்கிலம் மட்டும்');
   static String get tamilNotPublished => _t(
     "A Tamil translation isn't published yet — showing English.",
@@ -81,6 +360,144 @@ class S {
   // ── Calculations ─────────────────────────────────────────────────────────
   static String get ruleOf15 => _t('Rule of 15', '15 விதி');
   static String get icIsf => _t('IC / ISF', 'IC / ISF');
+  static String get calculators => _t('Calculators', 'கணக்கிடும் கருவிகள்');
+  static String get calculatorsIntro => _t(
+    "Work out ratios and doses from your child's own numbers.",
+    'உங்கள் குழந்தையின் எண்களிலிருந்து விகிதங்களையும் அளவுகளையும் கணக்கிடுங்கள்.',
+  );
+  static String get noCalculators => _t(
+    'No calculators are available right now.',
+    'தற்போது எந்த கணக்கிடும் கருவிகளும் இல்லை.',
+  );
+
+  /// Where a pre-filled number came from. [when] is absent for a profile
+  /// detail, which has no moment of its own.
+  static String fromYourRecords([String? when]) => when == null
+      ? _t('From your records', 'உங்கள் பதிவுகளிலிருந்து')
+      : _t('From your records · $when', 'உங்கள் பதிவுகளிலிருந்து · $when');
+  static String get enteredByYou => _t('Entered by you', 'நீங்கள் உள்ளிட்டது');
+  static String get nothingOnFile => _t(
+    'Nothing on file yet — please enter it yourself.',
+    'இன்னும் பதிவு இல்லை — நீங்களே உள்ளிடவும்.',
+  );
+  static String get yourResult => _t('Your result', 'உங்கள் முடிவு');
+
+  // ── Sign in / sign up (always shown in both languages) ───────────────────
+  static String get getStarted => _t('Get Started', 'தொடங்குங்கள்');
+  static String get createAccount => _t('Create Account', 'கணக்கை உருவாக்கு');
+  static String get newPassword => _t('New password', 'புதிய கடவுச்சொல்');
+  static String get setYourPassword =>
+      _t('Set your password', 'உங்கள் கடவுச்சொல்லை அமைக்கவும்');
+  static String get confirmPassword =>
+      _t('Confirm password', 'கடவுச்சொல்லை உறுதிப்படுத்து');
+  static String get retypePassword =>
+      _t('Re-type your password', 'கடவுச்சொல்லை மீண்டும் உள்ளிடவும்');
+  static String get beforeWeBegin =>
+      _t('Before We Begin...', 'தொடங்கும் முன்...');
+  static String get readTerms => _t(
+    'Read Terms & Conditions',
+    'விதிமுறைகள் மற்றும் நிபந்தனைகளைப் படிக்கவும்',
+  );
+
+  // ── Home ─────────────────────────────────────────────────────────────────
+  static String get thisWeek => _t('This week', 'இந்த வாரம்');
+  static String get moreForYou => _t('More for you', 'உங்களுக்காக மேலும்');
+  static String learningProgress(int read, int total) => _t(
+    '$read of $total topics read',
+    '$total-ல் $read தலைப்புகள் படிக்கப்பட்டன',
+  );
+  static String get keepGoing => _t(
+    'Keep going — you are doing well.',
+    'தொடருங்கள் — நீங்கள் நன்றாகச் செய்கிறீர்கள்.',
+  );
+  static String get allTopicsRead => _t(
+    'You have read every topic. Well done!',
+    'எல்லா தலைப்புகளையும் படித்துவிட்டீர்கள். பாராட்டுகள்!',
+  );
+  static String quizzesReady(int n) => _t('$n to try', '$n முயற்சிக்க');
+  static String get testWhatYouLearn =>
+      _t('Test what you learn', 'கற்றதைச் சோதியுங்கள்');
+  static String get calculatorsLine =>
+      _t('Ratios and doses', 'விகிதங்கள் மற்றும் அளவுகள்');
+  static String get recordDose => _t('Record a dose', 'அளவைப் பதிவு செய்');
+  static String get newAnswerFromTeam =>
+      _t('New answer from the team', 'குழுவிடமிருந்து புதிய பதில்');
+  static String get questionsAndAnswers =>
+      _t('Questions and answers', 'கேள்விகள் மற்றும் பதில்கள்');
+  static String get noReadingThisDay => _t('No readings', 'அளவீடுகள் இல்லை');
+
+  // ── Insulin ──────────────────────────────────────────────────────────────
+  static String get insulin => _t('Insulin', 'இன்சுலின்');
+  static String get logInsulin =>
+      _t('Record an insulin dose', 'இன்சுலின் அளவைப் பதிவு செய்');
+  static String get insulinRecordNote => _t(
+    'This records what was given. It does not tell you how much to give — confirm doses with your diabetes team.',
+    'இது கொடுக்கப்பட்டதைப் பதிவு செய்கிறது. எவ்வளவு கொடுக்க வேண்டும் என்று சொல்லாது — அளவுகளை உங்கள் நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
+  );
+  static String get insulinKind => _t('Kind of insulin', 'இன்சுலின் வகை');
+  static String get insulinName =>
+      _t('Insulin name (e.g. Humalog)', 'இன்சுலின் பெயர் (எ.கா. Humalog)');
+  static String get doseUnits => _t('Dose (units)', 'அளவு (யூனிட்கள்)');
+  static String get whenGiven => _t('When it was given', 'கொடுத்த நேரம்');
+  static String get recentDoses => _t('Recent doses', 'சமீபத்திய அளவுகள்');
+  static String todayTotal(String units) =>
+      _t('Today: $units units', 'இன்று: $units யூனிட்கள்');
+  static String get doseSaved =>
+      _t('Dose recorded', 'அளவு பதிவு செய்யப்பட்டது');
+  static String get noDosesYet => _t(
+    'No doses recorded yet.',
+    'இதுவரை அளவுகள் எதுவும் பதிவு செய்யப்படவில்லை.',
+  );
+  static String get needInsulinName => _t(
+    'Please enter the name of the insulin.',
+    'இன்சுலினின் பெயரை உள்ளிடவும்.',
+  );
+  static String get badDose => _t(
+    'Please check the dose — it should be more than 0 and no more than 300 units.',
+    'அளவைச் சரிபார்க்கவும் — அது 0-க்கு மேல் 300 யூனிட்களுக்குள் இருக்க வேண்டும்.',
+  );
+  static String get rapidActing2 => _t('Rapid-acting', 'வேகமாகச் செயல்படும்');
+  static String get shortActing => _t('Short-acting', 'குறுகிய-செயல்');
+  static String get intermediateActing => _t('Intermediate', 'இடைநிலை');
+  static String get longActing => _t('Long-acting', 'நீண்ட-செயல்');
+  static String get premixed => _t('Premixed', 'கலப்பு');
+  static String get otherInsulin => _t('Other', 'மற்றவை');
+
+  // ── Help and support ─────────────────────────────────────────────────────
+  static String get helpAndSupport =>
+      _t('Help and support', 'உதவி மற்றும் ஆதரவு');
+  static String get helpIntro => _t(
+    "Ask the study team about your child's care or the app. They will reply here.",
+    'உங்கள் குழந்தையின் பராமரிப்பு அல்லது செயலி பற்றி ஆய்வுக் குழுவிடம் கேளுங்கள். அவர்கள் இங்கே பதிலளிப்பார்கள்.',
+  );
+  static String get askAQuestion => _t('Ask a question', 'கேள்வி கேளுங்கள்');
+  static String get noQuestionsYet => _t(
+    "You haven't asked anything yet.",
+    'நீங்கள் இதுவரை எதுவும் கேட்கவில்லை.',
+  );
+  static String get stateSent => _t('Sent', 'அனுப்பப்பட்டது');
+  static String get stateSeen => _t('Seen by the team', 'குழு பார்த்தது');
+  static String get stateReplied => _t('Replied', 'பதிலளிக்கப்பட்டது');
+  static String get stateClosed => _t('Closed', 'முடிக்கப்பட்டது');
+  static String get yourMessage => _t('Your message', 'உங்கள் செய்தி');
+  static String get send => _t('Send', 'அனுப்பு');
+  static String messagesLeftToday(int left, int limit) => _t(
+    '$left of $limit messages left today',
+    'இன்று $limit-ல் $left செய்திகள் மீதமுள்ளன',
+  );
+  static String get dailyLimitReached => _t(
+    'You have sent all your messages for today. You can send more tomorrow — the team will reply here.',
+    'இன்றைய செய்திகள் அனைத்தையும் அனுப்பிவிட்டீர்கள். நாளை மேலும் அனுப்பலாம் — குழு இங்கே பதிலளிக்கும்.',
+  );
+  static String get writeYourQuestion =>
+      _t('Write your question here', 'உங்கள் கேள்வியை இங்கே எழுதுங்கள்');
+  static String get writeReply => _t('Write a reply…', 'பதிலை எழுதுங்கள்…');
+  static String get studyTeam => _t('Study team', 'ஆய்வுக் குழு');
+  static String get you => _t('You', 'நீங்கள்');
+  static String get newAnswer => _t('New answer', 'புதிய பதில்');
+  static String get needMessage =>
+      _t('Please write your message.', 'உங்கள் செய்தியை எழுதுங்கள்.');
+  static String get enterIn => _t('Enter in', 'இதில் உள்ளிடவும்');
   static String get calculate => _t('Calculate', 'கணக்கிடு');
   static String get iUnderstand => _t('I understand', 'எனக்குப் புரிகிறது');
   static String get calculatorDisclaimerTitle => _t(
@@ -370,6 +787,17 @@ class S {
       _t('A reading can be entered now', 'இப்போது ஒரு அளவீட்டை உள்ளிடலாம்');
 
   // ── MPIN ─────────────────────────────────────────────────────────────────
+  static String get healthLockedTitle =>
+      _t('Health records are private', 'சுகாதாரப் பதிவுகள் தனிப்பட்டவை');
+  static String get healthLockedBody => _t(
+    'Enter your 4-digit PIN to record readings and doses, and to work out a calculation.',
+    'அளவீடுகள் மற்றும் மருந்தளவுகளைப் பதிவு செய்யவும், கணக்கிடவும் உங்கள் 4 இலக்க பின்னை உள்ளிடவும்.',
+  );
+  static String get timeToRecord => _t(
+    'Time to record a glucose reading',
+    'குளுக்கோஸ் அளவைப் பதிவு செய்ய வேண்டிய நேரம்',
+  );
+  static String get notNow => _t('Not now', 'இப்போது வேண்டாம்');
   static String get unlock => _t('Unlock', 'திற');
   static String get parentPin => _t('Parent PIN', 'பெற்றோர் பின்');
   static String get enterPin =>
@@ -387,21 +815,15 @@ class S {
   static String get pinNotSetTitle =>
       _t('Set up a parent PIN', 'பெற்றோர் பின்னை அமைக்கவும்');
   static String get pinNotSetBody => _t(
-    'Before you can record readings, set a 4-digit PIN in your Profile. It '
-        'keeps glucose entry to parents only.',
-    'அளவீடுகளைப் பதிவு செய்வதற்கு முன், உங்கள் சுயவிவரத்தில் 4 இலக்க பின்னை '
-        'அமைக்கவும். இது குளுக்கோஸ் பதிவை பெற்றோருக்கு மட்டும் வைத்திருக்கும்.',
+    'Choose any 4 digits. You will use them to open your child\'s health records.',
+    'ஏதேனும் 4 இலக்கங்களைத் தேர்ந்தெடுக்கவும். உங்கள் குழந்தையின் சுகாதாரப் பதிவுகளைத் திறக்க இவற்றைப் பயன்படுத்துவீர்கள்.',
   );
   static String get goToProfile =>
       _t('Go to Profile', 'சுயவிவரத்திற்குச் செல்');
-  static String get pinLocked => _t(
-    'Too many wrong attempts. Try again later, or reset your PIN with your '
-        'password.',
-    'பல தவறான முயற்சிகள். பின்னர் முயற்சிக்கவும், அல்லது உங்கள் கடவுச்சொல்லைக் '
-        'கொண்டு பின்னை மீட்டமைக்கவும்.',
+  static String get pinIncorrect => _t(
+    'That PIN is not right. Please try again.',
+    'பின் சரியில்லை. மீண்டும் முயற்சிக்கவும்.',
   );
-  static String pinAttemptsLeft(int n) =>
-      _t('$n attempts left', '$n முயற்சிகள் மீதம்');
   static String get pinDigitsHint => _t('4 digits', '4 இலக்கங்கள்');
   static String get forgotPinGoToProfile => _t(
     'Forgot your PIN? Reset it from Profile with your password.',

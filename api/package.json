@@ -15,6 +15,8 @@
     "db:studio": "prisma studio",
     "content:import": "tsx scripts/import-content.ts",
     "content:seed-quizzes": "tsx scripts/seed-quizzes.ts",
+    "calculators:seed-standard": "tsx scripts/seed-standard-calculators.ts",
+    "profile:seed-builtin": "tsx scripts/seed-builtin-profile-fields.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

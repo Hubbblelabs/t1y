@@ -52,7 +52,7 @@ export default async function NotificationsPage(
       />
 
       <Card className="mb-6 p-4">
-        <p className="text-ink-muted text-[13px] leading-relaxed">
+        <p className="text-ink-muted text-xs leading-relaxed">
           Notification text must not contain specific measurements. Push
           previews appear on lock screens, so a message naming a glucose value or
           dose would disclose health information without the participant

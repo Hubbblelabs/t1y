@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/tamil_name.dart';
+
 import '../l10n/strings.dart';
 import '../theme/app_theme.dart';
 import 'app_logo.dart';
@@ -104,7 +106,7 @@ class ParticipantIdCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        name.isEmpty ? S.participant : name,
+                        name.isEmpty ? S.participant : localName(name),
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,

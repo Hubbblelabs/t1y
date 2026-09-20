@@ -19,7 +19,7 @@ export default function NoAccessPage() {
       <h1 className="text-ink text-base font-semibold">
         This account cannot access the dashboard
       </h1>
-      <p className="text-ink-muted mt-2 text-[13px] leading-relaxed">
+      <p className="text-ink-muted mt-2 text-xs leading-relaxed">
         The administration dashboard is for platform staff. If you are a study
         participant, please use the mobile application. If you believe you should
         have access, contact your administrator.

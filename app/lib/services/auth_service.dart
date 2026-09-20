@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../widgets/pin_gate.dart';
 import '../config/api_config.dart';
 import 'api_client.dart';
 
@@ -186,6 +187,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    PinSession.lock();
     await ApiClient.instance.setToken(null);
   }
 

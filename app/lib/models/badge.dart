@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../providers/app_state.dart';
+
 /// The artwork shown for a quiz with no badge yet — a hamster rather than a
 /// padlock. A lock reads as "restricted"; a child who just finished a quiz
 /// and scored under [BadgeTier.rising]'s threshold hasn't been denied
@@ -21,39 +23,54 @@ enum BadgeTier {
   gold(
     minScore: 91,
     label: 'Gold',
+    labelTa: 'தங்கம்',
     animalName: 'Mighty Dragon',
+    animalNameTa: 'வலிமைமிக்க டிராகன்',
     icon: 'assets/badges/dragon.svg',
     quote: 'Roar! You have truly mastered this one.',
+    quoteTa: 'கர்ஜனை! இதை நீங்கள் முழுமையாகக் கற்றுக்கொண்டீர்கள்.',
     colors: [Color(0xFFFFD54F), Color(0xFFFF8F00)],
   ),
   silver(
     minScore: 81,
     label: 'Silver',
+    labelTa: 'வெள்ளி',
     animalName: 'Bold Tiger',
+    animalNameTa: 'துணிச்சலான புலி',
     icon: 'assets/badges/tiger.svg',
     quote: 'Brilliant! You pounced on that beautifully.',
+    quoteTa: 'அருமை! அழகாகப் பாய்ந்து பிடித்தீர்கள்.',
     colors: [Color(0xFFB0BEC5), Color(0xFF546E7A)],
   ),
   bronze(
     minScore: 61,
     label: 'Bronze',
+    labelTa: 'வெண்கலம்',
     animalName: 'Bright Butterfly',
+    animalNameTa: 'பிரகாசமான வண்ணத்துப்பூச்சி',
     icon: 'assets/badges/butterfly.svg',
     quote: 'Great work! You are getting stronger each time.',
+    quoteTa: 'சிறப்பான வேலை! ஒவ்வொரு முறையும் வலுவாகிறீர்கள்.',
     colors: [Color(0xFFE0A96D), Color(0xFF8D5524)],
   ),
   rising(
     minScore: 51,
     label: 'Rising Star',
+    labelTa: 'உதிக்கும் நட்சத்திரம்',
     animalName: 'Busy Hamster',
+    animalNameTa: 'சுறுசுறுப்பான வெள்ளெலி',
     icon: 'assets/badges/hamster.svg',
     quote: 'Nice work — keep those little paws moving!',
+    quoteTa: 'நல்ல முயற்சி — தொடர்ந்து முன்னேறுங்கள்!',
     colors: [Color(0xFF81D4FA), Color(0xFF1976D2)],
   );
 
   final int minScore;
   final String label;
   final String animalName;
+  final String labelTa;
+  final String animalNameTa;
+  final String quoteTa;
 
   /// Path to a bundled colour SVG illustration — real vector artwork, not a
   /// Unicode emoji character. An emoji glyph's art varies by device/OS font
@@ -69,11 +86,21 @@ enum BadgeTier {
   const BadgeTier({
     required this.minScore,
     required this.label,
+    required this.labelTa,
+    required this.animalNameTa,
+    required this.quoteTa,
     required this.animalName,
     required this.icon,
     required this.quote,
     required this.colors,
   });
+
+  bool get _ta => AppState.instance.locale == 'ta';
+
+  /// The name, animal and line in the app's current language.
+  String get localLabel => _ta ? labelTa : label;
+  String get localAnimalName => _ta ? animalNameTa : animalName;
+  String get localQuote => _ta ? quoteTa : quote;
 
   /// The tier a score earns, or null when it earns none. Ordered highest
   /// first, so the first band a score clears wins — matching
@@ -105,27 +132,40 @@ enum LearnerRank {
   champion(
     minAverage: 95,
     title: 'Diabetes Champion',
+    titleTa: 'நீரிழிவு வீரர்',
     icon: 'assets/badges/dragon.svg',
   ),
-  star(minAverage: 85, title: 'Star Learner', icon: 'assets/badges/tiger.svg'),
+  star(
+    minAverage: 85,
+    title: 'Star Learner',
+    titleTa: 'நட்சத்திரக் கற்பவர்',
+    icon: 'assets/badges/tiger.svg',
+  ),
   explorer(
     minAverage: 80,
     title: 'Bright Explorer',
+    titleTa: 'பிரகாசமான ஆய்வாளர்',
     icon: 'assets/badges/butterfly.svg',
   ),
   climber(
     minAverage: 65,
     title: 'Steady Climber',
+    titleTa: 'உறுதியாக ஏறுபவர்',
     icon: 'assets/badges/hamster.svg',
   ),
   sprout(
     minAverage: 0,
     title: 'Curious Sprout',
+    titleTa: 'ஆர்வமுள்ள முளை',
     icon: 'assets/badges/hamster.svg',
   );
 
   final int minAverage;
   final String title;
+  final String titleTa;
+
+  /// The rank's name in the app's current language.
+  String get localTitle => AppState.instance.locale == 'ta' ? titleTa : title;
 
   /// Path to a bundled colour SVG, not an emoji character — see
   /// [BadgeTier.icon].
@@ -134,6 +174,7 @@ enum LearnerRank {
   const LearnerRank({
     required this.minAverage,
     required this.title,
+    required this.titleTa,
     required this.icon,
   });
 

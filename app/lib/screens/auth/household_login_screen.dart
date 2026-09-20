@@ -6,6 +6,7 @@ import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/bilingual.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import 'child_select_screen.dart';
@@ -92,13 +93,13 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = e.message;
+        _error = e.bothMessage;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = S.couldNotLoad;
+        _error = S.bothText(() => S.couldNotLoad);
       });
     }
   }
@@ -112,7 +113,11 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                WaveHeader(title: S.welcomeBack, showBack: true),
+                WaveHeader(
+                  title: S.both(() => S.welcomeBack).en,
+                  titleTa: S.both(() => S.welcomeBack).ta,
+                  showBack: true,
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
                   child: Column(
@@ -147,8 +152,9 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
                       const SizedBox(height: 20),
                       LabeledField(
                         icon: Icons.lock_outline,
-                        label: S.password,
-                        hint: S.password,
+                        label: S.both(() => S.password).en,
+                        labelTa: S.both(() => S.password).ta,
+                        hint: S.both(() => S.password).en,
                         controller: _passwordController,
                         obscureText: true,
                         autofillHints: const [AutofillHints.password],
@@ -167,7 +173,16 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Text(S.continueLabel),
+                            : Bilingual.s(
+                                () => S.continueLabel,
+                                alignment: CrossAxisAlignment.center,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
                       ),
                     ],
                   ),
