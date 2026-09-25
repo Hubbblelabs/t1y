@@ -13,8 +13,7 @@ import type { BulkImportRow } from "@/lib/services/participants";
  */
 export const TEMPLATE_COLUMNS = [
   { header: "Email", key: "email", required: true },
-  { header: "First Name", key: "firstName", required: true },
-  { header: "Last Name", key: "lastName", required: true },
+  { header: "Name", key: "name", required: true },
   { header: "Date of Birth (YYYY-MM-DD)", key: "dateOfBirth", required: false },
   { header: "Diagnosis Year", key: "diagnosisYear", required: false },
   { header: "Phone", key: "phone", required: false },
@@ -35,8 +34,7 @@ export async function buildParticipantTemplate(): Promise<Buffer> {
   // One example row so the expected format (especially the date) is obvious.
   sheet.addRow({
     email: "parent.example@gmail.com",
-    firstName: "Aditi",
-    lastName: "Kumar",
+    name: "Aditi Kumar",
     dateOfBirth: "2016-04-12",
     diagnosisYear: 2024,
     phone: "+91 9876543210",
@@ -119,8 +117,7 @@ export async function parseParticipantWorkbook(
 
     const candidate = {
       email: raw.email,
-      firstName: raw.firstName,
-      lastName: raw.lastName,
+      name: raw.name,
       participantCode: raw.participantCode || undefined,
       diagnosisYear: raw.diagnosisYear ? Number(raw.diagnosisYear) : undefined,
       dateOfBirth: raw.dateOfBirth || undefined,

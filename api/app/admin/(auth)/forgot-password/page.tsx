@@ -10,7 +10,7 @@ export default function ForgotPasswordPage() {
     <Card className="p-6">
       <div className="mb-5">
         <h1 className="text-ink text-base font-semibold">Reset your password</h1>
-        <p className="text-ink-muted mt-1 text-[13px]">
+        <p className="text-ink-muted mt-1 text-xs">
           Enter your email address and we will send you a link to choose a new
           password.
         </p>

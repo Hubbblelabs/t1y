@@ -80,6 +80,21 @@ interface RouteConfig<TBody, TQuery, TParams, TAuth extends AuthMode> {
    * collecting health data the Flutter app has no screens to gather anyway.
    */
   requiresFlag?: FeatureFlagKey;
+  /**
+   * Skips the CSRF origin check. Valid *only* for endpoints that authenticate
+   * from their own request body — a password — rather than from an ambient
+   * cookie the browser attaches automatically.
+   *
+   * CSRF is an attack on ambient credentials: it works because a victim's
+   * cookies ride along on a request their page didn't mean to make. An
+   * endpoint that requires a password in the body has nothing to borrow, so
+   * the origin check buys no security there — while it does break the
+   * Flutter app, which has no session token yet at sign-in and, being a
+   * native client, sends no `Origin` header to check.
+   *
+   * Do not set this on anything a session cookie alone can authorise.
+   */
+  csrfExempt?: boolean;
   rateLimit?: RateLimitRule;
   body?: z.ZodType<TBody>;
   query?: z.ZodType<TQuery>;
@@ -115,7 +130,11 @@ export function defineRoute<
       // Cookie-authenticated mutations must originate from a trusted origin.
       // Bearer-token callers (the Flutter app) are not cookie-driven and so are
       // not exposed to CSRF.
-      if (MUTATING_METHODS.has(request.method) && !hasBearerToken(request)) {
+      if (
+        MUTATING_METHODS.has(request.method) &&
+        !hasBearerToken(request) &&
+        config.csrfExempt !== true
+      ) {
         assertTrustedOrigin(request);
       }
 

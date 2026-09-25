@@ -12,7 +12,7 @@ export default function LoginPage() {
     <Card className="p-6">
       <div className="mb-5">
         <h1 className="text-ink text-base font-semibold">Sign in</h1>
-        <p className="text-ink-muted mt-1 text-[13px]">
+        <p className="text-ink-muted mt-1 text-xs">
           Use your administrator, researcher or clinical reviewer account.
         </p>
       </div>

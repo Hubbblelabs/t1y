@@ -108,7 +108,7 @@ export function DataPoint({
   return (
     <div className={cn("min-w-0", className)}>
       <dt className="text-ink-subtle text-xs">{label}</dt>
-      <dd className="text-ink mt-0.5 truncate text-[13px] font-medium">
+      <dd className="text-ink mt-0.5 truncate text-xs font-medium">
         {value === null || value === undefined || value === "" ? (
           <span className="text-ink-subtle font-normal">—</span>
         ) : (

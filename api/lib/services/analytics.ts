@@ -308,8 +308,8 @@ export async function getRecentActivity(
     }),
   ]);
 
-  const name = (profile: { firstName: string; lastName: string } | null) =>
-    profile ? `${profile.firstName} ${profile.lastName}` : "Unknown participant";
+  const name = (profile: { name: string } | null) =>
+    profile ? profile.name : "Unknown participant";
   const code = (profile: { participantCode: string } | null) =>
     profile?.participantCode ?? "—";
 
@@ -350,8 +350,7 @@ export async function getRecentActivity(
 
 const participantNameSelect = {
   participantCode: true,
-  firstName: true,
-  lastName: true,
+  name: true,
 } satisfies Prisma.ProfileSelect;
 
 /** Distribution counts used by the reports module. */

@@ -19,7 +19,7 @@ export default function AdminNotFound() {
           <FileQuestion className="size-5" aria-hidden="true" />
         </div>
         <h1 className="text-ink text-base font-semibold">Not found</h1>
-        <p className="text-ink-muted mt-2 text-[13px] leading-relaxed">
+        <p className="text-ink-muted mt-2 text-xs leading-relaxed">
           This record does not exist, or is not available to your account.
         </p>
         <Button variant="secondary" asChild className="mt-5">

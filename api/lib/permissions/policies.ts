@@ -42,10 +42,6 @@ export function canManageEducation(principal: Principal): boolean {
   return can(principal, Capability.EDUCATION_MANAGE);
 }
 
-export function canManageExerciseContent(principal: Principal): boolean {
-  return can(principal, Capability.EXERCISE_CONTENT_MANAGE);
-}
-
 export function canManageAdmins(principal: Principal): boolean {
   return can(principal, Capability.ADMINS_MANAGE);
 }

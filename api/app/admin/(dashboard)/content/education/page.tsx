@@ -2,162 +2,95 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
 
+import { HelpBookTopicList } from "@/components/admin/content/help-book-topic-list";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
-import { Pagination } from "@/components/admin/pagination";
-import { SearchBox } from "@/components/admin/search-box";
 import { StatCard } from "@/components/admin/stat-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableScroll,
-} from "@/components/ui/table";
-import { buildPagination } from "@/lib/api/response";
-import { listEducationForAdmin, getEducationStats } from "@/lib/services/education";
-import { formatDate, formatNumber, humaniseEnum } from "@/lib/utils/format";
-import { educationListQuerySchema } from "@/lib/validation/admin";
+import { listHelpBookTopics } from "@/lib/services/education";
+import { formatNumber } from "@/lib/utils/format";
 
-export const metadata: Metadata = { title: "Education" };
+export const metadata: Metadata = { title: "Help Book" };
 
-/** Education content library. */
-export default async function EducationPage(
-  props: PageProps<"/admin/content/education">,
-) {
-  const searchParams = await props.searchParams;
-  const parsed = educationListQuerySchema.safeParse(searchParams);
-  const query = parsed.success ? parsed.data : educationListQuerySchema.parse({});
+/**
+ * The Help Book library.
+ *
+ * One row per topic, not per stored row: a topic exists in English and Tamil,
+ * and showing those as two separate entries made the library look twice as
+ * long as it is and hid which topics were still missing a translation.
+ */
+export default async function HelpBookPage() {
+  const topics = await listHelpBookTopics();
 
-  const [{ items, total }, stats] = await Promise.all([
-    listEducationForAdmin({
-      status: query.status,
-      category: query.category,
-      search: query.search,
-      skip: (query.page - 1) * query.pageSize,
-      take: query.pageSize,
-    }),
-    getEducationStats(),
-  ]);
-
-  const pagination = buildPagination(query.page, query.pageSize, total);
+  const live = topics.filter(
+    (topic) => topic.versions.EN?.status === "PUBLISHED" || topic.versions.TA?.status === "PUBLISHED",
+  ).length;
+  const missingTamil = topics.filter((topic) => !topic.versions.TA).length;
 
   return (
     <PageContainer>
       <PageHeader
-        title="Education"
-        description="Articles and media shown to participants in the mobile application"
-        breadcrumbs={[{ label: "Content" }, { label: "Education" }]}
+        title="Help Book"
+        description="The reading topics families see in the app, in the order they see them"
+        breadcrumbs={[{ label: "What families see" }, { label: "Help Book" }]}
         actions={
           <Button asChild variant="primary">
             <Link href="/admin/content/education/new">
               <Plus className="size-4" aria-hidden="true" />
-              New article
+              New topic
             </Link>
           </Button>
         }
       />
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total articles" value={formatNumber(stats.total)} />
-        <StatCard label="Published" value={formatNumber(stats.published)} />
-        <StatCard label="Drafts" value={formatNumber(stats.draft)} />
-        <StatCard label="Archived" value={formatNumber(stats.archived)} />
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <StatCard label="Topics" value={formatNumber(topics.length)} />
+        <StatCard label="Live in the app" value={formatNumber(live)} />
+        <StatCard label="Still need Tamil" value={formatNumber(missingTamil)} />
       </div>
 
       <Card>
-        <div className="border-line border-b p-4">
-          <SearchBox placeholder="Search by title or slug" />
-        </div>
-
-        {items.length === 0 ? (
+        {topics.length === 0 ? (
           <EmptyState
             icon={BookOpen}
-            title={query.search ? "No articles match your search" : "No articles yet"}
-            description={
-              query.search
-                ? "Try a different search term or clear the filters."
-                : "Create an article to start building the education library."
-            }
+            title="No topics yet"
+            description="Add your first topic to start building the Help Book families read."
           />
         ) : (
-          <>
-            <TableScroll label="Education content">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Lang</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Media</TableHead>
-                    <TableHead className="text-right">Views</TableHead>
-                    <TableHead>Author</TableHead>
-                    <TableHead>Updated</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((article) => (
-                    <TableRow key={article.id} className="hover:bg-surface-hover">
-                      <TableCell className="max-w-72">
-                        <Link
-                          href={`/admin/content/education/${article.id}`}
-                          className="text-ink hover:underline"
-                        >
-                          <span className="block truncate font-medium">{article.title}</span>
-                        </Link>
-                        <span className="text-ink-subtle block truncate text-xs">
-                          /{article.slug}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge tone="neutral">{article.locale}</Badge>
-                      </TableCell>
-                      <TableCell className="text-ink-muted whitespace-nowrap">
-                        {humaniseEnum(article.category)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          tone={
-                            article.status === "PUBLISHED"
-                              ? "success"
-                              : article.status === "DRAFT"
-                                ? "warning"
-                                : "neutral"
-                          }
-                        >
-                          {humaniseEnum(article.status)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-ink-muted">
-                        {article.mediaType === "NONE" ? "—" : humaniseEnum(article.mediaType)}
-                      </TableCell>
-                      <TableCell className="tabular text-right">
-                        {formatNumber(article.viewCount)}
-                      </TableCell>
-                      <TableCell className="text-ink-muted max-w-36 truncate">
-                        {article.author.name}
-                      </TableCell>
-                      <TableCell className="text-ink-muted whitespace-nowrap">
-                        {formatDate(article.updatedAt)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableScroll>
-
-            <div className="border-line border-t px-4 py-3">
-              <Pagination pagination={pagination} />
-            </div>
-          </>
+          <HelpBookTopicList initial={topics.map(toRow)} />
         )}
       </Card>
     </PageContainer>
   );
+}
+
+function toRow(topic: Awaited<ReturnType<typeof listHelpBookTopics>>[number]) {
+  return {
+    slug: topic.slug,
+    category: topic.category,
+    displayTitle: topic.displayTitle,
+    versions: {
+      EN: topic.versions.EN
+        ? {
+            id: topic.versions.EN.id,
+            title: topic.versions.EN.title,
+            status: topic.versions.EN.status,
+            thumbnailUrl: topic.versions.EN.thumbnailUrl,
+            viewCount: topic.versions.EN.viewCount,
+            blockCount: topic.versions.EN.blockCount,
+          }
+        : null,
+      TA: topic.versions.TA
+        ? {
+            id: topic.versions.TA.id,
+            title: topic.versions.TA.title,
+            status: topic.versions.TA.status,
+            thumbnailUrl: topic.versions.TA.thumbnailUrl,
+            viewCount: topic.versions.TA.viewCount,
+            blockCount: topic.versions.TA.blockCount,
+          }
+        : null,
+    },
+  };
 }

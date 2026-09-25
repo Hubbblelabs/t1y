@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
+import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
+import '../l10n/strings.dart';
 
 /// Per-category artwork for topics whose source document has no figures
 /// (insulin-pump, exercise, school-travel), and as the loading/error
@@ -17,6 +19,31 @@ const categoryIcons = <String, IconData>{
   'DIABAG': Icons.medical_services_outlined,
   'GENERAL_WELLNESS': Icons.fact_check_outlined,
 };
+
+const _categoryTamil = <String, String>{
+  'INSULIN': 'இன்சுலின்',
+  'GLUCOSE_MANAGEMENT': 'குளுக்கோஸ் மேலாண்மை',
+  'HYPOGLYCAEMIA': 'குறைந்த சர்க்கரை',
+  'NUTRITION': 'ஊட்டச்சத்து',
+  'EXERCISE': 'உடற்பயிற்சி',
+  'SCHOOL_MANAGEMENT': 'பள்ளியில் மேலாண்மை',
+  'TRAVEL': 'பயணம்',
+  'DIABAG': 'நீரிழிவு பை',
+  'GENERAL_WELLNESS': 'பொது நலம்',
+};
+
+/// A Help Book category's name in the app's current language. An unknown
+/// category (one an administrator added) falls back to tidied English.
+String categoryName(String category) {
+  if (AppState.instance.locale == 'ta') {
+    final ta = _categoryTamil[category];
+    if (ta != null) return ta;
+  }
+  return category
+      .split('_')
+      .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
+      .join(' ');
+}
 
 /// Wide Help Book card — artwork on the left, details stacked on the right,
 /// following the supplied listing-card reference.
@@ -81,7 +108,8 @@ class TopicCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    if (topic.description != null && topic.description!.isNotEmpty)
+                    if (topic.description != null &&
+                        topic.description!.isNotEmpty)
                       Text(
                         topic.description!,
                         maxLines: 2,
@@ -134,14 +162,14 @@ class TopicCard extends StatelessWidget {
                         runSpacing: 4,
                         children: [
                           if (isRead)
-                            const _Pill(
-                              label: 'Read',
+                            _Pill(
+                              label: S.readLabel,
                               icon: Icons.check_circle,
                               color: Color(0xFF2E7D32),
                             ),
                           if (topic.isFallback)
-                            const _Pill(
-                              label: 'English only',
+                            _Pill(
+                              label: S.englishOnly,
                               icon: Icons.translate,
                               color: Color(0xFFB26A00),
                             ),
@@ -158,12 +186,7 @@ class TopicCard extends StatelessWidget {
     );
   }
 
-  static String _categoryLabel(String category) {
-    final words = category.split('_');
-    return words
-        .map((w) => w.isEmpty ? w : w[0] + w.substring(1).toLowerCase())
-        .join(' ');
-  }
+  static String _categoryLabel(String category) => categoryName(category);
 }
 
 class _Thumbnail extends StatelessWidget {
@@ -177,11 +200,15 @@ class _Thumbnail extends StatelessWidget {
     required this.fallbackIcon,
   });
 
+  // 3:2 — the same fixed image ratio used across the Help Book.
+  static const _width = 114.0;
+  static const _height = 76.0;
+
   @override
   Widget build(BuildContext context) {
     final placeholder = Container(
-      width: 104,
-      height: 104,
+      width: _width,
+      height: _height,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -189,21 +216,25 @@ class _Thumbnail extends StatelessWidget {
           colors: [AppTheme.lightest, AppTheme.accent.withValues(alpha: 0.7)],
         ),
       ),
-      child: Icon(fallbackIcon, size: 38, color: AppTheme.deep.withValues(alpha: 0.55)),
+      child: Icon(
+        fallbackIcon,
+        size: 32,
+        color: AppTheme.deep.withValues(alpha: 0.55),
+      ),
     );
 
     final thumb = topic.thumbnailUrl;
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: SizedBox(
-        width: 104,
-        height: 104,
+        width: _width,
+        height: _height,
         child: (thumb == null || baseUrl == null)
             ? placeholder
             : Image.network(
                 thumb.startsWith('http') ? thumb : '$baseUrl$thumb',
-                width: 104,
-                height: 104,
+                width: _width,
+                height: _height,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => placeholder,
                 loadingBuilder: (context, child, progress) =>
@@ -219,7 +250,7 @@ class _Pill extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  const _Pill({required this.label, required this.icon, required this.color});
+  _Pill({required this.label, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +267,11 @@ class _Pill extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: color),
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ],
       ),

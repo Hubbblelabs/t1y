@@ -4,6 +4,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { ContentLocale } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db/prisma";
 import { gradeAttempt } from "@/lib/quizzes/grading";
+import { awardBadgeForAttempt } from "@/lib/services/badges";
 import { listPublishedEducationBundle } from "@/lib/services/education";
 import { listPublishedQuizBundle } from "@/lib/services/quizzes";
 import { logger } from "@/lib/utils/logger";
@@ -247,6 +248,13 @@ async function applyQuizAttemptEvent(
         },
         select: { id: true },
       });
+    });
+
+    // Outside the transaction on purpose: a badge is a reward derived from
+    // the attempt, so failing to award one must never roll back the attempt
+    // itself. It can always be recomputed from the attempt later.
+    await awardBadgeForAttempt(attempt.id).catch((error) => {
+      logger.error("sync.badge_award_failed", { attemptId: attempt.id, error });
     });
 
     return { clientId: event.clientId, status: "applied", serverId: attempt.id };

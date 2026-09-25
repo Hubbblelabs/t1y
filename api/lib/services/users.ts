@@ -5,6 +5,7 @@ import type { DiabetesType, TreatmentModality } from "@/generated/prisma/enums";
 import { NotFoundError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
 import { nextParticipantCode } from "@/lib/services/participants";
+import { mergeAndValidateCustomFieldValues } from "@/lib/services/profile-fields";
 
 /**
  * The authenticated user's own account and profile.
@@ -28,8 +29,7 @@ const ME_SELECT = {
   profile: {
     select: {
       participantCode: true,
-      firstName: true,
-      lastName: true,
+      name: true,
       dateOfBirth: true,
       sex: true,
       phone: true,
@@ -43,6 +43,7 @@ const ME_SELECT = {
       primaryClinician: true,
       emergencyContactName: true,
       emergencyContactPhone: true,
+      customFieldValues: true,
       icIsfUnlocked: true,
       onboardedAt: true,
       lastActivityAt: true,
@@ -64,8 +65,7 @@ export interface UpdateMeInput {
   timezone?: string;
   locale?: string;
   profile?: {
-    firstName?: string;
-    lastName?: string;
+    name?: string;
     dateOfBirth?: Date | null;
     sex?: "FEMALE" | "MALE" | "INTERSEX" | "PREFER_NOT_TO_SAY" | "UNSPECIFIED";
     phone?: string | null;
@@ -78,6 +78,8 @@ export interface UpdateMeInput {
     baselineWeightKg?: number | null;
     emergencyContactName?: string | null;
     emergencyContactPhone?: string | null;
+    primaryClinician?: string | null;
+    customFieldValues?: Record<string, string | number | null>;
   };
 }
 
@@ -95,22 +97,42 @@ export interface UpdateMeInput {
  * first time and updates it on every call after.
  */
 export async function updateCurrentUser(userId: string, input: UpdateMeInput) {
-  const profile = input.profile;
+  const { customFieldValues, ...profile } = input.profile ?? {};
+  const hasProfile = input.profile !== undefined;
+
+  // Custom-field answers are merged against whatever is already on file, not
+  // replaced wholesale — spreading `profile` straight into a Prisma update
+  // would otherwise overwrite the whole JSON bucket with only this call's
+  // keys and silently drop every other admin-defined field's answer.
+  let mergedCustomFields: Record<string, string | number | null> | undefined;
+  if (customFieldValues) {
+    const existing = await prisma.profile.findUnique({
+      where: { userId },
+      select: { customFieldValues: true },
+    });
+    mergedCustomFields = await mergeAndValidateCustomFieldValues(
+      existing?.customFieldValues ?? {},
+      customFieldValues,
+    );
+  }
+
   return prisma.user.update({
     where: { id: userId },
     data: {
       name: input.name,
       timezone: input.timezone,
       locale: input.locale,
-      ...(profile
+      ...(hasProfile
         ? {
             profile: {
               upsert: {
-                update: profile,
+                update: {
+                  ...profile,
+                  ...(mergedCustomFields ? { customFieldValues: mergedCustomFields } : {}),
+                },
                 create: {
                   participantCode: await nextParticipantCode(),
-                  firstName: profile.firstName ?? "",
-                  lastName: profile.lastName ?? "",
+                  name: profile.name ?? "",
                   dateOfBirth: profile.dateOfBirth,
                   sex: profile.sex,
                   phone: profile.phone,
@@ -123,6 +145,8 @@ export async function updateCurrentUser(userId: string, input: UpdateMeInput) {
                   baselineWeightKg: profile.baselineWeightKg,
                   emergencyContactName: profile.emergencyContactName,
                   emergencyContactPhone: profile.emergencyContactPhone,
+                  primaryClinician: profile.primaryClinician,
+                  ...(mergedCustomFields ? { customFieldValues: mergedCustomFields } : {}),
                 },
               },
             },

@@ -32,6 +32,13 @@ export const SETTING_DEFAULTS = {
 
   "exports.maxRows": 50000,
   "exports.retentionDays": 7,
+
+  // Minimum gap, in hours, a parent must leave between two glucose entries
+  // for the same child — see lib/services/glucose.ts's
+  // getGlucoseEntryStatus, which is what actually enforces it. Configurable
+  // here rather than hard-coded because it's a study-protocol decision, not
+  // an engineering one.
+  "health.glucoseEntryCooldownHours": 8,
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

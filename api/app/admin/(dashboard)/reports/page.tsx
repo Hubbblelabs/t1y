@@ -4,18 +4,13 @@ import { Suspense } from "react";
 import { DateRangePicker } from "@/components/admin/date-range-picker";
 import { PageContainer, PageHeader, Section } from "@/components/admin/page-header";
 import { StatCard } from "@/components/admin/stat-card";
-import {
-  CategoryBars,
-  TrendBarChart,
-  TrendLineChart,
-} from "@/components/charts/trend-charts";
+import { CategoryBars, TrendLineChart } from "@/components/charts/trend-charts";
 import { Card } from "@/components/ui/card";
 import { ChartSkeleton, StatSkeleton } from "@/components/ui/states";
 import { requirePrincipal } from "@/lib/auth/session";
 import { getCohortBreakdown, getDashboardOverview } from "@/lib/services/analytics";
 import { getAggregateGlucoseTrend } from "@/lib/services/glucose";
-import { getAdherenceTrend } from "@/lib/services/medications";
-import { getExerciseTrend } from "@/lib/services/exercise";
+import { getResearchStats } from "@/lib/services/research-stats";
 import { participantScopeFilter } from "@/lib/permissions/policies";
 import { prisma } from "@/lib/db/prisma";
 import {
@@ -24,16 +19,19 @@ import {
   resolveDateRange,
   type DateRangeInput,
 } from "@/lib/validation/common";
-import { formatDuration, formatNumber, formatPercent, humaniseEnum } from "@/lib/utils/format";
+import { formatNumber, humaniseEnum } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Reports" };
 
 /**
- * Operational reporting.
+ * How the study is going, in plain terms.
  *
- * Descriptive throughout: cohort composition, engagement and adherence over
- * the selected period. It reports what was recorded and draws no conclusions
- * from it.
+ * Descriptive throughout: who has signed up and what they have recorded over
+ * the chosen period. It reports what happened and draws no conclusions.
+ *
+ * Medication adherence and exercise minutes used to be reported here. Neither
+ * is something this study's app records, so both only ever showed empty
+ * charts; they were removed rather than left to look like missing data.
  */
 export default async function ReportsPage(props: PageProps<"/admin/reports">) {
   const searchParams = await props.searchParams;
@@ -44,7 +42,7 @@ export default async function ReportsPage(props: PageProps<"/admin/reports">) {
     <PageContainer>
       <PageHeader
         title="Reports"
-        description="Platform activity and cohort composition for the selected period"
+        description="Who has signed up and what they have recorded, for the time you choose"
         actions={<DateRangePicker />}
       />
 
@@ -70,115 +68,147 @@ async function ReportsContent({ range }: { range: DateRangeInput }) {
   const unrestricted = Object.keys(scope).length === 0;
   const cohortScope = unrestricted ? {} : { userIds };
 
-  const [overview, breakdown, glucoseSeries, adherenceSeries, exerciseSeries] =
-    await Promise.all([
-      getDashboardOverview(principal, resolved),
-      getCohortBreakdown(principal),
-      getAggregateGlucoseTrend({
-        ...cohortScope,
-        from: resolved.from,
-        to: resolved.to,
-        interval,
-        unit: "MG_DL",
-      }),
-      getAdherenceTrend({
-        ...cohortScope,
-        from: resolved.from,
-        to: resolved.to,
-        interval,
-      }),
-      getExerciseTrend({
-        ...cohortScope,
-        from: resolved.from,
-        to: resolved.to,
-        interval,
-      }),
-    ]);
+  const [overview, breakdown, glucoseSeries, research] = await Promise.all([
+    getDashboardOverview(principal, resolved),
+    getCohortBreakdown(principal),
+    getAggregateGlucoseTrend({
+      ...cohortScope,
+      from: resolved.from,
+      to: resolved.to,
+      interval,
+      unit: "MG_DL",
+    }),
+    getResearchStats({
+      userIds: unrestricted ? null : userIds,
+      from: resolved.from,
+      to: resolved.to,
+    }),
+  ]);
+  const g = research.glucose;
+  const insulin = research.insulin;
+  const one = (value: number | null, unit?: string) =>
+    value === null ? "No data yet" : formatNumber(value, { decimals: 1, unit });
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Cohort size" value={formatNumber(userIds.length)} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <StatCard label="Children in the study" value={formatNumber(userIds.length)} />
         <StatCard
-          label="Records logged"
+          label="Entries recorded"
           value={formatNumber(overview.activity.recordsLoggedInPeriod)}
           hint={rangeLabel}
         />
-        <StatCard
-          label="Medication adherence"
-          value={formatPercent(overview.adherence.percent, 1)}
-          hint={`${formatNumber(overview.adherence.taken)} of ${formatNumber(overview.adherence.taken + overview.adherence.missed + overview.adherence.skipped)} doses`}
-        />
-        <StatCard
-          label="Exercise recorded"
-          value={formatDuration(overview.exercise.totalMinutes)}
-          hint={`${formatNumber(overview.exercise.sessionCount)} sessions`}
-        />
       </div>
 
-      <Section title="Engagement over time" description={rangeLabel}>
-        <div className="grid gap-4">
-          <TrendLineChart
-            title="Glucose readings"
-            unit="mg/dL"
-            rangeLabel={rangeLabel}
-            data={glucoseSeries}
-            series={[{ key: "average", name: "Cohort average", colour: "var(--color-chart-1)" }]}
-            emptyTitle="No glucose readings"
-            emptyDescription="No readings were recorded across the cohort during this period."
+      <Section
+        title="Glucose control"
+        description={`Worked out from every reading recorded — ${rangeLabel}`}
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Average glucose" value={one(g.meanMgDl, "mg/dL")} hint={`${formatNumber(g.readings)} readings`} />
+          <StatCard
+            label="Time in range (70–180)"
+            value={one(g.inRangePercent, "%")}
+            hint="Share of readings in the healthy band"
           />
-
-          <div className="grid gap-4 lg:grid-cols-2">
-            <TrendLineChart
-              title="Medication adherence"
-              unit="%"
-              rangeLabel={rangeLabel}
-              height={220}
-              data={adherenceSeries}
-              series={[
-                { key: "adherencePercent", name: "Adherence", colour: "var(--color-chart-3)" },
-              ]}
-              emptyTitle="No doses came due"
-              emptyDescription="No scheduled doses fell within this period."
-            />
-
-            <TrendBarChart
-              title="Exercise minutes"
-              unit="minutes"
-              rangeLabel={rangeLabel}
-              height={220}
-              data={exerciseSeries}
-              series={[{ key: "minutes", name: "Minutes", colour: "var(--color-chart-2)" }]}
-              emptyTitle="No exercise recorded"
-              emptyDescription="No sessions were logged during this period."
-            />
-          </div>
+          <StatCard
+            label="Below 70 (lows)"
+            value={one(g.belowRangePercent, "%")}
+            hint="Share of readings that were low"
+          />
+          <StatCard
+            label="Above 180 (highs)"
+            value={one(g.aboveRangePercent, "%")}
+            hint="Share of readings that were high"
+          />
+          <StatCard
+            label="Estimated HbA1c"
+            value={one(g.gmiPercent, "%")}
+            hint="Estimated from average glucose: 3.31 + 0.02392 × average"
+          />
+          <StatCard
+            label="Glucose swings"
+            value={one(g.cvPercent, "%")}
+            hint="Standard deviation as a share of the average; under 36% is steady"
+          />
+          <StatCard
+            label="Readings per day"
+            value={one(g.readingsPerDay)}
+            hint="How often families record"
+          />
+          <StatCard
+            label="Children recording"
+            value={`${formatNumber(research.childrenLogging)} of ${formatNumber(research.childrenInScope)}`}
+            hint="Recorded at least one reading"
+          />
         </div>
       </Section>
 
-      <Section title="Cohort composition" description="Current registered participants">
+      <Section
+        title="Insulin"
+        description={`Worked out from every dose recorded — ${rangeLabel}`}
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Average daily insulin per child"
+            value={one(insulin.meanTotalDailyDose, "units")}
+            hint={`${formatNumber(insulin.childrenWithDoses)} children logged doses`}
+          />
+          <StatCard
+            label="Carbs covered by 1 unit"
+            value={one(insulin.icRatioAtMeanTdd, "g")}
+            hint="500 ÷ the average daily dose"
+          />
+          <StatCard
+            label="Glucose lowered by 1 unit"
+            value={one(insulin.isfAtMeanTdd, "mg/dL")}
+            hint="1800 ÷ the average daily dose"
+          />
+          <StatCard label="Doses recorded" value={formatNumber(insulin.doses)} hint={rangeLabel} />
+        </div>
+      </Section>
+
+      <Section title="Glucose readings over time" description={rangeLabel}>
+        <TrendLineChart
+          title="Glucose readings"
+          unit="mg/dL"
+          rangeLabel={rangeLabel}
+          data={glucoseSeries}
+          series={[
+            {
+              key: "average",
+              name: "Average across all children",
+              colour: "var(--color-chart-1)",
+            },
+          ]}
+          emptyTitle="No glucose readings"
+          emptyDescription="No readings were recorded by any child during this time."
+        />
+      </Section>
+
+      <Section title="Who has signed up" description="Children currently in the study">
         <div className="grid gap-4 lg:grid-cols-3">
           <CategoryBars
-            title="By diabetes type"
-            valueLabel="Participants"
+            title="By type of diabetes"
+            valueLabel="Children"
             data={breakdown.byDiabetesType.map((entry) => ({
               label: humaniseEnum(entry.key),
               value: entry.count,
             }))}
           />
           <CategoryBars
-            title="By treatment"
-            valueLabel="Participants"
+            title="By how they are treated"
+            valueLabel="Children"
             data={breakdown.byTreatmentModality.map((entry) => ({
               label: humaniseEnum(entry.key),
               value: entry.count,
             }))}
           />
           <CategoryBars
-            title="By account status"
-            valueLabel="Participants"
+            title="By sign-up status"
+            valueLabel="Children"
             data={breakdown.byStatus.map((entry) => ({
-              label: humaniseEnum(entry.key),
+              label: SIGN_UP_STATUS[entry.key] ?? humaniseEnum(entry.key),
               value: entry.count,
             }))}
           />
@@ -188,11 +218,19 @@ async function ReportsContent({ range }: { range: DateRangeInput }) {
   );
 }
 
+/** What an account status means to the person reading the report. */
+const SIGN_UP_STATUS: Record<string, string> = {
+  PENDING: "Waiting to be approved",
+  ACTIVE: "Signed up and using the app",
+  INACTIVE: "No longer using the app",
+  SUSPENDED: "Paused by the team",
+};
+
 function ReportsFallback() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, index) => (
           <StatSkeleton key={index} />
         ))}
       </div>

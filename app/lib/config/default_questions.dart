@@ -1,0 +1,201 @@
+import '../models/question.dart';
+
+/// The questions the app has always asked, bundled with it.
+///
+/// The dashboard is the source of truth: once the app has fetched the list it
+/// uses that. This copy exists so that sign-up and the profile screen work
+/// with no connection at all, on a first launch, and against a server that has
+/// not been set up — a family must never be unable to sign up because a request
+/// did not come back.
+///
+/// It mirrors `api/scripts/seed-builtin-profile-fields.ts` question for
+/// question. If one changes, change the other; `test/question_rules_test.dart`
+/// checks the parts of this that the rest of the app depends on.
+const List<Question> defaultQuestions = [
+  // ---- Asked when a parent signs up ---------------------------------------
+  Question(
+    key: 'name',
+    fieldType: 'TEXT',
+    section: 'About the child',
+    sortOrder: 10,
+    required: true,
+    showOnSignup: true,
+    builtIn: true,
+    labelEn: "Child's name",
+    labelTa: 'குழந்தையின் பெயர்',
+    promptEn: 'What is your child name?',
+    promptTa: 'உங்கள் குழந்தையின் பெயர் என்ன?',
+    rules: {'minLength': 2, 'maxLength': 80, 'format': 'LETTERS'},
+  ),
+  Question(
+    key: 'dateOfBirth',
+    fieldType: 'DATE',
+    section: 'About the child',
+    sortOrder: 20,
+    required: true,
+    showOnSignup: true,
+    builtIn: true,
+    labelEn: 'Date of birth',
+    labelTa: 'பிறந்த தேதி',
+    promptEn: 'What is their date of birth?',
+    promptTa: 'அவர்களின் பிறந்த தேதி என்ன?',
+    rules: {'notInFuture': true, 'minAgeYears': 0, 'maxAgeYears': 25},
+  ),
+  Question(
+    key: 'sex',
+    fieldType: 'CHOICE',
+    section: 'About the child',
+    sortOrder: 30,
+    required: true,
+    showOnSignup: true,
+    builtIn: true,
+    labelEn: 'Sex',
+    labelTa: 'பாலினம்',
+    promptEn: 'Sex, for the medical record?',
+    promptTa: 'மருத்துவப் பதிவிற்கான பாலினம்?',
+    options: [
+      QuestionOption(value: 'FEMALE', labelEn: 'Female', labelTa: 'பெண்'),
+      QuestionOption(value: 'MALE', labelEn: 'Male', labelTa: 'ஆண்'),
+    ],
+  ),
+  Question(
+    key: 'diagnosisYear',
+    fieldType: 'NUMBER',
+    section: 'About the child',
+    sortOrder: 40,
+    required: true,
+    showOnSignup: true,
+    builtIn: true,
+    labelEn: 'Year of diagnosis',
+    labelTa: 'கண்டறியப்பட்ட ஆண்டு',
+    promptEn: 'What year were they diagnosed with Type 1 diabetes?',
+    promptTa: 'எந்த ஆண்டில் டைப் 1 நீரிழிவு கண்டறியப்பட்டது?',
+    rules: {
+      'min': 1900,
+      'wholeNumber': true,
+      'upToCurrentYear': true,
+      'notBeforeYearOf': 'dateOfBirth',
+    },
+  ),
+
+  // ---- Asked later, on the profile screen ---------------------------------
+  Question(
+    key: 'phone',
+    fieldType: 'TEXT',
+    section: 'Contact',
+    sortOrder: 50,
+    builtIn: true,
+    labelEn: 'Phone',
+    labelTa: 'தொலைபேசி',
+    rules: {'maxLength': 32},
+  ),
+  Question(
+    key: 'city',
+    fieldType: 'TEXT',
+    section: 'Contact',
+    sortOrder: 60,
+    builtIn: true,
+    labelEn: 'City',
+    labelTa: 'நகரம்',
+    rules: {'maxLength': 80},
+  ),
+  Question(
+    key: 'country',
+    fieldType: 'TEXT',
+    section: 'Contact',
+    sortOrder: 70,
+    builtIn: true,
+    labelEn: 'Country',
+    labelTa: 'நாடு',
+    rules: {'maxLength': 80},
+  ),
+  Question(
+    key: 'treatmentModality',
+    fieldType: 'CHOICE',
+    section: 'Treatment',
+    sortOrder: 80,
+    builtIn: true,
+    labelEn: 'Treatment',
+    labelTa: 'சிகிச்சை',
+    options: [
+      QuestionOption(
+        value: 'LIFESTYLE_ONLY',
+        labelEn: 'Lifestyle only',
+        labelTa: 'வாழ்க்கை முறை மட்டும்',
+      ),
+      QuestionOption(
+        value: 'ORAL_MEDICATION',
+        labelEn: 'Oral medication',
+        labelTa: 'வாய்வழி மருந்து',
+      ),
+      QuestionOption(
+        value: 'INSULIN',
+        labelEn: 'Insulin',
+        labelTa: 'இன்சுலின்',
+      ),
+      QuestionOption(
+        value: 'ORAL_AND_INSULIN',
+        labelEn: 'Oral & insulin',
+        labelTa: 'வாய்வழி & இன்சுலின்',
+      ),
+      QuestionOption(
+        value: 'NON_INSULIN_INJECTABLE',
+        labelEn: 'Non-insulin injectable',
+        labelTa: 'இன்சுலின் அல்லாத ஊசி மருந்து',
+      ),
+      QuestionOption(value: 'OTHER', labelEn: 'Other', labelTa: 'மற்றவை'),
+    ],
+  ),
+  Question(
+    key: 'primaryClinician',
+    fieldType: 'TEXT',
+    section: 'Treatment',
+    sortOrder: 90,
+    builtIn: true,
+    labelEn: "Treating doctor's name",
+    labelTa: 'சிகிச்சை அளிக்கும் மருத்துவரின் பெயர்',
+    rules: {'maxLength': 120},
+  ),
+  Question(
+    key: 'heightCm',
+    fieldType: 'NUMBER',
+    section: 'Measurements',
+    sortOrder: 100,
+    builtIn: true,
+    labelEn: 'Height',
+    labelTa: 'உயரம்',
+    unit: 'cm',
+    rules: {'min': 50, 'max': 280},
+  ),
+  Question(
+    key: 'baselineWeightKg',
+    fieldType: 'NUMBER',
+    section: 'Measurements',
+    sortOrder: 110,
+    builtIn: true,
+    labelEn: 'Weight',
+    labelTa: 'எடை',
+    unit: 'kg',
+    rules: {'min': 10, 'max': 500},
+  ),
+  Question(
+    key: 'emergencyContactName',
+    fieldType: 'TEXT',
+    section: 'Emergency contact',
+    sortOrder: 120,
+    builtIn: true,
+    labelEn: 'Emergency contact name',
+    labelTa: 'அவசர தொடர்பு பெயர்',
+    rules: {'maxLength': 120},
+  ),
+  Question(
+    key: 'emergencyContactPhone',
+    fieldType: 'TEXT',
+    section: 'Emergency contact',
+    sortOrder: 130,
+    builtIn: true,
+    labelEn: 'Emergency contact phone',
+    labelTa: 'அவசர தொடர்பு தொலைபேசி',
+    rules: {'maxLength': 32},
+  ),
+];

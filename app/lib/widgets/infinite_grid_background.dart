@@ -9,19 +9,27 @@ class InfiniteGridBackground extends StatefulWidget {
   final Color lineColor;
   final double spacing;
 
-  const InfiniteGridBackground({super.key, this.lineColor = Colors.white, this.spacing = 40});
+  const InfiniteGridBackground({
+    super.key,
+    this.lineColor = Colors.white,
+    this.spacing = 40,
+  });
 
   @override
   State<InfiniteGridBackground> createState() => _InfiniteGridBackgroundState();
 }
 
-class _InfiniteGridBackgroundState extends State<InfiniteGridBackground> with SingleTickerProviderStateMixin {
+class _InfiniteGridBackgroundState extends State<InfiniteGridBackground>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 20))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat();
   }
 
   @override
@@ -55,7 +63,11 @@ class _GridPainter extends CustomPainter {
   final double spacing;
   final Color color;
 
-  _GridPainter({required this.progress, required this.spacing, required this.color});
+  _GridPainter({
+    required this.progress,
+    required this.spacing,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -67,11 +79,16 @@ class _GridPainter extends CustomPainter {
     for (double x = -spacing + offset; x < size.width + spacing; x += spacing) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = -spacing + offset; y < size.height + spacing; y += spacing) {
+    for (
+      double y = -spacing + offset;
+      y < size.height + spacing;
+      y += spacing
+    ) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _GridPainter oldDelegate) => oldDelegate.progress != progress;
+  bool shouldRepaint(covariant _GridPainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

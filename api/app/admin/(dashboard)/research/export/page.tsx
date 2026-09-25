@@ -49,7 +49,7 @@ export default async function ExportPage() {
 
         <Card className="p-5">
           <h2 className="text-ink mb-2 text-sm font-semibold">What is included</h2>
-          <ul className="text-ink-muted space-y-2 text-[13px] leading-relaxed">
+          <ul className="text-ink-muted space-y-2 text-xs leading-relaxed">
             <li>
               Rows are keyed by the study participant code. Names, email
               addresses, phone numbers and dates of birth are never included.

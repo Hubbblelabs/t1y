@@ -32,6 +32,7 @@ const PUBLIC_SELECT = {
   excerpt: true,
   category: true,
   body: true,
+  contentBlocks: true,
   mediaType: true,
   mediaUrl: true,
   thumbnailUrl: true,
@@ -96,7 +97,11 @@ export async function listPublishedEducation(params: {
   // library grows well past what a study curriculum needs.
   const rows = await prisma.educationContent.findMany({
     where,
-    select: { ...PUBLIC_SELECT, body: params.includeBody === true },
+    select: {
+      ...PUBLIC_SELECT,
+      body: params.includeBody === true,
+      contentBlocks: params.includeBody === true,
+    },
     orderBy: [{ sortOrder: "asc" }, { publishedAt: "desc" }],
   });
 
@@ -215,6 +220,137 @@ export async function listEducationForAdmin(params: {
   return { items, total };
 }
 
+/**
+ * One Help Book topic, with both languages folded into a single entry.
+ *
+ * The database stores a topic as two rows — one EN, one TA — paired by the
+ * shared `slug`. That is the right storage shape, but it is the wrong shape
+ * for the people editing it: a coordinator thinks "the hypoglycaemia topic,
+ * which exists in English and Tamil", not "two articles that happen to share
+ * an identifier". Listing the rows raw made one topic appear twice, and gave
+ * no way to see at a glance that a translation was missing.
+ */
+export interface HelpBookTopic {
+  /** Stable topic identity. Generated, never shown to or typed by an admin. */
+  slug: string;
+  category: EducationCategory;
+  sortOrder: number;
+  /** The title to list under — English if present, otherwise the Tamil one. */
+  displayTitle: string;
+  updatedAt: Date;
+  versions: {
+    EN: HelpBookVersion | null;
+    TA: HelpBookVersion | null;
+  };
+}
+
+export interface HelpBookVersion {
+  id: string;
+  title: string;
+  status: ContentStatus;
+  thumbnailUrl: string | null;
+  viewCount: number;
+  updatedAt: Date;
+  blockCount: number;
+}
+
+/**
+ * Every topic, newest-ordered by the sort position families see, with its
+ * languages grouped. Deliberately unpaginated: this study's curriculum is a
+ * fixed set of a few dozen topics, and drag-to-reorder is meaningless across
+ * a page boundary — you cannot drag a topic onto page 2.
+ */
+export async function listHelpBookTopics(params?: {
+  status?: ContentStatus;
+  category?: EducationCategory;
+  search?: string;
+}): Promise<HelpBookTopic[]> {
+  const where: Prisma.EducationContentWhereInput = {
+    ...(params?.status ? { status: params.status } : {}),
+    ...(params?.category ? { category: params.category } : {}),
+    ...(params?.search
+      ? { title: { contains: params.search, mode: "insensitive" } }
+      : {}),
+  };
+
+  const rows = await prisma.educationContent.findMany({
+    where,
+    select: {
+      id: true,
+      slug: true,
+      locale: true,
+      title: true,
+      status: true,
+      category: true,
+      sortOrder: true,
+      thumbnailUrl: true,
+      viewCount: true,
+      updatedAt: true,
+      contentBlocks: true,
+    },
+    orderBy: [{ sortOrder: "asc" }, { title: "asc" }],
+  });
+
+  const topics = new Map<string, HelpBookTopic>();
+
+  for (const row of rows) {
+    const version: HelpBookVersion = {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      thumbnailUrl: row.thumbnailUrl,
+      viewCount: row.viewCount,
+      updatedAt: row.updatedAt,
+      blockCount: Array.isArray(row.contentBlocks) ? row.contentBlocks.length : 0,
+    };
+
+    const existing = topics.get(row.slug);
+    if (!existing) {
+      topics.set(row.slug, {
+        slug: row.slug,
+        category: row.category,
+        sortOrder: row.sortOrder,
+        displayTitle: row.title,
+        updatedAt: row.updatedAt,
+        versions: { EN: null, TA: null, [row.locale]: version } as HelpBookTopic["versions"],
+      });
+      continue;
+    }
+
+    existing.versions[row.locale] = version;
+    // English is the reference language for this curriculum, so it names the
+    // topic in the list whichever row happened to be read first.
+    if (row.locale === "EN") existing.displayTitle = row.title;
+    if (row.updatedAt > existing.updatedAt) existing.updatedAt = row.updatedAt;
+    // Both rows carry a sortOrder; the lower one wins so a half-reordered
+    // pair can never split a topic across two positions in the list.
+    existing.sortOrder = Math.min(existing.sortOrder, row.sortOrder);
+  }
+
+  return [...topics.values()].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.displayTitle.localeCompare(b.displayTitle),
+  );
+}
+
+/**
+ * Applies a drag-and-drop reordering.
+ *
+ * Takes the complete ordered list of topic slugs and writes each one's index
+ * to *both* language rows, so the two never disagree about where the topic
+ * sits. Runs as one transaction: a partial reorder would leave families
+ * looking at a curriculum in an order nobody chose.
+ */
+export async function reorderHelpBookTopics(orderedSlugs: string[]): Promise<void> {
+  await prisma.$transaction(
+    orderedSlugs.map((slug, index) =>
+      prisma.educationContent.updateMany({
+        where: { slug },
+        data: { sortOrder: index },
+      }),
+    ),
+  );
+}
+
 export async function getEducationById(id: string) {
   const content = await prisma.educationContent.findUnique({
     where: { id },
@@ -225,15 +361,26 @@ export async function getEducationById(id: string) {
 }
 
 export interface EducationInput {
-  slug: string;
+  /** Omitted for a brand-new topic; supplied to add a translation to one. */
+  slug?: string;
   locale?: ContentLocale;
   title: string;
   description?: string;
   excerpt?: string;
   category: EducationCategory;
-  body: string;
+  /** Optional when `contentBlocks` is supplied — it is derived from them. */
+  body?: string;
   bodySource?: string;
   bodyFormat?: "MARKDOWN" | "HTML";
+  /** Omitted entirely leaves whatever's already stored untouched. */
+  contentBlocks?: Array<{
+    kind?: "TEXT" | "IMAGE" | "VIDEO";
+    heading?: string | null;
+    paragraph: string;
+    imageUrl?: string | null;
+    imageKey?: string | null;
+    videoUrl?: string | null;
+  }>;
   mediaType?: "NONE" | "IMAGE" | "VIDEO" | "PDF" | "AUDIO";
   mediaUrl?: string | null;
   mediaKey?: string | null;
@@ -252,14 +399,67 @@ export interface EducationInput {
  * read as implausibly short on a 12-minute article.
  */
 function renderBody(input: {
-  body: string;
+  body?: string;
   bodySource?: string;
   bodyFormat?: "MARKDOWN" | "HTML";
 }): string {
   if (input.bodyFormat === "MARKDOWN" && input.bodySource) {
     return renderMarkdown(input.bodySource);
   }
-  return sanitizeRichText(input.body);
+  return sanitizeRichText(input.body ?? "");
+}
+
+/**
+ * Mints a topic identity.
+ *
+ * Readable stem plus a short random suffix: the stem keeps URLs and log lines
+ * legible to whoever has to debug them, and the suffix makes a collision
+ * impossible without a round-trip to check. Nobody types these — see
+ * `createEducationSchema.slug` for why they are generated at all.
+ */
+function generateTopicSlug(title: string): string {
+  const stem = title
+    .toLowerCase()
+    .normalize("NFKD")
+    // Tamil titles transliterate to nothing here, which is fine — such a
+    // topic simply gets a slug that is all suffix.
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return stem ? `${stem}-${suffix}` : `topic-${suffix}`;
+}
+
+/**
+ * Flattens blocks into the plain `body` HTML.
+ *
+ * Keeps one authored source of truth (the blocks) while still populating the
+ * field that search, reading-time estimation, and any client too old to
+ * understand blocks all read. Images and videos contribute nothing here —
+ * `body` is the *words* of the topic.
+ */
+function bodyFromBlocks(blocks: NonNullable<EducationInput["contentBlocks"]>): string {
+  return blocks
+    .map((block) => {
+      const heading = block.heading?.trim();
+      const paragraph = block.paragraph?.trim();
+      return [
+        heading ? `<h3>${escapeHtml(heading)}</h3>` : "",
+        paragraph ? `<p>${escapeHtml(paragraph)}</p>` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function estimateReadingTime(html: string, locale: ContentLocale): number {
@@ -273,19 +473,24 @@ function estimateReadingTime(html: string, locale: ContentLocale): number {
 
 export async function createEducation(authorId: string, input: EducationInput) {
   const locale = input.locale ?? "EN";
+  const slug = input.slug ?? generateTopicSlug(input.title);
+
   const existing = await prisma.educationContent.findUnique({
-    where: { slug_locale: { slug: input.slug, locale } },
+    where: { slug_locale: { slug, locale } },
     select: { id: true },
   });
   if (existing) {
-    throw new ConflictError(`A ${locale} article with this slug already exists.`);
+    throw new ConflictError(
+      `This topic already has a ${locale === "TA" ? "Tamil" : "English"} version.`,
+    );
   }
 
-  const body = renderBody(input);
+  const body = input.contentBlocks?.length ? bodyFromBlocks(input.contentBlocks) : renderBody(input);
 
   return prisma.educationContent.create({
     data: {
       ...input,
+      slug,
       locale,
       body,
       bodyFormat: input.bodyFormat ?? "MARKDOWN",
@@ -306,8 +511,11 @@ export async function updateEducation(id: string, input: Partial<Omit<EducationI
   });
   if (!current) throw new NotFoundError("Article");
 
-  const body =
-    input.body !== undefined || input.bodySource !== undefined
+  // Blocks are the authored source when present, so they win: an edit that
+  // rewrites the blocks must not leave `body` describing the previous text.
+  const body = input.contentBlocks?.length
+    ? bodyFromBlocks(input.contentBlocks)
+    : input.body !== undefined || input.bodySource !== undefined
       ? renderBody({
           body: input.body ?? current.body,
           bodySource: input.bodySource,

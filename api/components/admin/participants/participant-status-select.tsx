@@ -140,7 +140,7 @@ export function ParticipantStatusSelect({
           ))}
         </SelectContent>
       </Select>
-      {error ? <span className="text-danger text-[11px]">{error}</span> : null}
+      {error ? <span className="text-danger text-xs">{error}</span> : null}
     </div>
   );
 }

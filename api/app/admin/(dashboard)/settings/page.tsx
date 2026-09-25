@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { PageContainer, PageHeader, Section } from "@/components/admin/page-header";
+import { GlucoseCooldownPanel } from "@/components/admin/settings/glucose-cooldown-panel";
 import { DataPoint } from "@/components/admin/stat-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getFeatureFlags } from "@/lib/services/feature-flags";
 import { getSettings } from "@/lib/services/settings";
 import { listThresholds } from "@/lib/services/thresholds";
 import { isEmailConfigured, isStorageConfigured } from "@/lib/env";
@@ -20,9 +22,10 @@ export const metadata: Metadata = { title: "Settings" };
  * that they need clinical sign-off.
  */
 export default async function SettingsPage() {
-  const [settings, thresholds] = await Promise.all([
+  const [settings, thresholds, flags] = await Promise.all([
     getSettings(),
     listThresholds({ includeInactive: false }),
+    getFeatureFlags(),
   ]);
 
   return (
@@ -72,6 +75,16 @@ export default async function SettingsPage() {
       </Section>
 
       <Section
+        title="Glucose entry"
+        description="How often a parent may record a glucometer reading for a child"
+      >
+        <GlucoseCooldownPanel
+          initialEnabled={flags.health_logging_enabled.enabled}
+          initialCooldownHours={settings["health.glucoseEntryCooldownHours"]}
+        />
+      </Section>
+
+      <Section
         title="Clinical thresholds"
         description="Target ranges shown alongside recorded values. The platform ships with none — every threshold is entered by a clinician and carries its source."
         actions={
@@ -82,7 +95,7 @@ export default async function SettingsPage() {
       >
         <Card className="p-5">
           {thresholds.length === 0 ? (
-            <p className="text-ink-muted text-[13px]">
+            <p className="text-ink-muted text-xs">
               No thresholds are configured. Recorded values are displayed without a
               reference range until a clinical reviewer defines one.
             </p>
@@ -94,14 +107,14 @@ export default async function SettingsPage() {
                   className="flex flex-wrap items-baseline justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="text-ink text-[13px] font-medium">{threshold.label}</p>
+                    <p className="text-ink text-xs font-medium">{threshold.label}</p>
                     <p className="text-ink-subtle text-xs">
                       {threshold.key} · {threshold.source}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone="neutral">{threshold.scope.toLowerCase()}</Badge>
-                    <span className="text-ink tabular text-[13px]">
+                    <span className="text-ink tabular text-xs">
                       {threshold.lowValue ?? "—"}–{threshold.highValue ?? "—"}{" "}
                       {threshold.unit}
                     </span>

@@ -9,7 +9,11 @@ class CalculatorDisclaimer extends StatelessWidget {
   final String calculatorName;
   final VoidCallback onAcknowledge;
 
-  const CalculatorDisclaimer({super.key, required this.calculatorName, required this.onAcknowledge});
+  const CalculatorDisclaimer({
+    super.key,
+    required this.calculatorName,
+    required this.onAcknowledge,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +23,11 @@ class CalculatorDisclaimer extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.info_outline, size: 48, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.info_outline,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(height: 16),
             Text(
               S.calculatorDisclaimerTitle,

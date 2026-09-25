@@ -99,7 +99,9 @@ class ReminderService {
   /// here from `timeOfDay` when the server hasn't supplied one.
   ///
   /// This is display-only. The server stays authoritative for actual firing.
-  Future<List<Reminder>> upcoming({Duration within = const Duration(days: 7)}) async {
+  Future<List<Reminder>> upcoming({
+    Duration within = const Duration(days: 7),
+  }) async {
     final all = await list();
     final now = DateTime.now();
     final cutoff = now.add(within);

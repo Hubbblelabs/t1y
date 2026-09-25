@@ -66,7 +66,7 @@ export async function DashboardContent({ range }: { range: DateRangeInput }) {
           value={formatNumber(topicsCompleted)}
           hint={
             topicsOpened > 0
-              ? `${formatNumber(topicsOpened)} opened across the cohort`
+              ? `${formatNumber(topicsOpened)} opened by all children`
               : "No topics opened yet"
           }
         />
@@ -93,7 +93,7 @@ export async function DashboardContent({ range }: { range: DateRangeInput }) {
           ) : (
             <CategoryBars
               title="Help Book completion"
-              description="Topics completed vs. opened, cohort-wide"
+              description="How many children finished each topic, compared with how many opened it"
               valueLabel="Completed"
               data={cohort.topics.map((t) => ({ label: t.topicSlug, value: t.completed }))}
             />
@@ -120,7 +120,7 @@ export async function DashboardContent({ range }: { range: DateRangeInput }) {
                   className="flex items-center justify-between gap-4 px-5 py-3"
                 >
                   <div className="min-w-0">
-                    <p className="text-ink truncate text-[13px] font-medium">{quiz.title}</p>
+                    <p className="text-ink truncate text-xs font-medium">{quiz.title}</p>
                     <p className="text-ink-subtle text-xs">
                       {formatNumber(quiz.attempts)} attempt{quiz.attempts === 1 ? "" : "s"}
                     </p>

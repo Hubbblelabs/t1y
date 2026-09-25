@@ -3,19 +3,17 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/api/errors";
-import { auth } from "@/lib/auth/auth";
+import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@/lib/db/prisma";
-import { env } from "@/lib/env";
 import { STAFF_ROLES } from "@/lib/permissions/roles";
-import { logger } from "@/lib/utils/logger";
 
 /**
  * Staff account administration.
  *
  * Only a super administrator reaches this module (enforced by
- * `assertCanAssignRole`). Staff accounts are created without a usable password:
- * the invitee receives a password-reset link and chooses their own, so no
- * administrator ever knows another person's credentials.
+ * `assertCanAssignRole`). Staff accounts are created with a temporary password
+ * the administrator hands over; it must be replaced at first sign-in, and
+ * anyone can change theirs later from Your account.
  */
 
 const STAFF_SELECT = {
@@ -98,6 +96,8 @@ export interface CreateStaffInput {
   email: string;
   name: string;
   role: UserRole;
+  /** Temporary. The account is marked so its owner must replace it at first sign-in. */
+  password: string;
   jobTitle?: string;
   department?: string;
   organization?: string;
@@ -107,7 +107,7 @@ export interface CreateStaffInput {
 export async function createStaffMember(
   invitedById: string,
   input: CreateStaffInput,
-): Promise<{ id: string; email: string; role: UserRole; inviteSent: boolean }> {
+): Promise<{ id: string; email: string; role: UserRole }> {
   if (input.role === "PATIENT") {
     throw new ValidationError("Use the participants module to create participants.");
   }
@@ -119,44 +119,44 @@ export async function createStaffMember(
   });
   if (existing) throw new ConflictError("An account with this email already exists.");
 
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name: input.name,
-      role: input.role,
-      // ACTIVE, but with no credentials — the invitee must set a password
-      // through the reset flow before they can sign in.
-      status: "ACTIVE",
-      adminUser: {
-        create: {
-          jobTitle: input.jobTitle,
-          department: input.department,
-          organization: input.organization,
-          phone: input.phone,
-          invitedById,
-          invitedAt: new Date(),
+  const passwordHash = await hashPassword(input.password);
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        email,
+        name: input.name,
+        role: input.role,
+        status: "ACTIVE",
+        emailVerified: true,
+        // Signed in with the temporary password, they are taken straight to
+        // choose their own before seeing anything else.
+        mustChangePassword: true,
+        adminUser: {
+          create: {
+            jobTitle: input.jobTitle,
+            department: input.department,
+            organization: input.organization,
+            phone: input.phone,
+            invitedById,
+            invitedAt: new Date(),
+          },
         },
       },
-    },
-    select: { id: true, email: true, role: true },
+      select: { id: true, email: true, role: true },
+    });
+
+    await tx.account.create({
+      data: {
+        userId: user.id,
+        providerId: "credential",
+        accountId: user.id,
+        password: passwordHash,
+      },
+    });
+
+    return user;
   });
-
-  // Better Auth generates the token and sends the email; a failure here must
-  // not roll back the account, so it is reported rather than thrown.
-  let inviteSent = true;
-  try {
-    await auth.api.requestPasswordReset({
-      body: { email, redirectTo: `${env.APP_URL}/admin/reset-password` },
-    });
-  } catch (error) {
-    inviteSent = false;
-    logger.error("staff.invite_email_failed", {
-      userId: user.id,
-      reason: error instanceof Error ? error.message : "unknown",
-    });
-  }
-
-  return { ...user, inviteSent };
 }
 
 export async function updateStaffMember(

@@ -34,7 +34,7 @@ export const FEATURE_FLAGS = {
     description: "Shows Tamil-language education content and lets the client request locale=ta.",
   },
   quizzes_enabled: {
-    default: false,
+    default: true,
     publicRead: true,
     clinicalSafety: false,
     description: "Shows the Quizzes tab and quiz completion prompts.",
@@ -46,7 +46,7 @@ export const FEATURE_FLAGS = {
     description: "Master switch for the offline progress/quiz sync pipeline.",
   },
   ic_isf_calculator: {
-    default: false,
+    default: true,
     publicRead: true,
     clinicalSafety: true,
     description: "Insulin-to-carb and correction-factor calculator.",

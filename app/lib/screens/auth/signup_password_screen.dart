@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/auth_background.dart';
+import '../../l10n/strings.dart';
+import '../../widgets/bilingual.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import 'signup_chat_screen.dart';
@@ -34,19 +37,15 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
     final confirm = _confirmController.text;
 
     if (password.length < _minLength) {
-      setState(
-        () => _error = 'Password must be at least $_minLength characters.',
-      );
+      setState(() => _error = S.bothText(() => S.passwordTooShort(_minLength)));
       return;
     }
     if (password.length > _maxLength) {
-      setState(
-        () => _error = 'Password must be at most $_maxLength characters.',
-      );
+      setState(() => _error = S.bothText(() => S.passwordTooLong(_maxLength)));
       return;
     }
     if (password != confirm) {
-      setState(() => _error = 'Passwords do not match.');
+      setState(() => _error = S.bothText(() => S.passwordsDontMatch));
       return;
     }
 
@@ -69,7 +68,8 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 WaveHeader(
-                  title: 'Create Account',
+                  title: S.both(() => S.createAccount).en,
+                  titleTa: S.both(() => S.createAccount).ta,
                   subtitle: widget.email,
                   showBack: true,
                 ),
@@ -79,26 +79,14 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (_error != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
+                        ErrorBanner(message: _error!),
                         const SizedBox(height: 16),
                       ],
                       LabeledField(
                         icon: Icons.lock_outline,
-                        label: 'New password',
-                        hint: 'Set your password',
+                        label: S.both(() => S.newPassword).en,
+                        labelTa: S.both(() => S.newPassword).ta,
+                        hint: S.both(() => S.setYourPassword).en,
                         controller: _passwordController,
                         obscureText: true,
                         autofocus: true,
@@ -106,8 +94,9 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                       const SizedBox(height: 20),
                       LabeledField(
                         icon: Icons.lock_outline,
-                        label: 'Confirm password',
-                        hint: 'Re-type your password',
+                        label: S.both(() => S.confirmPassword).en,
+                        labelTa: S.both(() => S.confirmPassword).ta,
+                        hint: S.both(() => S.retypePassword).en,
                         controller: _confirmController,
                         obscureText: true,
                         onSubmitted: (_) => _continue(),
@@ -115,7 +104,16 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
                       const SizedBox(height: 32),
                       FilledButton(
                         onPressed: _continue,
-                        child: const Text('Continue'),
+                        child: Bilingual.s(
+                          () => S.continueLabel,
+                          alignment: CrossAxisAlignment.center,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ],
                   ),

@@ -150,7 +150,7 @@ function NavGroup({
               onClick={onNavigate}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "ml-[1.4rem] block rounded-md border-l py-1.5 pl-3.5 text-[13px] transition-colors",
+                "ml-[1.4rem] block rounded-md border-l py-1.5 pl-3.5 text-xs transition-colors",
                 active
                   ? "border-primary text-primary font-medium"
                   : "border-line text-ink-muted hover:border-line-strong hover:text-ink",

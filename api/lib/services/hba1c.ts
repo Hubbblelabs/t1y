@@ -224,7 +224,7 @@ export async function getRecentHbA1cUpdates(params: {
       user: {
         select: {
           id: true,
-          profile: { select: { participantCode: true, firstName: true, lastName: true } },
+          profile: { select: { participantCode: true, name: true } },
         },
       },
     },

@@ -2,18 +2,17 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/question.dart';
 import 'api_client.dart';
 
 /// The child/participant profile.
 ///
-/// The sign-up chat collects the child's name, date of birth, sex and
-/// diagnosis year, but sign-up itself cannot persist them: the backend runs
-/// `autoSignIn: false`, so there is no session at the moment the chat
-/// finishes and `PATCH /api/users/me` would be unauthenticated. Those answers
-/// were previously just dropped on the floor.
-///
-/// So they are stashed locally at sign-up and flushed on the first
-/// authenticated request after sign-in ([flushPendingProfile]).
+/// The sign-up chat collects the child's details, but they are stashed on the
+/// phone and sent on the first authenticated request rather than at the moment
+/// the chat finishes: the account does not exist until the chat is over, and
+/// `PATCH /api/users/me` needs a session. If that first send fails (no
+/// signal), the stash is kept and retried on the next sign-in, so nothing a
+/// parent typed is lost.
 class ProfileService {
   ProfileService._();
   static final ProfileService instance = ProfileService._();
@@ -21,28 +20,76 @@ class ProfileService {
   static const _pendingKey = 'pending_profile';
   static const _cacheKey = 'profile_cache';
 
-  /// Chat answer -> Prisma `Sex` enum.
-  static const _sexMap = {
-    'Female': 'FEMALE',
-    'Male': 'MALE',
-    'Prefer not to say': 'PREFER_NOT_TO_SAY',
-  };
-
   /// Stashes the sign-up chat answers until there is a session to send them
-  /// with. [answers] uses the keys from `models/signup_question.dart`.
-  Future<void> stashSignupAnswers(Map<String, String> answers) async {
-    final profile = <String, dynamic>{
-      if (answers['firstName'] != null) 'firstName': answers['firstName'],
-      if (answers['lastName'] != null) 'lastName': answers['lastName'],
-      if (answers['dateOfBirth'] != null) 'dateOfBirth': answers['dateOfBirth'],
-      if (answers['sex'] != null) 'sex': _sexMap[answers['sex']] ?? 'UNSPECIFIED',
-      if (answers['diagnosisYear'] != null)
-        'diagnosisYear': int.tryParse(answers['diagnosisYear']!),
-      // Every participant in this study is Type 1 by the inclusion criteria.
-      'diabetesType': 'TYPE_1',
-    };
+  /// with.
+  ///
+  /// [answers] is keyed by question key and holds what the chat stored: text as
+  /// typed, a date as `yyyy-MM-dd`, a number as typed, and a pick-one as the
+  /// option's *value* (`FEMALE`), never its wording. Each answer is routed by
+  /// its question: a built-in question lives in a real profile column, an added
+  /// one in the free-form bucket.
+  Future<void> stashSignupAnswers(
+    Map<String, String> answers,
+    List<Question> questions,
+  ) async {
+    final profile = buildProfilePayload(answers, questions);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pendingKey, jsonEncode(profile));
+  }
+
+  /// Turns raw form answers into the body of `PATCH /api/users/me`.
+  ///
+  /// Public so it can be tested without a phone: getting an answer into the
+  /// wrong place — a height in the free-form bucket, a name as a number — is a
+  /// silent data-loss bug, not a crash.
+  ///
+  /// [sendBlanksAsNull] is the difference between signing up and editing.
+  /// Signing up simply leaves an unanswered question out. Editing must be able
+  /// to *clear* one — a parent removing a phone number — which the server only
+  /// understands as an explicit null. A pick-one that was never chosen is
+  /// always left out, never cleared: there is nothing to unset.
+  static Map<String, dynamic> buildProfilePayload(
+    Map<String, String> answers,
+    List<Question> questions, {
+    bool sendBlanksAsNull = false,
+  }) {
+    final profile = <String, dynamic>{};
+    final custom = <String, dynamic>{};
+
+    for (final question in questions) {
+      final raw = answers[question.key]?.trim();
+      final blank = raw == null || raw.isEmpty;
+
+      Object? value;
+      if (blank) {
+        if (!sendBlanksAsNull || question.required) continue;
+        if (question.fieldType == 'CHOICE') continue;
+        value = null;
+      } else {
+        value = _typed(question, raw);
+        if (value == null) continue;
+      }
+
+      if (question.builtIn) {
+        profile[question.key] = value;
+      } else {
+        custom[question.key] = value;
+      }
+    }
+
+    // Every participant in this study is Type 1 by the inclusion criteria.
+    profile['diabetesType'] = 'TYPE_1';
+    if (custom.isNotEmpty) profile['customFieldValues'] = custom;
+    return profile;
+  }
+
+  /// The answer in the type the server expects for this kind of question.
+  static Object? _typed(Question question, String raw) {
+    if (question.fieldType != 'NUMBER') return raw;
+    final number = num.tryParse(raw);
+    if (number == null) return null;
+    // A year or a count is a whole number; the server rejects 2020.0 for one.
+    return question.rules['wholeNumber'] == true ? number.toInt() : number;
   }
 
   /// Sends any stashed sign-up answers. Safe to call on every sign-in — it
@@ -62,6 +109,21 @@ class ProfileService {
     } catch (_) {
       // Leave it queued; retried on the next sign-in.
     }
+  }
+
+  /// Saves any subset of the extended profile fields (phone, address,
+  /// treatment details, emergency contact, …) — the ones a parent fills in
+  /// after sign-up, separately from the identity fields captured in the
+  /// chat. Refreshes the cache on success so the Profile screen reflects it
+  /// immediately without a second round trip.
+  Future<void> updateProfile(Map<String, dynamic> fields) async {
+    final data = await ApiClient.instance.patch(
+      '/api/users/me',
+      body: {'profile': fields},
+    );
+    final me = data['data'] as Map<String, dynamic>;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheKey, jsonEncode(me));
   }
 
   /// Current user + profile, server-truth with a local fallback so the

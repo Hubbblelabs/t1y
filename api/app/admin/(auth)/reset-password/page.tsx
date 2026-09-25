@@ -12,7 +12,7 @@ export default function ResetPasswordPage() {
     <Card className="p-6">
       <div className="mb-5">
         <h1 className="text-ink text-base font-semibold">Choose a new password</h1>
-        <p className="text-ink-muted mt-1 text-[13px]">
+        <p className="text-ink-muted mt-1 text-xs">
           Pick a password you do not use anywhere else.
         </p>
       </div>

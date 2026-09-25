@@ -307,8 +307,7 @@ async function main() {
         profile: {
           create: {
             participantCode: code,
-            firstName,
-            lastName,
+            name: `${firstName} ${lastName}`,
             // Ages 6–15, per the inclusion criteria — was drawing adult
             // birth years (1955–2003).
             dateOfBirth: childBirthDate(index),

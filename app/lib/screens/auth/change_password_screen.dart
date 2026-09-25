@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
+
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
+import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 import '../../widgets/wave_header.dart';
 import '../home/home_shell.dart';
@@ -37,19 +40,19 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final confirm = _confirmController.text;
 
     if (newPassword.length < _minLength) {
-      setState(() => _error = 'Password must be at least $_minLength characters.');
+      setState(() => _error = S.bothText(() => S.passwordTooShort(_minLength)));
       return;
     }
     if (newPassword.length > _maxLength) {
-      setState(() => _error = 'Password must be at most $_maxLength characters.');
+      setState(() => _error = S.bothText(() => S.passwordTooLong(_maxLength)));
       return;
     }
     if (newPassword != confirm) {
-      setState(() => _error = 'Passwords do not match.');
+      setState(() => _error = S.bothText(() => S.passwordsDontMatch));
       return;
     }
     if (newPassword == widget.currentPassword) {
-      setState(() => _error = 'Choose a password different from the one you signed in with.');
+      setState(() => _error = S.bothText(() => S.passwordSameAsOld));
       return;
     }
 
@@ -69,9 +72,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         (_) => false,
       );
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = e.bothMessage);
     } catch (_) {
-      setState(() => _error = 'Could not reach the server. Check your connection and try again.');
+      setState(() => _error = S.bothText(() => S.couldNotReach));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -97,9 +100,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const WaveHeader(
-                    title: 'Welcome to T1D Prajana Yandra',
-                    subtitle: 'Please set your own password to continue',
+                  WaveHeader(
+                    title: S.both(() => S.welcomeToApp).en,
+                    titleTa: S.both(() => S.welcomeToApp).ta,
+                    subtitle: S.both(() => S.setOwnPassword).en,
+                    subtitleTa: S.both(() => S.setOwnPassword).ta,
                     showBack: false,
                   ),
                   Padding(
@@ -116,7 +121,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.info_outline, size: 18, color: AppTheme.primary),
+                              Icon(
+                                Icons.info_outline,
+                                size: 18,
+                                color: AppTheme.primary,
+                              ),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -126,7 +135,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     height: 1.4,
-                                    color: AppTheme.deep.withValues(alpha: 0.85),
+                                    color: AppTheme.deep.withValues(
+                                      alpha: 0.85,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -135,23 +146,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         ),
                         const SizedBox(height: 20),
                         if (_error != null) ...[
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              _error!,
-                              style: const TextStyle(color: Colors.red, fontSize: 13),
-                            ),
-                          ),
+                          ErrorBanner(message: _error!),
                           const SizedBox(height: 16),
                         ],
                         LabeledField(
                           icon: Icons.lock_outline,
-                          label: 'New password',
-                          hint: 'Set your new password',
+                          label: S.both(() => S.newPassword).en,
+                          labelTa: S.both(() => S.newPassword).ta,
+                          hint: S
+                              .bothText(() => S.setNewPasswordHint)
+                              .replaceAll('\n', ' / '),
                           controller: _newController,
                           obscureText: true,
                           autofocus: true,
@@ -159,8 +163,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         const SizedBox(height: 20),
                         LabeledField(
                           icon: Icons.lock_outline,
-                          label: 'Confirm new password',
-                          hint: 'Re-type your new password',
+                          label: S.both(() => S.confirmNewPassword).en,
+                          labelTa: S.both(() => S.confirmNewPassword).ta,
+                          hint: S
+                              .bothText(() => S.retypeNewPassword)
+                              .replaceAll('\n', ' / '),
                           controller: _confirmController,
                           obscureText: true,
                           onSubmitted: (_) => _submit(),
@@ -172,9 +179,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : const Text('Change password & continue'),
+                              : Text(
+                                  S
+                                      .bothText(() => S.changePasswordContinue)
+                                      .replaceAll('\n', ' / '),
+                                ),
                         ),
                       ],
                     ),

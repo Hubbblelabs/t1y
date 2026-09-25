@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 
+import { AddStaffForm } from "@/components/admin/administrators/add-staff-form";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Pagination } from "@/components/admin/pagination";
 import { SearchBox } from "@/components/admin/search-box";
@@ -53,14 +54,15 @@ export default async function AdministratorsPage(
         description="Staff accounts and their roles"
       />
 
-      <Card className="mb-6 p-4">
-        <p className="text-ink-muted text-[13px] leading-relaxed">
-          New staff accounts are created without a password. The invitee receives
-          a link and sets their own credentials, so no administrator ever knows
-          another person&rsquo;s password. Deactivating an account revokes its
-          sessions immediately but preserves its audit history.
+      <div className="mb-6">
+        <AddStaffForm />
+        <p className="text-ink-muted mt-3 text-xs leading-relaxed">
+          A new staff account starts with a temporary password you hand over. They
+          choose their own the first time they sign in and can change it any time
+          from Your account. Deactivating an account ends its sessions immediately
+          but keeps its history.
         </p>
-      </Card>
+      </div>
 
       <Card>
         <div className="border-line border-b p-4">
@@ -74,7 +76,7 @@ export default async function AdministratorsPage(
             description={
               query.search
                 ? "Try a different search term."
-                : "Invite an administrator, researcher or clinical reviewer to get started."
+                : "Add a staff account to get started."
             }
           />
         ) : (

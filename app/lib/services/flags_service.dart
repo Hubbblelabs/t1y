@@ -10,7 +10,10 @@ import 'api_client.dart';
 /// switching it off. This is the client half of the contract documented in
 /// api/lib/services/feature-flags.ts; the server cannot enforce it, which is
 /// exactly why it has to be honoured here.
-const clinicalSafetyFlagKeys = {'ic_isf_calculator', 'glucagon_dose_calculator'};
+const clinicalSafetyFlagKeys = {
+  'ic_isf_calculator',
+  'glucagon_dose_calculator',
+};
 
 class FlagsService {
   FlagsService._();

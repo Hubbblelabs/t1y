@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Activity, LogOut, Menu, User } from "lucide-react";
 
 import { SidebarNav } from "@/components/admin/sidebar-nav";
+import { ThemeToggle } from "@/components/admin/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -77,10 +78,12 @@ export function AdminShell({
 
           <div className="flex-1" />
 
+          <ThemeToggle />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="gap-2">
-                <span className="bg-primary-soft text-primary flex size-6 items-center justify-center rounded-full text-[11px] font-semibold">
+                <span className="bg-primary-soft text-primary flex size-8 items-center justify-center rounded-full text-xs font-semibold">
                   {initials(user.name)}
                 </span>
                 <span className="hidden max-w-36 truncate sm:inline">{user.name}</span>
@@ -88,7 +91,7 @@ export function AdminShell({
             </DropdownMenuTrigger>
             <DropdownMenuContent>
               <DropdownMenuLabel>
-                <span className="text-ink block truncate text-[13px] font-medium">
+                <span className="text-ink block truncate text-xs font-medium">
                   {user.name}
                 </span>
                 <span className="text-ink-subtle block truncate text-xs font-normal">
@@ -143,7 +146,7 @@ function Brand() {
  */
 function ProductNote() {
   return (
-    <div className="border-line text-ink-subtle border-t px-4 py-3 text-[11px] leading-relaxed">
+    <div className="border-line text-ink-subtle border-t px-4 py-3 text-xs leading-relaxed">
       Records and reports tracked data. It does not diagnose, prescribe, or
       replace clinical judgement.
     </div>

@@ -12,6 +12,10 @@ import '../theme/app_theme.dart';
 class WaveHeader extends StatefulWidget {
   final String title;
   final String? subtitle;
+
+  /// The Tamil translation, shown in a smaller size beneath each English line.
+  final String? titleTa;
+  final String? subtitleTa;
   final bool showBack;
   final double height;
 
@@ -19,6 +23,8 @@ class WaveHeader extends StatefulWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.titleTa,
+    this.subtitleTa,
     this.showBack = true,
     this.height = 300,
   });
@@ -27,13 +33,17 @@ class WaveHeader extends StatefulWidget {
   State<WaveHeader> createState() => _WaveHeaderState();
 }
 
-class _WaveHeaderState extends State<WaveHeader> with SingleTickerProviderStateMixin {
+class _WaveHeaderState extends State<WaveHeader>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 6))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
   }
 
   @override
@@ -90,9 +100,9 @@ class _WaveHeaderState extends State<WaveHeader> with SingleTickerProviderStateM
               ),
             ),
           ),
-         SafeArea(
-  child: Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 24),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -101,21 +111,51 @@ class _WaveHeaderState extends State<WaveHeader> with SingleTickerProviderStateM
                       onPressed: () => Navigator.of(context).maybePop(),
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                       alignment: Alignment.centerLeft,
-                     padding: EdgeInsets.zero,
+                      padding: EdgeInsets.zero,
                     )
                   else
                     const SizedBox(height: 8),
                   const Spacer(),
                   Text(
                     widget.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 30, fontWeight: FontWeight.w800, height: 1.1),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
                   ),
+                  if (widget.titleTa != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      widget.titleTa!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 19,
+                        fontWeight: FontWeight.w600,
+                        height: 1.15,
+                      ),
+                    ),
+                  ],
                   if (widget.subtitle != null) ...[
                     const SizedBox(height: 15),
                     Text(
                       widget.subtitle!,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 14,
+                      ),
                     ),
+                    if (widget.subtitleTa != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.subtitleTa!,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 11.5,
+                        ),
+                      ),
+                    ],
                   ],
                   const SizedBox(height: 48),
                 ],
@@ -131,7 +171,10 @@ class _WaveHeaderState extends State<WaveHeader> with SingleTickerProviderStateM
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withValues(alpha: opacity)),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: opacity),
+      ),
     );
   }
 }
@@ -140,8 +183,18 @@ class _WaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
     final path = Path()..lineTo(0, size.height - 40);
-    path.quadraticBezierTo(size.width * 0.25, size.height, size.width * 0.5, size.height - 24);
-    path.quadraticBezierTo(size.width * 0.75, size.height - 48, size.width, size.height - 12);
+    path.quadraticBezierTo(
+      size.width * 0.25,
+      size.height,
+      size.width * 0.5,
+      size.height - 24,
+    );
+    path.quadraticBezierTo(
+      size.width * 0.75,
+      size.height - 48,
+      size.width,
+      size.height - 12,
+    );
     path.lineTo(size.width, 0);
     path.close();
     return path;

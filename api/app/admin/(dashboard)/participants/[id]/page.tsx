@@ -76,9 +76,7 @@ export default async function ParticipantDetailPage(
   const parsed = dateRangeSchema.safeParse(searchParams);
   const range = parsed.success ? parsed.data : { range: "30d" as const };
 
-  const displayName = participant.profile
-    ? `${participant.profile.firstName} ${participant.profile.lastName}`
-    : participant.name;
+  const displayName = participant.profile?.name ?? participant.name;
 
   return (
     <PageContainer>

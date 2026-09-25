@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getPrincipal } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 import { visibleNavigation } from "@/lib/navigation";
 import { canAccessAdminArea } from "@/lib/permissions/policies";
 import { capabilitiesFor, ROLE_LABELS } from "@/lib/permissions/roles";
@@ -31,6 +32,15 @@ export default async function DashboardLayout({
 
   if (!canAccessAdminArea(principal)) {
     redirect("/admin/no-access");
+  }
+
+  // A temporary password must be replaced before anything else is shown.
+  const account = await prisma.user.findUnique({
+    where: { id: principal.userId },
+    select: { mustChangePassword: true },
+  });
+  if (account?.mustChangePassword) {
+    redirect("/admin/change-password");
   }
 
   const sections = visibleNavigation(new Set(capabilitiesFor(principal.role)));

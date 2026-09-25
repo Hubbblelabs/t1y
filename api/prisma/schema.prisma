@@ -72,6 +72,13 @@ enum Sex {
   UNSPECIFIED
 }
 
+enum ProfileFieldType {
+  TEXT
+  NUMBER
+  DATE
+  CHOICE
+}
+
 enum GlucoseUnit {
   MG_DL
   MMOL_L
@@ -346,8 +353,15 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
+  /// The parent account this child belongs to. Null for ADMIN users and for
+  /// participants enrolled before households existed — those are treated as
+  /// a household of one, so nothing breaks for them.
+  householdId String?
+
   sessions Session[]
   accounts Account[]
+
+  household Household? @relation(fields: [householdId], references: [id], onDelete: SetNull)
 
   profile   Profile?
   adminUser AdminUser?
@@ -370,8 +384,10 @@ model User {
   auditLogsAsActor   AuditLog[] @relation("AuditActor")
   auditLogsAsSubject AuditLog[] @relation("AuditSubject")
 
+  authoredCalculators Calculator[]         @relation("CalculatorCreator")
+  supportThreads      SupportThread[]      @relation("SupportSubject")
+  supportMessages     SupportMessage[]     @relation("SupportAuthor")
   authoredEducation EducationContent[]     @relation("EducationAuthor")
-  authoredExercises ExerciseContent[]      @relation("ExerciseAuthor")
   authoredQuizzes   Quiz[]                 @relation("QuizAuthor")
   createdCampaigns  NotificationCampaign[] @relation("CampaignCreator")
   createdStudies    ResearchStudy[]        @relation("StudyCreator")
@@ -382,7 +398,9 @@ model User {
   quizAttempts  QuizAttempt[]
   topicProgress TopicProgress[]
   syncEvents    SyncEvent[]
+  quizBadges    QuizBadge[]
 
+  @@index([householdId])
   @@index([role, status])
   @@index([createdAt])
   @@index([status, createdAt])
@@ -457,6 +475,55 @@ model ApiRateLimit {
 }
 
 // ---------------------------------------------------------------------------
+// Households
+//
+// A parent in this study may enrol more than one child. Each child keeps
+// their own `User` row — that is what every route, quiz attempt, progress
+// record and research export already keys on, and splitting children out
+// into a non-User entity would rewrite all of it for no clinical gain.
+// A Household is purely the grouping above them: the parent's own contact
+// details, the MPIN that gates glucose entry, and the fact that these
+// children share one sign-in.
+//
+// Sign-in stays Better Auth's email+password against a child `User`. The
+// parent's email/phone resolves to the household, the app shows the child
+// picker, and the chosen child's account is the one the session belongs to
+// — see lib/services/households.ts.
+// ---------------------------------------------------------------------------
+
+model Household {
+  id String @id @default(cuid())
+
+  /// What the parent types to sign in. Distinct from any child `User.email`
+  /// (which must stay unique per child), and the reason a parent with three
+  /// children still has exactly one set of credentials to remember.
+  email String  @unique
+  phone String? @unique
+
+  parentName String
+
+  /// scrypt hash of the 4-6 digit MPIN gating glucose entry, and null until
+  /// the parent sets one in Profile. Never the same secret as the account
+  /// password — a PIN this short is only a "not the child's fingers" gate,
+  /// so it is rate-limited server-side and resettable only with the account
+  /// password. See lib/services/mpin.ts.
+  mpinHash  String?
+  mpinSetAt DateTime?
+
+  /// Consecutive failed MPIN attempts, reset to 0 on success. Lock-out is
+  /// derived from this rather than stored, so it expires on its own.
+  mpinFailedAttempts Int       @default(0)
+  mpinLockedUntil    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  children User[]
+
+  @@index([phone])
+}
+
+// ---------------------------------------------------------------------------
 // Participant and staff profiles
 // ---------------------------------------------------------------------------
 
@@ -467,8 +534,11 @@ model Profile {
   /// Stable pseudonymous identifier used in research exports (e.g. "P001").
   participantCode String @unique
 
-  firstName   String
-  lastName    String
+  /// The child's full name as one field — the study never needed first/last
+  /// split out (nothing sorts, matches, or exports on either part alone),
+  /// and splitting a name that isn't naturally "first + last" in every
+  /// family's convention was friction the form didn't need.
+  name        String
   dateOfBirth DateTime?
   sex         Sex       @default(UNSPECIFIED)
   phone       String?
@@ -485,13 +555,23 @@ model Profile {
   emergencyContactName  String?
   emergencyContactPhone String?
 
-  /// Per-child gate for the app's IC/ISF calculator. Deliberately not the
-  /// global `ic_isf_calculator` feature flag: the ratios are prescribed per
-  /// child, so a coordinator enables it only once that child's care team has
-  /// actually given values to work from — see the app's own
-  /// "why is this locked?" explainer, which already promised this and had
-  /// nothing behind it until this field existed.
-  icIsfUnlocked Boolean @default(false)
+  /// Answers to admin-defined [ProfileFieldDefinition]s, keyed by
+  /// `ProfileFieldDefinition.key`. Deliberately a JSON bucket rather than a
+  /// column per field: an admin can invent a field at any time, and giving
+  /// it a real column would need a migration for every one. A field that is
+  /// later deactivated leaves its answers here untouched — deactivating
+  /// only stops the field from being *asked* for, it never deletes what was
+  /// already collected.
+  customFieldValues Json @default("{}")
+
+  /// Per-child switch for the app's IC/ISF calculator, on top of the global
+  /// `ic_isf_calculator` feature flag. Defaults to unlocked for every
+  /// child — the earlier design gated this per child until a coordinator
+  /// confirmed real prescribed ratios were on file; that per-child clinical
+  /// check was deliberately removed, so this now only exists to let a
+  /// coordinator turn the calculator back off for one child specifically
+  /// (e.g. at a care team's request), not to turn it on.
+  icIsfUnlocked Boolean @default(true)
 
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?
@@ -504,7 +584,107 @@ model Profile {
 
   @@index([diabetesType])
   @@index([lastActivityAt])
-  @@index([lastName, firstName])
+  @@index([name])
+}
+
+/// An admin-defined field on the parent-facing profile form, on top of the
+/// fixed set of columns already on [Profile].
+///
+/// `key` is the stable identifier an answer is filed under in
+/// `Profile.customFieldValues` — immutable once set, because renaming it
+/// would orphan every answer already collected under the old key.
+///
+/// There is deliberately no delete: retiring a field is done by setting
+/// `active: false`, which stops the app asking for it and forces `required`
+/// back to false at the same time (see updateProfileFieldDefinition) —
+/// existing answers under its key are left exactly where they are. A hard
+/// delete would either orphan that data or require cascading it away, and
+/// this is self-reported study data — nothing here should vanish because an
+/// admin changed their mind about a form.
+model ProfileFieldDefinition {
+  id  String @id @default(cuid())
+  key String @unique
+
+  fieldType ProfileFieldType @default(TEXT)
+  /// Free-text grouping label (e.g. "Additional details") the app renders
+  /// this field under — not a fixed enum, so an admin can group fields
+  /// without a code change.
+  section   String           @default("Additional details")
+
+  /// Enforced client-side at save time only, and only while `active` — never
+  /// retroactively against rows already in the database. A profile saved
+  /// while a field was required and later left blank (because the field was
+  /// deactivated, or the parent simply skipped an optional one) is never
+  /// treated as broken data.
+  required  Boolean @default(false)
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  labelEn String
+  labelTa String?
+  hintEn  String?
+  hintTa  String?
+
+  /// True for a question the app has always asked, whose answer is stored in
+  /// a real `Profile` column (name, dateOfBirth, phone, heightCm…) rather than
+  /// in `customFieldValues`. `key` is then the column's name.
+  ///
+  /// These are registered here so the whole set of questions — built in and
+  /// added — can be seen and described in one place, with its type and
+  /// validation. They are deliberately kept out of what the app fetches and
+  /// out of the save-time "required" check (see profile-fields.ts): the app
+  /// still asks them from its own screens, and treating one as an ordinary
+  /// custom answer would both duplicate it on screen and fail every save.
+  builtIn Boolean @default(false)
+
+  /// Asked in the chat when a parent first signs up, rather than left to the
+  /// profile screen afterwards.
+  showOnSignup Boolean @default(false)
+
+  /// The sentence the sign-up chat asks ("What year were they diagnosed with
+  /// Type 1 diabetes?"), which is not the same thing as the field's label
+  /// ("Diagnosis year"). Only used when `showOnSignup` is on; falls back to
+  /// the label when blank.
+  promptEn String?
+  promptTa String?
+
+  /// The checks an answer must pass, in the shape that suits `fieldType`:
+  ///   TEXT   { minLength, maxLength, format: "ANY" | "LETTERS" }
+  ///   NUMBER { min, max, wholeNumber, upToCurrentYear, notBeforeYearOf }
+  ///   DATE   { notInFuture, minAgeYears, maxAgeYears }
+  ///   CHOICE — none; the options are the validation.
+  /// Validated and described by lib/services/profile-field-rules.ts.
+  rules Json?
+
+  /// Marks this as clinical information about the child rather than
+  /// administrative detail, which is what makes it available to calculators
+  /// as a named value (see lib/services/health-data-catalogue.ts).
+  ///
+  /// Off by default, deliberately. A field has to be deliberately declared
+  /// medical before a dosing formula can read it — nobody should be able to
+  /// wire "preferred contact time" into an insulin calculation by accident,
+  /// and the flag is also the honest boundary for what this study treats as
+  /// health data rather than contact detail.
+  isMedical Boolean @default(false)
+
+  /// The unit a numeric medical field is recorded in ("kg", "cm", "mg/dL").
+  /// Shown beside the value everywhere it appears, so a formula author can
+  /// see what they are dividing by.
+  unit String?
+
+  /// For `fieldType: CHOICE` only —
+  /// `[{ "value": "...", "labelEn": "...", "labelTa": "...", "numericValue": 1 }]`.
+  ///
+  /// `numericValue` is what a calculator sees when this choice is selected,
+  /// and is required only on a field that is both CHOICE and medical: a
+  /// formula cannot do arithmetic on the word "male", so if such a field is
+  /// to be usable in one, each option has to say what number it stands for.
+  options Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }
 
 /// Staff-specific metadata. Authorisation always derives from `User.role`.
@@ -726,7 +906,6 @@ model ExerciseLog {
   userId String
 
   exerciseId      String?
-  programId       String?
   activityName    String
   category        ExerciseCategory  @default(OTHER)
   durationMinutes Int
@@ -742,7 +921,6 @@ model ExerciseLog {
 
   user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   exercise Exercise?        @relation(fields: [exerciseId], references: [id], onDelete: SetNull)
-  program  ExerciseContent? @relation(fields: [programId], references: [id], onDelete: SetNull)
 
   @@index([userId, performedAt])
   @@index([userId, category, performedAt])
@@ -1000,6 +1178,15 @@ model EducationContent {
   bodySource String?
   bodyFormat ContentBodyFormat @default(HTML)
 
+  /// Ordered `{paragraph, imageUrl, imageKey}[]` — the Help Book reading
+  /// screen's image-above-text layout, where the image changes to match
+  /// whichever paragraph is on screen. Null/empty means "not migrated to
+  /// block layout yet"; the reader falls back to `body`. A block with no
+  /// `imageUrl` inherits the previous block's image (or the topic's
+  /// `thumbnailUrl`, or a generic fallback) — see
+  /// scripts/split-content-blocks.ts and ContentBlock's own doc.
+  contentBlocks Json?
+
   mediaType          MediaType @default(NONE)
   mediaUrl           String?
   mediaKey           String?
@@ -1034,38 +1221,148 @@ model EducationContent {
   @@index([status, publishedAt])
 }
 
-model ExerciseContent {
-  id    String @id @default(cuid())
-  slug  String @unique
-  title String
+// ---------------------------------------------------------------------------
+// Calculators
+//
+// Study staff define these through the dashboard: a set of named inputs a
+// parent fills in, and a set of results computed from them by formulas
+// written in the closed arithmetic language in lib/utils/formula.ts.
+//
+// A calculator is IMMUTABLE once created. There is no edit path for its
+// inputs, outputs or formulas — only `active`, which hides it. This is
+// deliberate and is the feature's main safety property: these formulas
+// produce insulin guidance shown to a parent, so a calculator a family used
+// on Tuesday must still mean the same thing when a clinician reviews it on
+// Friday. Changing a formula means creating a new calculator and hiding the
+// old one, which leaves both on the record.
+// ---------------------------------------------------------------------------
 
-  description     String
-  category        ExerciseCategory
-  difficulty      Difficulty       @default(BEGINNER)
-  durationMinutes Int
-  /// Rich text stored as sanitised HTML.
-  instructions    String
-  equipment       String[]
-  precautions     String?
+model Calculator {
+  id  String @id @default(cuid())
+  /// Stable identity for the mobile client. Generated, never author-typed.
+  key String @unique
 
-  videoUrl String?
-  videoKey String?
-  imageUrl String?
-  imageKey String?
+  nameEn        String
+  nameTa        String?
+  descriptionEn String?
+  descriptionTa String?
 
-  status      ContentStatus @default(DRAFT)
-  publishedAt DateTime?
-  sortOrder   Int           @default(0)
+  /// Ordered `{key, labelEn, labelTa, unit, min, max, decimals, helpEn,
+  /// helpTa}[]` — the numbers a parent is asked for. `key` is what the
+  /// formulas below refer to.
+  inputs Json
 
-  authorId  String
+  /// Ordered `{key, labelEn, labelTa, unit, decimals, expression}[]` — each
+  /// result and the formula producing it. A formula may reference any input
+  /// key, and any output key declared before it.
+  outputs Json
+
+  /// Shown with the results. The place for "check with your doctor before
+  /// changing a dose" — every calculator in this product needs one.
+  noteEn String?
+  noteTa String?
+
+  /// The only mutable field. False hides the calculator from the app while
+  /// leaving it, and its formulas, on the record.
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  /// Set when a newer calculator supersedes this one, purely for display
+  /// ("replaced by…") — superseding never rewrites the old row.
+  supersededById String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  /// Tracks `active` flips only; the rest of the row never changes.
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation("CalculatorCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([active, sortOrder])
+}
+
+// ---------------------------------------------------------------------------
+// Help and support
+//
+// A parent asks a question about their child; a coordinator answers it. One
+// thread per question, so a conversation stays together and the answer is
+// never separated from what was asked.
+//
+// Threads hang off the child's own `User` account rather than a household,
+// because that is who the parent is signed in as — which makes a message
+// automatically about the right child, with no way to file it against a
+// sibling by mistake.
+// ---------------------------------------------------------------------------
+
+enum SupportThreadStatus {
+  /// A parent has written and nobody has answered yet. The only state that
+  /// needs anyone to do anything, so it is what the inbox sorts to the top.
+  AWAITING_REPLY
+  /// A coordinator has answered. A parent writing again flips it back.
+  ANSWERED
+  /// Dealt with, and kept for the record. Nothing is ever deleted.
+  CLOSED
+}
+
+enum SupportAuthorRole {
+  PARENT
+  ADMIN
+}
+
+model SupportThread {
+  id String @id @default(cuid())
+
+  /// The child this question is about — the account the parent was signed
+  /// in as when they asked.
+  userId String
+
+  subject String
+  status  SupportThreadStatus @default(AWAITING_REPLY)
+
+  /// Sorts the inbox without counting messages on every row.
+  lastMessageAt DateTime @default(now())
+  /// When a coordinator first answered, for "how long are families waiting".
+  firstRepliedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author User          @relation("ExerciseAuthor", fields: [authorId], references: [id], onDelete: Restrict)
-  logs   ExerciseLog[]
+  user     User             @relation("SupportSubject", fields: [userId], references: [id], onDelete: Cascade)
+  messages SupportMessage[]
 
-  @@index([status, category])
-  @@index([status, difficulty])
+  @@index([status, lastMessageAt])
+  @@index([userId, lastMessageAt])
+}
+
+model SupportMessage {
+  id       String @id @default(cuid())
+  threadId String
+
+  authorId String
+  /// Stored rather than derived from the author's current role: a staff
+  /// member whose account is later changed must not retroactively turn their
+  /// past replies into parent messages.
+  authorRole SupportAuthorRole
+
+  body String
+
+  /// An optional link to something the family wants to show — a photo of a
+  /// meter, a clinic letter. Restricted to Google Drive (see
+  /// lib/services/support.ts): this study has no file-storage or virus-
+  /// scanning story for parent uploads, and a link to a service they already
+  /// use is a far smaller surface than accepting arbitrary files or URLs.
+  linkUrl String?
+
+  /// When the other side actually opened it, which is what the app shows as
+  /// "read" beside a sent message.
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  thread SupportThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  author User          @relation("SupportAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([threadId, createdAt])
 }
 
 model MediaAsset {
@@ -1134,6 +1431,7 @@ model Quiz {
   author    User           @relation("QuizAuthor", fields: [authorId], references: [id], onDelete: Restrict)
   questions QuizQuestion[]
   attempts  QuizAttempt[]
+  badges    QuizBadge[]
 
   @@unique([slug, locale])
   @@index([status, locale])
@@ -1243,6 +1541,57 @@ model QuizResponse {
 
   @@unique([attemptId, questionId])
   @@index([questionId])
+}
+
+// ---------------------------------------------------------------------------
+// Rewards
+//
+// Engagement scaffolding for children aged 6-15: one badge per quiz.
+// Deliberately *derived* state — every badge is recomputed
+// from the QuizAttempt that earned it, so these tables can be rebuilt from
+// scratch and carry no information the attempt data doesn't already have.
+// That keeps them out of the research dataset's way: they are motivation,
+// not measurement.
+// ---------------------------------------------------------------------------
+
+/// Score bands, highest first. A quiz scored below [BadgeTier.RISING]'s
+/// threshold earns no badge at all — the app says "you gave it your best,
+/// try again" rather than handing out a participation tier, which children
+/// read straight through.
+enum BadgeTier {
+  /// 91-100%
+  GOLD
+  /// 81-90%
+  SILVER
+  /// 61-80%
+  BRONZE
+  /// 51-60%
+  RISING
+}
+
+/// The single best badge a child holds for one quiz. Beating your own score
+/// overwrites the row (see lib/services/badges.ts) — the collection shows a
+/// child's best work per quiz, never a pile of every attempt, so retaking a
+/// quiz can only ever improve the wall.
+model QuizBadge {
+  id     String @id @default(cuid())
+  userId String
+  quizId String
+
+  tier         BadgeTier
+  scorePercent Int
+  /// The attempt that earned this badge, kept so the badge can always be
+  /// traced back to real scored evidence.
+  attemptId    String    @unique
+
+  earnedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quizId])
+  @@index([userId, earnedAt])
 }
 
 // ---------------------------------------------------------------------------

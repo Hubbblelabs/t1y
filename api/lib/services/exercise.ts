@@ -11,7 +11,6 @@ import { round, touchParticipantActivity, TRUNC_UNIT, type TrendInterval } from 
 const LOG_SELECT = {
   id: true,
   exerciseId: true,
-  programId: true,
   activityName: true,
   category: true,
   durationMinutes: true,

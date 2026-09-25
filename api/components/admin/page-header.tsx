@@ -54,7 +54,7 @@ export function PageHeader({
             {title}
           </h1>
           {description ? (
-            <p className="text-ink-muted mt-1 text-[13px]">{description}</p>
+            <p className="text-ink-muted mt-1 text-xs">{description}</p>
           ) : null}
         </div>
         {actions ? (

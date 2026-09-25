@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../widgets/pin_gate.dart';
 import '../config/api_config.dart';
 import 'api_client.dart';
 
@@ -55,7 +56,11 @@ class AuthService {
 
     final token = body['token'] as String?;
     if (token == null) {
-      throw ApiException(response.statusCode, 'AUTH_FAILED', 'No session token was returned.');
+      throw ApiException(
+        response.statusCode,
+        'AUTH_FAILED',
+        'No session token was returned.',
+      );
     }
     await ApiClient.instance.setToken(token);
 
@@ -94,8 +99,13 @@ class AuthService {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = (body['message'] as String?) ?? 'Could not change your password.';
-      throw ApiException(response.statusCode, 'CHANGE_PASSWORD_FAILED', message);
+      final message =
+          (body['message'] as String?) ?? 'Could not change your password.';
+      throw ApiException(
+        response.statusCode,
+        'CHANGE_PASSWORD_FAILED',
+        message,
+      );
     }
 
     // Revoking other sessions invalidates the token this request just used
@@ -114,14 +124,15 @@ class AuthService {
   /// isn't the information leak it might look like).
   Future<EmailCheckResult> checkEmailExists(String email) async {
     final base = await ApiConfig.getBaseUrl();
-    final uri = Uri.parse('$base/api/check-email').replace(
-      queryParameters: {'email': email.trim()},
-    );
+    final uri = Uri.parse(
+      '$base/api/check-email',
+    ).replace(queryParameters: {'email': email.trim()});
     final response = await http.get(uri).timeout(_networkTimeout);
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final message = (body['message'] as String?) ?? 'Could not check this email.';
+      final message =
+          (body['message'] as String?) ?? 'Could not check this email.';
       throw ApiException(response.statusCode, 'CHECK_EMAIL_FAILED', message);
     }
 
@@ -132,22 +143,28 @@ class AuthService {
     );
   }
 
-  /// Creates an account via Better Auth's `sign-up/email` endpoint.
+  /// Creates an account via Better Auth's `sign-up/email` endpoint and signs
+  /// it straight in.
   ///
-  /// Does **not** sign the user in — `emailAndPassword.autoSignIn` is `false`
-  /// on the backend (see `api/lib/auth/auth.ts`), and accounts default to
-  /// `requireEmailVerification: true`, so a freshly created account can't
-  /// necessarily sign in immediately either. This is the backend limitation
-  /// flagged in the app's README under "Known gaps" — the UI here completes
-  /// honestly (tells the caller sign-up succeeded) rather than pretending a
-  /// session was established.
-  Future<void> signUp({required String email, required String password, required String name}) async {
+  /// The account is usable immediately — `status` defaults to `ACTIVE` and
+  /// `emailAndPassword.autoSignIn` is `true` on the backend (see
+  /// `api/lib/auth/auth.ts`), so this returns holding a live session rather
+  /// than leaving the caller to show a "check back later" screen.
+  Future<void> signUp({
+    required String email,
+    required String password,
+    required String name,
+  }) async {
     final base = await ApiConfig.getBaseUrl();
     final response = await http
         .post(
           Uri.parse('$base/api/auth/sign-up/email'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password, 'name': name}),
+          body: jsonEncode({
+            'email': email,
+            'password': password,
+            'name': name,
+          }),
         )
         .timeout(_networkTimeout);
 
@@ -157,9 +174,20 @@ class AuthService {
       final message = (body['message'] as String?) ?? 'Sign-up failed.';
       throw ApiException(response.statusCode, 'SIGNUP_FAILED', message);
     }
+
+    final token = body['token'] as String?;
+    if (token == null) {
+      throw ApiException(
+        response.statusCode,
+        'AUTH_FAILED',
+        'No session token was returned.',
+      );
+    }
+    await ApiClient.instance.setToken(token);
   }
 
   Future<void> signOut() async {
+    PinSession.lock();
     await ApiClient.instance.setToken(null);
   }
 

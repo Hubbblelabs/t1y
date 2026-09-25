@@ -14,8 +14,7 @@ const updateMeSchema = z
     locale: z.string().trim().max(10).optional(),
     profile: z
       .object({
-        firstName: shortTextSchema(80).optional(),
-        lastName: shortTextSchema(80).optional(),
+        name: shortTextSchema(120).optional(),
         dateOfBirth: flexibleDate.nullish(),
         sex: z
           .enum(["FEMALE", "MALE", "INTERSEX", "PREFER_NOT_TO_SAY", "UNSPECIFIED"])
@@ -46,6 +45,14 @@ const updateMeSchema = z
         baselineWeightKg: z.number().finite().min(10).max(500).nullish(),
         emergencyContactName: z.string().trim().max(120).nullish(),
         emergencyContactPhone: z.string().trim().max(32).nullish(),
+        primaryClinician: z.string().trim().max(120).nullish(),
+        // Answers to admin-defined fields (see lib/services/profile-fields.ts).
+        // Shape is admin-configured, not known at request-parse time — each
+        // value is type/required-checked against the live field definitions
+        // inside updateCurrentUser, not here.
+        customFieldValues: z
+          .record(z.string().trim().min(1).max(60), z.union([z.string().max(500), z.number(), z.null()]))
+          .optional(),
       })
       .optional(),
   })

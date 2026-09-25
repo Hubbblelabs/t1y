@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../providers/app_state.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/bilingual.dart';
 import '../../widgets/auth_background.dart';
 import 'get_started_screen.dart';
 
@@ -33,11 +34,16 @@ class PendingApprovalScreen extends StatelessWidget {
                         shape: BoxShape.circle,
                         color: Colors.white.withValues(alpha: 0.85),
                       ),
-                      child: const Icon(Icons.hourglass_top, size: 40, color: AppTheme.primary),
+                      child: const Icon(
+                        Icons.hourglass_top,
+                        size: 40,
+                        color: AppTheme.primary,
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    Text(
-                      S.pendingApprovalTitle,
+                    Bilingual.s(
+                      () => S.pendingApprovalTitle,
+                      alignment: CrossAxisAlignment.center,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppTheme.deep,
@@ -46,8 +52,9 @@ class PendingApprovalScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
-                      S.pendingApprovalBody,
+                    Bilingual.s(
+                      () => S.pendingApprovalBody,
+                      alignment: CrossAxisAlignment.center,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: AppTheme.deep.withValues(alpha: 0.75),
@@ -58,10 +65,21 @@ class PendingApprovalScreen extends StatelessWidget {
                     const SizedBox(height: 28),
                     OutlinedButton(
                       onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(builder: (_) => const GetStartedScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const GetStartedScreen(),
+                        ),
                         (route) => false,
                       ),
-                      child: Text(S.backToStart),
+                      child: Bilingual.s(
+                        () => S.backToStart,
+                        alignment: CrossAxisAlignment.center,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.deep,
+                        ),
+                      ),
                     ),
                   ],
                 ),

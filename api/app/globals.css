@@ -55,6 +55,37 @@
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /*
+   * Type scale.
+   *
+   * Floored at 16px. The people running this dashboard are clinical and
+   * administrative staff, not developers, and several read it on laptop
+   * screens for hours — 12px secondary text (Tailwind's stock `text-xs`)
+   * was simply too small to be read comfortably. Every step is therefore
+   * shifted up so that the *smallest* text anywhere in the panel is 16px,
+   * with the rest of the scale widened to keep the steps distinguishable.
+   *
+   * These deliberately override Tailwind's defaults, so `text-xs` through
+   * `text-3xl` keep their familiar names in markup and no class has to be
+   * rewritten to get the larger sizes.
+   */
+  --text-xs: 1rem; /* 16px — the floor */
+  --text-xs--line-height: 1.5rem;
+  --text-sm: 1.0625rem; /* 17px */
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1.125rem; /* 18px */
+  --text-base--line-height: 1.75rem;
+  --text-lg: 1.25rem; /* 20px */
+  --text-lg--line-height: 1.75rem;
+  --text-xl: 1.375rem; /* 22px */
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.625rem; /* 26px */
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2rem; /* 32px */
+  --text-3xl--line-height: 2.375rem;
+  --text-4xl: 2.5rem; /* 40px */
+  --text-4xl--line-height: 2.75rem;
 }
 
 /*
@@ -63,43 +94,55 @@
  * The dashboard displays dense tabular data for long stretches, so the dark
  * surfaces stay slightly warm and low-contrast-shifted rather than pure black,
  * which reduces halation on thin type.
+ *
+ * Applied by an explicit `data-theme="dark"` on <html>, never by the media
+ * query directly: the inline script in the root layout resolves the OS
+ * preference into that attribute before first paint, so there is exactly one
+ * copy of these values and the in-app Light/Dark switch can override the OS
+ * without fighting a media query it cannot outrank.
  */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-canvas: oklch(17% 0.006 250);
-    --color-surface: oklch(21% 0.007 250);
-    --color-surface-sunken: oklch(19% 0.007 250);
-    --color-surface-hover: oklch(25% 0.008 250);
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --color-ink: oklch(96% 0.003 250);
-    --color-ink-muted: oklch(72% 0.008 250);
-    --color-ink-subtle: oklch(58% 0.009 250);
-    --color-ink-inverse: oklch(17% 0.006 250);
+  --color-canvas: oklch(17% 0.006 250);
+  --color-surface: oklch(21% 0.007 250);
+  --color-surface-sunken: oklch(19% 0.007 250);
+  --color-surface-hover: oklch(25% 0.008 250);
 
-    --color-line: oklch(29% 0.008 250);
-    --color-line-strong: oklch(37% 0.01 250);
+  --color-ink: oklch(96% 0.003 250);
+  --color-ink-muted: oklch(72% 0.008 250);
+  --color-ink-subtle: oklch(58% 0.009 250);
+  --color-ink-inverse: oklch(17% 0.006 250);
 
-    --color-primary: oklch(72% 0.098 192);
-    --color-primary-hover: oklch(79% 0.09 192);
-    --color-primary-soft: oklch(27% 0.036 192);
-    --color-primary-border: oklch(38% 0.056 192);
+  --color-line: oklch(29% 0.008 250);
+  --color-line-strong: oklch(37% 0.01 250);
 
-    --color-success: oklch(72% 0.126 152);
-    --color-success-soft: oklch(26% 0.042 152);
-    --color-warning: oklch(78% 0.13 84);
-    --color-warning-soft: oklch(28% 0.05 74);
-    --color-danger: oklch(69% 0.156 26);
-    --color-danger-soft: oklch(27% 0.056 26);
-    --color-info: oklch(72% 0.108 250);
-    --color-info-soft: oklch(26% 0.044 250);
+  --color-primary: oklch(72% 0.098 192);
+  --color-primary-hover: oklch(79% 0.09 192);
+  --color-primary-soft: oklch(27% 0.036 192);
+  --color-primary-border: oklch(38% 0.056 192);
 
-    --color-chart-1: oklch(72% 0.104 192);
-    --color-chart-2: oklch(72% 0.114 252);
-    --color-chart-3: oklch(74% 0.116 152);
-    --color-chart-4: oklch(78% 0.128 74);
-    --color-chart-5: oklch(72% 0.13 320);
-    --color-chart-6: oklch(70% 0.1 30);
-  }
+  --color-success: oklch(72% 0.126 152);
+  --color-success-soft: oklch(26% 0.042 152);
+  --color-warning: oklch(78% 0.13 84);
+  --color-warning-soft: oklch(28% 0.05 74);
+  --color-danger: oklch(69% 0.156 26);
+  --color-danger-soft: oklch(27% 0.056 26);
+  --color-info: oklch(72% 0.108 250);
+  --color-info-soft: oklch(26% 0.044 250);
+
+  --color-chart-1: oklch(72% 0.104 192);
+  --color-chart-2: oklch(72% 0.114 252);
+  --color-chart-3: oklch(74% 0.116 152);
+  --color-chart-4: oklch(78% 0.128 74);
+  --color-chart-5: oklch(72% 0.13 320);
+  --color-chart-6: oklch(70% 0.1 30);
+}
+
+/* The light theme is the default, so this only has to declare the hint that
+   lets native controls (scrollbars, date pickers, form widgets) match it. */
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @layer base {

@@ -42,7 +42,7 @@ export default function AdminError({
         <h1 className="text-ink text-base font-semibold">
           Unable to load this page
         </h1>
-        <p className="text-ink-muted mt-2 text-[13px] leading-relaxed">
+        <p className="text-ink-muted mt-2 text-xs leading-relaxed">
           Something went wrong while fetching the data. This has been recorded.
           Please try again.
         </p>

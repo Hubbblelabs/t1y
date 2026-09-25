@@ -1,55 +1,112 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PageContainer, PageHeader } from "@/components/admin/page-header";
-import { EducationForm } from "@/components/admin/content/education-form";
 import { DeleteButton } from "@/components/admin/delete-button";
+import { HelpBookTopicForm, type TopicBlock } from "@/components/admin/content/help-book-topic-form";
+import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { getEducationById } from "@/lib/services/education";
 
-export const metadata: Metadata = { title: "Edit article" };
+export const metadata: Metadata = { title: "Edit topic" };
 
-export default async function EditEducationPage(
+export default async function EditHelpBookTopicPage(
   props: PageProps<"/admin/content/education/[id]">,
 ) {
   const params = await props.params;
 
-  const article = await getEducationById(params.id).catch(() => null);
-  if (!article) notFound();
+  const topic = await getEducationById(params.id).catch(() => null);
+  if (!topic) notFound();
 
   return (
     <PageContainer>
       <PageHeader
-        title={article.title}
-        description={`/${article.slug} · ${article.locale === "EN" ? "English" : "Tamil"}`}
+        title={topic.title}
+        description={`${topic.locale === "EN" ? "English" : "Tamil"} version`}
         breadcrumbs={[
-          { label: "Content" },
-          { label: "Education", href: "/admin/content/education" },
+          { label: "What families see" },
+          { label: "Help Book", href: "/admin/content/education" },
           { label: "Edit" },
         ]}
         actions={
           <DeleteButton
-            resourceLabel="article"
-            deleteUrl={`/api/admin/education/${article.id}`}
+            resourceLabel="topic"
+            deleteUrl={`/api/admin/education/${topic.id}`}
             redirectTo="/admin/content/education"
           />
         }
       />
-      <EducationForm
+      <HelpBookTopicForm
         mode="edit"
         initial={{
-          id: article.id,
-          slug: article.slug,
-          locale: article.locale,
-          title: article.title,
-          description: article.description ?? "",
-          excerpt: article.excerpt ?? "",
-          category: article.category,
-          bodySource: article.bodySource ?? "",
-          status: article.status,
-          tags: article.tags.join(", "),
-          sortOrder: article.sortOrder,
+          id: topic.id,
+          slug: topic.slug,
+          locale: topic.locale,
+          title: topic.title,
+          description: topic.description ?? "",
+          category: topic.category,
+          status: topic.status,
+          thumbnailUrl: topic.thumbnailUrl,
+          blocks: toEditableBlocks(topic.contentBlocks),
         }}
       />
     </PageContainer>
   );
+}
+
+/**
+ * Normalises whatever is stored into the editor's block shape.
+ *
+ * Existing topics were written by the importer in an older, narrower shape —
+ * `{paragraph, imageUrl}` with no `kind` and HTML rather than plain text in
+ * the paragraph (see scripts/split-content-blocks.ts). Those rows must open
+ * in this editor without a migration, so the kind is inferred from whichever
+ * media field is present and the paragraph's markup is reduced to the text a
+ * person actually wrote.
+ */
+function toEditableBlocks(stored: unknown): TopicBlock[] {
+  if (!Array.isArray(stored) || stored.length === 0) {
+    return [{ kind: "TEXT", heading: "", paragraph: "", imageUrl: null, imageKey: null, videoUrl: null }];
+  }
+
+  return stored.map((raw) => {
+    const block = (raw ?? {}) as Record<string, unknown>;
+    const imageUrl = typeof block.imageUrl === "string" && block.imageUrl ? block.imageUrl : null;
+    const videoUrl = typeof block.videoUrl === "string" && block.videoUrl ? block.videoUrl : null;
+
+    const kind: TopicBlock["kind"] =
+      block.kind === "TEXT" || block.kind === "IMAGE" || block.kind === "VIDEO"
+        ? block.kind
+        : videoUrl
+          ? "VIDEO"
+          : imageUrl
+            ? "IMAGE"
+            : "TEXT";
+
+    return {
+      kind,
+      heading: typeof block.heading === "string" ? block.heading : "",
+      paragraph: htmlToPlainText(typeof block.paragraph === "string" ? block.paragraph : ""),
+      imageUrl,
+      imageKey: typeof block.imageKey === "string" ? block.imageKey : null,
+      videoUrl,
+    };
+  });
+}
+
+/**
+ * The editor holds plain text, not markup. Imported paragraphs may carry
+ * simple HTML, so tags are dropped and the handful of entities the importer
+ * can emit are decoded — anything richer was never authorable here anyway.
+ */
+function htmlToPlainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
 }

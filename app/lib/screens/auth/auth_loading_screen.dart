@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/strings.dart';
 import '../../services/api_client.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
@@ -78,13 +79,10 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
         Navigator.of(context).pushReplacement(route);
       }
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.bothMessage);
     } catch (_) {
       if (mounted) {
-        setState(
-          () => _error =
-              'Could not reach the server. Check your connection and try again.',
-        );
+        setState(() => _error = S.bothText(() => S.couldNotReach));
       }
     }
   }
@@ -172,7 +170,9 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
         const SizedBox(height: 24),
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(_error),
-          child: const Text('Try again'),
+          child: Text(
+            S.bothText(() => S.tryAgainLabel).replaceAll('\n', ' / '),
+          ),
         ),
       ],
     );

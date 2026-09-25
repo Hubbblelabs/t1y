@@ -1,107 +1,69 @@
-enum SignupAnswerType { text, date, choice, year }
+import '../services/profile_field_rules.dart';
+import 'question.dart';
+import '../l10n/strings.dart';
 
-/// One step of the chat-style sign-up flow. Fields chosen to match
-/// `Profile` on the backend (see `api/prisma/schema.prisma`) — first/last
-/// name, date of birth, sex, diagnosis year — kept to the minimum the app
-/// actually uses rather than the full profile form.
-class SignupQuestion {
-  final String key;
-  final String prompt;
-  final SignupAnswerType type;
-  final List<String>? choices;
-
-  const SignupQuestion({
-    required this.key,
-    required this.prompt,
-    required this.type,
-    this.choices,
-  });
-}
-
-const List<SignupQuestion> signupQuestions = [
-  SignupQuestion(
-    key: 'firstName',
-    prompt: "What is the child's first name?",
-    type: SignupAnswerType.text,
-  ),
-  SignupQuestion(
-    key: 'lastName',
-    prompt: "And their last name?",
-    type: SignupAnswerType.text,
-  ),
-  SignupQuestion(
-    key: 'dateOfBirth',
-    prompt: "What is their date of birth?",
-    type: SignupAnswerType.date,
-  ),
-  SignupQuestion(
-    key: 'sex',
-    prompt: "Sex, for the medical record?",
-    type: SignupAnswerType.choice,
-    choices: ['Female', 'Male', 'Prefer not to say'],
-  ),
-  SignupQuestion(
-    key: 'diagnosisYear',
-    prompt: "What year were they diagnosed with Type 1 diabetes?",
-    type: SignupAnswerType.year,
-  ),
-];
-
-/// Validates one raw answer for a question. Returns an error string, or null
-/// if valid — kept separate from the widget so it's testable without pumping
-/// a widget tree.
+/// Validates one raw answer typed or chosen in the sign-up chat.
 ///
-/// [priorAnswers] carries answers already given earlier in the chat, keyed by
-/// [SignupQuestion.key] — needed for cross-field checks like "diagnosis year
-/// can't be before the child was born", which no single question's answer can
-/// validate on its own.
+/// Returns a message to show the parent, or `null` when the answer is fine.
+/// Kept apart from the widget so it can be tested without pumping a widget
+/// tree.
+///
+/// The rules themselves come from the question — the dashboard decides what a
+/// good answer is — and are applied by [checkAnswer], the same checks the
+/// server runs. [priorAnswers] carries the answers already given earlier in the
+/// chat, keyed by question key, which is what lets a diagnosis year be checked
+/// against the date of birth.
 String? validateSignupAnswer(
-  SignupQuestion question,
+  Question question,
   String rawValue, {
   Map<String, String> priorAnswers = const {},
 }) {
   final value = rawValue.trim();
-  if (value.isEmpty) return 'This is required.';
-
-  switch (question.type) {
-    case SignupAnswerType.text:
-      if (value.length < 2) return 'Enter at least 2 characters.';
-      if (value.length > 80) return 'Keep it under 80 characters.';
-      if (!RegExp(r"^[a-zA-Z஀-௿\s\-']+$").hasMatch(value)) {
-        return 'Letters only, please.';
-      }
-      return null;
-
-    case SignupAnswerType.date:
-      final date = DateTime.tryParse(value);
-      if (date == null) return 'Enter a valid date.';
-      final now = DateTime.now();
-      final age = now.year - date.year - (now.isBefore(DateTime(now.year, date.month, date.day)) ? 1 : 0);
-      if (date.isAfter(now)) return 'Date of birth cannot be in the future.';
-      if (age < 0 || age > 25) return 'Enter a date of birth between 0 and 25 years ago.';
-      return null;
-
-    case SignupAnswerType.choice:
-      if (!(question.choices ?? []).contains(value)) return 'Choose one of the options.';
-      return null;
-
-    case SignupAnswerType.year:
-      final year = int.tryParse(value);
-      final currentYear = DateTime.now().year;
-      if (year == null) return 'Enter a valid year, e.g. $currentYear.';
-      if (year < 1900 || year > currentYear) return 'Enter a year between 1900 and $currentYear.';
-
-      // A diagnosis year cannot precede the child's own birth year — the
-      // per-question check above had no way to catch this (DOB 2018,
-      // diagnosis 2015 passed silently) since it never saw the earlier
-      // answer.
-      if (question.key == 'diagnosisYear') {
-        final dobRaw = priorAnswers['dateOfBirth'];
-        final dob = dobRaw == null ? null : DateTime.tryParse(dobRaw);
-        if (dob != null && year < dob.year) {
-          return "That's before the date of birth you gave (${dob.year}). Check the year.";
-        }
-      }
-      return null;
+  if (value.isEmpty) {
+    // An optional question may be left unanswered; a required one may not.
+    return question.required ? S.answerRequired : null;
   }
+
+  switch (question.fieldType) {
+    case 'CHOICE':
+      return question.options.any((o) => o.value == value)
+          ? null
+          : S.chooseOption;
+
+    case 'NUMBER':
+      final number = num.tryParse(value);
+      if (number == null) {
+        return question.rules['upToCurrentYear'] == true
+            ? S.validYear(DateTime.now().year)
+            : S.validNumber;
+      }
+      return checkAnswer(question, number, answers: {...priorAnswers});
+
+    case 'DATE':
+      if (DateTime.tryParse(value) == null) return S.validDate;
+      return checkAnswer(question, value, answers: {...priorAnswers});
+
+    default:
+      return checkAnswer(question, value, answers: {...priorAnswers});
+  }
+}
+
+/// The Tamil wording of a stored pick-one answer, or null when there is none.
+String? displayAnswerTa(Question question, String stored) {
+  if (question.fieldType != 'CHOICE') return null;
+  for (final option in question.options) {
+    if (option.value == stored) return option.labelTa;
+  }
+  return null;
+}
+
+/// What to show in the chat bubble for a stored answer — the wording of the
+/// chosen option rather than the value that gets stored.
+String displayAnswer(Question question, String stored, String locale) {
+  if (question.fieldType == 'CHOICE') {
+    for (final option in question.options) {
+      if (option.value == stored) return option.label(locale);
+    }
+  }
+  return stored;
 }

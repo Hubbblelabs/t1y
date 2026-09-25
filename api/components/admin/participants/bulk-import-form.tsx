@@ -98,7 +98,7 @@ export function BulkImportForm() {
     <div className="space-y-6">
       <Card className="p-5">
         <h2 className="text-ink mb-1 text-sm font-semibold">1. Download the sample sheet</h2>
-        <p className="text-ink-muted mb-3 text-[13px]">
+        <p className="text-ink-muted mb-3 text-xs">
           One row per child — email, name, date of birth and diagnosis year. Fill in as many rows
           as you need and re-upload it below.
         </p>
@@ -112,7 +112,7 @@ export function BulkImportForm() {
 
       <Card className="p-5">
         <h2 className="text-ink mb-1 text-sm font-semibold">2. Set a shared temporary password</h2>
-        <p className="text-ink-muted mb-3 text-[13px]">
+        <p className="text-ink-muted mb-3 text-xs">
           Every account this batch creates gets this same password to start. Everyone is required
           to set their own password the first time they sign in — this one is only for handoff.
         </p>
@@ -138,7 +138,7 @@ export function BulkImportForm() {
 
       <Card className="p-5">
         <h2 className="text-ink mb-1 text-sm font-semibold">3. Upload the completed sheet</h2>
-        <p className="text-ink-muted mb-3 text-[13px]">
+        <p className="text-ink-muted mb-3 text-xs">
           Up to 1,000 rows per upload. Rows with a problem (bad email, missing field, an email
           already in use) are skipped and listed below — the rest are still created.
         </p>
@@ -154,13 +154,13 @@ export function BulkImportForm() {
             <Upload className="size-4" aria-hidden="true" />
             Choose file
           </Button>
-          <span className="text-ink-muted text-[13px]">{fileName ?? "No file chosen"}</span>
+          <span className="text-ink-muted text-xs">{fileName ?? "No file chosen"}</span>
         </div>
 
         {error ? (
           <div
             role="alert"
-            className="bg-danger-soft text-danger mt-3 flex items-start gap-2 rounded-md p-2.5 text-[13px]"
+            className="bg-danger-soft text-danger mt-3 flex items-start gap-2 rounded-md p-2.5 text-xs"
           >
             <AlertCircle className="mt-px size-4 shrink-0" aria-hidden="true" />
             <span>{error}</span>
@@ -194,11 +194,11 @@ function ResultSummary({
       <div className="mb-4 flex items-start gap-2">
         <Check className="text-success mt-0.5 size-4 shrink-0" aria-hidden="true" />
         <div>
-          <p className="text-ink text-[13px] font-medium">
+          <p className="text-ink text-xs font-medium">
             {result.created.length} participant{result.created.length === 1 ? "" : "s"} created
             {result.skipped.length > 0 ? `, ${result.skipped.length} skipped` : ""}.
           </p>
-          <p className="text-ink-muted mt-1 text-[13px]">
+          <p className="text-ink-muted mt-1 text-xs">
             Shared password for this batch:{" "}
             <code className="bg-surface rounded px-1.5 py-0.5 font-mono">{dummyPassword}</code> —
             copy it now before leaving this page.
@@ -208,7 +208,7 @@ function ResultSummary({
 
       {result.created.length > 0 ? (
         <div className="mb-4 overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
+          <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-ink-subtle border-line border-b">
                 <th className="py-1.5 pr-4 font-medium">Row</th>
@@ -231,8 +231,8 @@ function ResultSummary({
 
       {result.skipped.length > 0 ? (
         <div className="overflow-x-auto">
-          <p className="text-ink mb-2 text-[13px] font-medium">Skipped rows</p>
-          <table className="w-full text-left text-[13px]">
+          <p className="text-ink mb-2 text-xs font-medium">Skipped rows</p>
+          <table className="w-full text-left text-xs">
             <thead>
               <tr className="text-ink-subtle border-line border-b">
                 <th className="py-1.5 pr-4 font-medium">Row</th>

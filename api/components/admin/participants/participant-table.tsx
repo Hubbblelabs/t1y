@@ -125,7 +125,7 @@ export async function ParticipantTable({
                 <TableCell className="text-right">
                   <Link
                     href={`/admin/participants/${row.id}`}
-                    className="text-primary text-[13px] font-medium underline-offset-4 hover:underline"
+                    className="text-primary text-xs font-medium underline-offset-4 hover:underline"
                   >
                     View activity
                   </Link>
@@ -147,7 +147,7 @@ export async function ParticipantTable({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-ink text-sm font-medium">{row.participantCode}</p>
-                  <p className="text-ink-muted truncate text-[13px]">{row.name}</p>
+                  <p className="text-ink-muted truncate text-xs">{row.name}</p>
                 </div>
                 <StatusBadge status={row.status} />
               </div>

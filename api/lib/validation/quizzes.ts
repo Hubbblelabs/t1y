@@ -108,7 +108,13 @@ export const quizQuestionSchema = z
   });
 
 export const createQuizSchema = z.object({
-  slug: slugSchema,
+  /**
+   * Generated, not authored — it is the join key pairing the English and
+   * Tamil versions of a quiz, not something an admin would recognise.
+   * Supplied only when deliberately adding the second language to an
+   * existing quiz; omitted, a fresh one is minted.
+   */
+  slug: slugSchema.optional(),
   locale: contentLocaleSchema.default("EN"),
   /** EducationContent.slug this quiz reinforces, if any. */
   topicSlug: slugSchema.optional(),

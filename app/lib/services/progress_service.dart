@@ -60,8 +60,10 @@ class ProgressService {
     }
   }
 
-  Future<void> recordTopicOpened(String topicSlug, String locale) =>
-      _enqueue('TOPIC_OPEN', {'topicSlug': topicSlug, 'locale': locale.toUpperCase()});
+  Future<void> recordTopicOpened(String topicSlug, String locale) => _enqueue(
+    'TOPIC_OPEN',
+    {'topicSlug': topicSlug, 'locale': locale.toUpperCase()},
+  );
 
   Future<void> recordTopicCompleted(
     String topicSlug,
@@ -83,12 +85,14 @@ class ProgressService {
   Future<void> _enqueue(String type, Map<String, dynamic> payload) async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_outboxKey) ?? [];
-    raw.add(jsonEncode({
-      'clientId': _uuid.v4(),
-      'type': type,
-      'occurredAt': DateTime.now().toUtc().toIso8601String(),
-      'payload': payload,
-    }));
+    raw.add(
+      jsonEncode({
+        'clientId': _uuid.v4(),
+        'type': type,
+        'occurredAt': DateTime.now().toUtc().toIso8601String(),
+        'payload': payload,
+      }),
+    );
     await prefs.setStringList(_outboxKey, raw);
     // Best-effort immediate flush; failures just leave the item queued.
     unawaited(flush());
@@ -103,17 +107,22 @@ class ProgressService {
 
     // The sync endpoint caps a batch at 100 events.
     final batch = raw.take(100).toList();
-    final events = batch.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+    final events = batch
+        .map((e) => jsonDecode(e) as Map<String, dynamic>)
+        .toList();
 
     try {
       // `sentAt` is required by the backend's syncPushSchema — every push
       // from this outbox was missing it and failing 400 VALIDATION_ERROR,
       // silently (the catch below just leaves it queued), so no topic
       // completion from this path ever actually reached TopicProgress.
-      await ApiClient.instance.post('/api/sync', body: {
-        'sentAt': DateTime.now().toUtc().toIso8601String(),
-        'events': events,
-      });
+      await ApiClient.instance.post(
+        '/api/sync',
+        body: {
+          'sentAt': DateTime.now().toUtc().toIso8601String(),
+          'events': events,
+        },
+      );
       final remaining = raw.sublist(batch.length);
       await prefs.setStringList(_outboxKey, remaining);
     } catch (_) {

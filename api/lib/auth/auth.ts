@@ -40,11 +40,14 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
-    // Health data is only reachable after the address is proven.
-    requireEmailVerification: true,
+    // A self-registered family is usable the moment they sign up (see
+    // `status.defaultValue` below) — there is no coordinator gate left on
+    // this path for email verification to stand in for, so it no longer
+    // blocks sign-in either.
+    requireEmailVerification: false,
     minPasswordLength: 12,
     maxPasswordLength: 128,
-    autoSignIn: false,
+    autoSignIn: true,
     resetPasswordTokenExpiresIn: 60 * 60, // 1 hour
     sendResetPassword: async ({ user, url }) => {
       await sendPasswordResetEmail({ to: user.email, name: user.name, url });
@@ -55,7 +58,9 @@ export const auth = betterAuth({
   },
 
   emailVerification: {
-    sendOnSignUp: true,
+    // Nothing downstream depends on this being proven any more — see
+    // requireEmailVerification above — so there is no reason to send it.
+    sendOnSignUp: false,
     autoSignInAfterVerification: false,
     expiresIn: 60 * 60 * 24, // 24 hours
     sendVerificationEmail: async ({ user, url }) => {
@@ -75,7 +80,12 @@ export const auth = betterAuth({
       status: {
         type: "string",
         required: false,
-        defaultValue: "PENDING",
+        // Self-registration no longer waits on a study coordinator to admit
+        // the family — a fresh account is usable the moment it's created.
+        // (Participants created from the admin side still start PENDING —
+        // see createParticipant in lib/services/participants.ts, which sets
+        // this explicitly rather than relying on the field default.)
+        defaultValue: "ACTIVE",
         input: false,
       },
       mustChangePassword: {
@@ -125,7 +135,8 @@ export const auth = betterAuth({
     window: 60,
     max: 60,
     customRules: {
-      "/sign-in/email": { window: 300, max: 8 },
+      // Wrong passwords are never counted or locked out, by decision of the study team.
+      "/sign-in/email": false,
       "/sign-up/email": { window: 3600, max: 5 },
       "/forget-password": { window: 3600, max: 5 },
       "/reset-password": { window: 3600, max: 8 },

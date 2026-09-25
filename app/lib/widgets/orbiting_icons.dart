@@ -30,13 +30,17 @@ class OrbitingIcons extends StatefulWidget {
   State<OrbitingIcons> createState() => _OrbitingIconsState();
 }
 
-class _OrbitingIconsState extends State<OrbitingIcons> with SingleTickerProviderStateMixin {
+class _OrbitingIconsState extends State<OrbitingIcons>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 60),
+    )..repeat();
   }
 
   @override
@@ -61,13 +65,18 @@ class _OrbitingIconsState extends State<OrbitingIcons> with SingleTickerProvider
               Container(
                 width: widget.radius * 2,
                 height: widget.radius * 2,
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: widget.ringColor, width: 1)),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: widget.ringColor, width: 1),
+                ),
               ),
               for (var i = 0; i < widget.icons.length; i++)
                 Transform.translate(
                   offset: Offset(
-                    widget.radius * cos(baseAngle + (2 * pi * i / widget.icons.length)),
-                    widget.radius * sin(baseAngle + (2 * pi * i / widget.icons.length)),
+                    widget.radius *
+                        cos(baseAngle + (2 * pi * i / widget.icons.length)),
+                    widget.radius *
+                        sin(baseAngle + (2 * pi * i / widget.icons.length)),
                   ),
                   child: _OrbitBadge(
                     icon: widget.icons[i],
@@ -91,14 +100,23 @@ class _OrbitBadge extends StatelessWidget {
   final Color border;
   final Color iconColor;
 
-  const _OrbitBadge({required this.icon, required this.fill, required this.border, required this.iconColor});
+  const _OrbitBadge({
+    required this.icon,
+    required this.fill,
+    required this.border,
+    required this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 48,
       height: 48,
-      decoration: BoxDecoration(color: fill, shape: BoxShape.circle, border: Border.all(color: border)),
+      decoration: BoxDecoration(
+        color: fill,
+        shape: BoxShape.circle,
+        border: Border.all(color: border),
+      ),
       child: Icon(icon, color: iconColor, size: 22),
     );
   }

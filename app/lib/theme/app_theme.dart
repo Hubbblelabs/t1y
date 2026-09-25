@@ -32,7 +32,10 @@ class AppTheme {
     // made typed input look disabled/unreadable.
     return brightness == Brightness.dark
         ? theme
-        : theme.apply(bodyColor: const Color(0xDD000000), displayColor: const Color(0xDD000000));
+        : theme.apply(
+            bodyColor: const Color(0xDD000000),
+            displayColor: const Color(0xDD000000),
+          );
   }
 
   static ThemeData light() {
@@ -66,15 +69,22 @@ class AppTheme {
         elevation: 0,
         margin: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         color: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: deep,
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(58),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          textStyle: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          textStyle: GoogleFonts.poppins(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -82,14 +92,22 @@ class AppTheme {
           foregroundColor: primary,
           minimumSize: const Size.fromHeight(52),
           side: const BorderSide(color: primary, width: 1.4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-          textStyle: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(28),
+          ),
+          textStyle: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightest,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
