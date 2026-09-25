@@ -27,12 +27,14 @@ datasource db {
 // Enums
 // ---------------------------------------------------------------------------
 
+/// This deployment serves one study with one operating team — ADMIN is the
+/// single staff role, holding every staff capability (see
+/// lib/permissions/roles.ts). The platform's original SUPER_ADMIN,
+/// RESEARCHER and CLINICAL_REVIEWER distinctions belonged to a
+/// multi-study, multi-team deployment this one isn't.
 enum UserRole {
   PATIENT
   ADMIN
-  SUPER_ADMIN
-  RESEARCHER
-  CLINICAL_REVIEWER
 }
 
 enum UserStatus {
@@ -193,6 +195,22 @@ enum EducationCategory {
   LIFESTYLE
   STRESS_MANAGEMENT
   GENERAL_WELLNESS
+  HYPOGLYCAEMIA
+  SCHOOL_MANAGEMENT
+  TRAVEL
+  DIABAG
+}
+
+/// Content language. The mobile client's BCP-47 "en"/"ta" map to these.
+enum ContentLocale {
+  EN
+  TA
+}
+
+/// How `EducationContent.bodySource` should be rendered into `body`.
+enum ContentBodyFormat {
+  MARKDOWN
+  HTML
 }
 
 enum ContentStatus {
@@ -310,19 +328,23 @@ enum AssetKind {
 // ---------------------------------------------------------------------------
 
 model User {
-  id            String     @id @default(cuid())
-  name          String
-  email         String     @unique
-  emailVerified Boolean    @default(false)
-  image         String?
-  role          UserRole   @default(PATIENT)
-  status        UserStatus @default(PENDING)
-  timezone      String     @default("UTC")
-  locale        String     @default("en")
-  lastLoginAt   DateTime?
-  deletedAt     DateTime?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                 String     @id @default(cuid())
+  name               String
+  email              String     @unique
+  emailVerified      Boolean    @default(false)
+  image              String?
+  role               UserRole   @default(PATIENT)
+  status             UserStatus @default(PENDING)
+  /// Set when a temporary/dummy password is issued (single-participant
+  /// activation or bulk import) so the app can force a change on first
+  /// sign-in. False for self-registered accounts, who chose their own.
+  mustChangePassword Boolean    @default(false)
+  timezone           String     @default("UTC")
+  locale             String     @default("en")
+  lastLoginAt        DateTime?
+  deletedAt          DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
 
   sessions Session[]
   accounts Account[]
@@ -348,13 +370,18 @@ model User {
   auditLogsAsActor   AuditLog[] @relation("AuditActor")
   auditLogsAsSubject AuditLog[] @relation("AuditSubject")
 
-  authoredEducation EducationContent[] @relation("EducationAuthor")
-  authoredExercises ExerciseContent[]  @relation("ExerciseAuthor")
+  authoredEducation EducationContent[]     @relation("EducationAuthor")
+  authoredExercises ExerciseContent[]      @relation("ExerciseAuthor")
+  authoredQuizzes   Quiz[]                 @relation("QuizAuthor")
   createdCampaigns  NotificationCampaign[] @relation("CampaignCreator")
   createdStudies    ResearchStudy[]        @relation("StudyCreator")
   dataExports       DataExport[]
   uploadedAssets    MediaAsset[]
   customExercises   Exercise[]             @relation("ExerciseCreator")
+
+  quizAttempts  QuizAttempt[]
+  topicProgress TopicProgress[]
+  syncEvents    SyncEvent[]
 
   @@index([role, status])
   @@index([createdAt])
@@ -458,6 +485,14 @@ model Profile {
   emergencyContactName  String?
   emergencyContactPhone String?
 
+  /// Per-child gate for the app's IC/ISF calculator. Deliberately not the
+  /// global `ic_isf_calculator` feature flag: the ratios are prescribed per
+  /// child, so a coordinator enables it only once that child's care team has
+  /// actually given values to work from — see the app's own
+  /// "why is this locked?" explainer, which already promised this and had
+  /// nothing behind it until this field existed.
+  icIsfUnlocked Boolean @default(false)
+
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?
   onboardedAt    DateTime?
@@ -524,13 +559,13 @@ model Medication {
   id     String @id @default(cuid())
   userId String
 
-  name        String
-  genericName String?
-  dosageText  String
-  form        MedicationForm @default(TABLET)
-  route       String?
-  frequency   String
-  timesPerDay Int            @default(1)
+  name          String
+  genericName   String?
+  dosageText    String
+  form          MedicationForm @default(TABLET)
+  route         String?
+  frequency     String
+  timesPerDay   Int            @default(1)
   /// Local times of day ("08:00"), interpreted in the participant's timezone.
   scheduleTimes String[]
   instructions  String?
@@ -538,13 +573,13 @@ model Medication {
   reason        String?
   startDate     DateTime
   endDate       DateTime?
-  isActive      Boolean  @default(true)
+  isActive      Boolean        @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  logs MedicationLog[]
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs      MedicationLog[]
   reminders Reminder[]
 
   @@index([userId, isActive])
@@ -643,8 +678,8 @@ model MealItem {
   mealId String
 
   name          String
-  quantity      Float  @default(1)
-  unit          String @default("serving")
+  quantity      Float   @default(1)
+  unit          String  @default("serving")
   carbsGrams    Float?
   calories      Float?
   proteinGrams  Float?
@@ -666,14 +701,14 @@ model MealItem {
 
 /// Catalogue of activity types. System entries are shared; participants may add their own.
 model Exercise {
-  id       String           @id @default(cuid())
-  name     String
-  category ExerciseCategory @default(OTHER)
+  id          String           @id @default(cuid())
+  name        String
+  category    ExerciseCategory @default(OTHER)
   /// Metabolic equivalent, when a referenced value is available.
   metValue    Float?
   description String?
-  isSystem    Boolean @default(true)
-  isActive    Boolean @default(true)
+  isSystem    Boolean          @default(true)
+  isActive    Boolean          @default(true)
   createdById String?
 
   createdAt DateTime @default(now())
@@ -721,10 +756,10 @@ model HbA1cRecord {
   id     String @id @default(cuid())
   userId String
 
-  valuePercent  Float
-  valueMmolMol  Float?
-  measuredAt    DateTime
-  source        HbA1cSource @default(LABORATORY)
+  valuePercent   Float
+  valueMmolMol   Float?
+  measuredAt     DateTime
+  source         HbA1cSource @default(LABORATORY)
   laboratoryName String?
   orderedBy      String?
   notes          String?
@@ -756,12 +791,12 @@ model HealthMetricDefinition {
   primaryLabel   String?
   secondaryLabel String?
   /// Plausibility bounds used for input validation only — not a clinical judgement.
-  minValue  Float?
-  maxValue  Float?
-  precision Int     @default(1)
-  isSystem  Boolean @default(true)
-  isActive  Boolean @default(true)
-  sortOrder Int     @default(0)
+  minValue       Float?
+  maxValue       Float?
+  precision      Int             @default(1)
+  isSystem       Boolean         @default(true)
+  isActive       Boolean         @default(true)
+  sortOrder      Int             @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -797,7 +832,7 @@ model HealthMetric {
 
 /// Clinician-configured thresholds. Nothing in the product invents these values.
 model ClinicalThreshold {
-  id    String @id @default(cuid())
+  id    String         @id @default(cuid())
   key   String
   scope ThresholdScope @default(GLOBAL)
 
@@ -947,15 +982,23 @@ model DeviceToken {
 // ---------------------------------------------------------------------------
 
 model EducationContent {
-  id    String @id @default(cuid())
-  slug  String @unique
-  title String
+  id     String        @id @default(cuid())
+  /// Language-independent topic identity. Shared across the EN/TA pair —
+  /// that pairing IS the translation link; see ContentLocale.
+  slug   String
+  locale ContentLocale @default(EN)
+  title  String
 
   description String?
   excerpt     String?
   category    EducationCategory
-  /// Rich text stored as sanitised HTML.
+  /// Rich text stored as sanitised HTML, rendered from `bodySource`.
   body        String
+
+  /// Author-editable source (Markdown by default). `body` is derived from
+  /// this on every save — never edited directly once bodySource is set.
+  bodySource String?
+  bodyFormat ContentBodyFormat @default(HTML)
 
   mediaType          MediaType @default(NONE)
   mediaUrl           String?
@@ -974,15 +1017,21 @@ model EducationContent {
   viewCount   Int           @default(0)
   sortOrder   Int           @default(0)
 
+  /// sha256 of the source .docx, set by scripts/import-content.ts. Lets a
+  /// re-run skip unchanged documents entirely.
+  importChecksum String?
+  importedAt     DateTime?
+
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   author User @relation("EducationAuthor", fields: [authorId], references: [id], onDelete: Restrict)
 
-  @@index([status, category])
+  @@unique([slug, locale])
+  @@index([status, locale, category])
+  @@index([slug])
   @@index([status, publishedAt])
-  @@index([category])
 }
 
 model ExerciseContent {
@@ -990,14 +1039,14 @@ model ExerciseContent {
   slug  String @unique
   title String
 
-  description  String
-  category     ExerciseCategory
-  difficulty   Difficulty       @default(BEGINNER)
+  description     String
+  category        ExerciseCategory
+  difficulty      Difficulty       @default(BEGINNER)
   durationMinutes Int
   /// Rich text stored as sanitised HTML.
-  instructions String
-  equipment    String[]
-  precautions  String?
+  instructions    String
+  equipment       String[]
+  precautions     String?
 
   videoUrl String?
   videoKey String?
@@ -1037,6 +1086,261 @@ model MediaAsset {
   uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
 
   @@index([uploadedById, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes
+//
+// Question types are exactly what the source curriculum documents contain:
+// true/false, single choice, matching, and step ordering. Short-answer /
+// free-text items are deliberately not modelled — auto-grading free text in
+// two languages isn't reliable, and a study needs comparable scores. Those
+// items get converted to single-choice, or moved into the article body as
+// an FAQ, during content review.
+// ---------------------------------------------------------------------------
+
+enum QuizQuestionType {
+  SINGLE_CHOICE
+  TRUE_FALSE
+  MATCHING
+  ORDERING
+}
+
+model Quiz {
+  id     String        @id @default(cuid())
+  slug   String
+  locale ContentLocale @default(EN)
+
+  /// EducationContent.slug of the topic this quiz belongs to (language-
+  /// independent — the same quiz slug pairs with either locale's article).
+  topicSlug        String?
+  title            String
+  description      String?
+  /// Percent required to pass. Null = not graded pass/fail, only scored.
+  passingScore     Int?    @default(70)
+  /// 0 = unlimited attempts.
+  maxAttempts      Int     @default(0)
+  shuffleQuestions Boolean @default(false)
+
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?
+  sortOrder   Int           @default(0)
+  version     Int           @default(1)
+
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author    User           @relation("QuizAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@unique([slug, locale])
+  @@index([status, locale])
+  @@index([topicSlug, locale])
+}
+
+model QuizQuestion {
+  id     String           @id @default(cuid())
+  quizId String
+  type   QuizQuestionType
+
+  /// Stable across the EN and TA versions of the same question, so an
+  /// analyst can compare responses across languages, and so the offline
+  /// sync payload can reference a question without a server-assigned id.
+  questionKey String
+  prompt      String
+  explanation String?
+  imageUrl    String?
+  points      Int     @default(1)
+  position    Int
+
+  /// Soft delete only. Editing a quiz must never destroy a participant's
+  /// recorded responses — see QuizResponse.question below.
+  retiredAt DateTime?
+
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  options   QuizOption[]
+  responses QuizResponse[]
+
+  @@unique([quizId, questionKey])
+  @@index([quizId, position])
+}
+
+model QuizOption {
+  id         String @id @default(cuid())
+  questionId String
+  position   Int
+
+  /// Choice text (SINGLE_CHOICE/TRUE_FALSE), the left-hand item (MATCHING),
+  /// or the step text (ORDERING).
+  text String
+
+  /// MATCHING only — the right-hand item this option pairs with.
+  matchText       String?
+  /// SINGLE_CHOICE / TRUE_FALSE only.
+  isCorrect       Boolean @default(false)
+  /// ORDERING only — 1-based correct position.
+  correctPosition Int?
+
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, position])
+}
+
+model QuizAttempt {
+  id String @id @default(cuid())
+
+  /// Client-generated UUID. The idempotency key for the offline sync push —
+  /// a retried push with the same id is a no-op, never a duplicate attempt.
+  clientId String        @unique
+  userId   String
+  quizId   String
+  locale   ContentLocale
+
+  startedAt       DateTime
+  completedAt     DateTime?
+  scorePercent    Int?
+  pointsAwarded   Int       @default(0)
+  pointsPossible  Int       @default(0)
+  passed          Boolean?
+  durationSeconds Int?
+
+  /// Ordinal for this user+quiz, assigned server-side at sync time.
+  attemptNumber Int
+  /// Quiz.version this attempt was taken against.
+  quizVersion   Int      @default(1)
+  syncedAt      DateTime @default(now())
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Restrict — a quiz with recorded attempts can never be deleted outright.
+  quiz      Quiz           @relation(fields: [quizId], references: [id], onDelete: Restrict)
+  responses QuizResponse[]
+
+  @@index([userId, quizId, startedAt])
+  @@index([quizId, completedAt])
+}
+
+model QuizResponse {
+  id         String @id @default(cuid())
+  attemptId  String
+  questionId String
+
+  /// Shape depends on the question's type:
+  ///   SINGLE_CHOICE/TRUE_FALSE -> { "optionId": "..." }
+  ///   MATCHING -> { "pairs": [{ "optionId": "...", "matchOptionId": "..." }] }
+  ///   ORDERING -> { "order": ["optionId", ...] }
+  /// Graded server-side on sync; a client-supplied verdict is never trusted.
+  answer        Json
+  isCorrect     Boolean
+  pointsAwarded Int      @default(0)
+  answeredAt    DateTime
+
+  attempt  QuizAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: editing/retiring a question must never delete
+  /// the responses already recorded against it.
+  question QuizQuestion @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, questionId])
+  @@index([questionId])
+}
+
+// ---------------------------------------------------------------------------
+// Progress + offline sync
+//
+// The mobile app is offline-first: topic views, completions and quiz
+// attempts are recorded on-device and pushed in a batch when connectivity
+// returns. SyncEvent is the idempotency ledger for that push — its primary
+// key IS the client-generated id, so a retried push is provably a no-op
+// rather than a guess based on timestamps.
+// ---------------------------------------------------------------------------
+
+enum SyncEventType {
+  TOPIC_OPEN
+  TOPIC_COMPLETION
+  QUIZ_ATTEMPT
+}
+
+model TopicProgress {
+  id     String @id @default(cuid())
+  userId String
+
+  /// EducationContent.slug — language-independent, so completing either the
+  /// EN or TA article marks the same topic complete.
+  topicSlug String
+  /// Locale the participant most recently read it in.
+  locale    ContentLocale
+
+  firstOpenedAt DateTime
+  lastOpenedAt  DateTime
+  completedAt   DateTime?
+  /// Accumulated across sessions. Safe to increment on sync only because
+  /// SyncEvent already deduplicates the underlying events.
+  secondsSpent  Int       @default(0)
+  openCount     Int       @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicSlug])
+  @@index([topicSlug, completedAt])
+  @@index([userId, completedAt])
+}
+
+/// One row per offline event the device has ever successfully pushed.
+model SyncEvent {
+  /// Client-generated UUIDv4 — both the idempotency key and the primary key.
+  clientId String        @id
+  userId   String
+  type     SyncEventType
+
+  /// Device-reported time of the event (may be skewed — see clockSkewSeconds).
+  occurredAt       DateTime
+  receivedAt       DateTime @default(now())
+  /// occurredAt vs. server time at receipt, recorded for data-quality
+  /// filtering. Cheap Android clocks drift; skew is never a rejection reason.
+  clockSkewSeconds Int?
+  deviceId         String?
+  appVersion       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, receivedAt])
+  @@index([type, occurredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Feature flags
+//
+// Deliberately NOT modelled on SystemSetting: that store's closed
+// SETTING_DEFAULTS allowlist and admin-only read path are both correct for
+// operational settings, but flags need a PATIENT-readable surface (the
+// mobile splash screen reads content_lang_ta_enabled before sign-in) and
+// per-flag safety metadata that doesn't belong in a JSON blob.
+// ---------------------------------------------------------------------------
+
+model FeatureFlag {
+  /// One of the keys in lib/services/feature-flags.ts's FEATURE_FLAGS
+  /// registry — that registry is the source of truth for which keys are
+  /// valid, mirroring SETTING_DEFAULTS' closed-allowlist pattern.
+  key     String  @id
+  enabled Boolean @default(false)
+
+  description    String
+  /// Shown to an administrator before they may enable a clinicalSafety flag.
+  safetyNotice   String?
+  /// True for flags gating clinical content (dose calculators). Enabling
+  /// one requires an explicit acknowledgement, recorded in the audit log.
+  clinicalSafety Boolean @default(false)
+  /// False keeps a flag server-side only (never returned by the public
+  /// /api/feature-flags endpoint).
+  publicRead     Boolean @default(true)
+
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
 }
 
 // ---------------------------------------------------------------------------
@@ -1124,7 +1428,7 @@ model StudyAccess {
 }
 
 model DataExport {
-  id      String @id @default(cuid())
+  id      String  @id @default(cuid())
   studyId String?
 
   datasetType String
@@ -1162,9 +1466,9 @@ model AuditLog {
   actorEmail String?
   actorRole  UserRole?
 
-  action       String
-  resourceType String
-  resourceId   String?
+  action        String
+  resourceType  String
+  resourceId    String?
   /// The participant whose data was involved, when applicable.
   participantId String?
   studyId       String?

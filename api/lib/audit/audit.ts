@@ -27,6 +27,8 @@ export const AuditAction = {
   PARTICIPANT_CREATED: "participant.created",
   PARTICIPANT_UPDATED: "participant.updated",
   PARTICIPANT_STATUS_CHANGED: "participant.status_changed",
+  PARTICIPANT_ACTIVATED: "participant.activated",
+  PARTICIPANT_BULK_IMPORTED: "participant.bulk_imported",
 
   // Health data
   HEALTH_DATA_VIEWED: "health_data.viewed",
@@ -49,6 +51,11 @@ export const AuditAction = {
   EXERCISE_CONTENT_CREATED: "exercise_content.created",
   EXERCISE_CONTENT_UPDATED: "exercise_content.updated",
   EXERCISE_CONTENT_DELETED: "exercise_content.deleted",
+  QUIZ_CREATED: "quiz.created",
+  QUIZ_UPDATED: "quiz.updated",
+  QUIZ_DELETED: "quiz.deleted",
+  QUIZ_PUBLISHED: "quiz.published",
+  FEATURE_FLAG_TOGGLED: "feature_flag.toggled",
 
   // Notifications
   CAMPAIGN_CREATED: "notification_campaign.created",

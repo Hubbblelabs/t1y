@@ -4,7 +4,10 @@ import { formatRelative } from "@/lib/utils/format";
 import type { ActivityEntry } from "@/lib/services/analytics";
 
 /**
- * Recent logging activity across the visible cohort.
+ * Recent participant activity across the visible cohort — sign-ups, Help
+ * Book topics finished, and quiz attempts (see
+ * lib/services/analytics.ts#getRecentActivity for why it's sourced from
+ * these rather than the generic health-logging models).
  *
  * Shows the participant code rather than their name: the dashboard's overview
  * surfaces do not need to identify people, and the code is enough to navigate.
@@ -20,7 +23,7 @@ export function RecentActivityPanel({ entries }: { entries: ActivityEntry[] }) {
         {entries.length === 0 ? (
           <EmptyState
             title="No recent activity"
-            description="Participant logging activity will appear here as it happens."
+            description="Sign-ups, topics read, and quiz attempts will appear here as they happen."
             className="py-10"
           />
         ) : (

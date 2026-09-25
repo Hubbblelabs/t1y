@@ -18,6 +18,7 @@ export const GET = defineRoute({
 });
 
 export const PATCH = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   params: idParamSchema,
   body: updateMealSchema,
@@ -30,6 +31,7 @@ export const PATCH = defineRoute({
 });
 
 export const DELETE = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   params: idParamSchema,
   handler: async ({ principal, params }) => {

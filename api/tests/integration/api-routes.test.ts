@@ -64,7 +64,6 @@ const withParams = (params: Record<string, string>) => ({ params: Promise.resolv
 
 let patientA: Principal;
 let patientB: Principal;
-let researcher: Principal;
 let admin: Principal;
 /** A glucose reading belonging to patientB. */
 let patientBReadingId: string;
@@ -75,22 +74,17 @@ beforeAll(async () => {
     take: 2,
     select: { id: true, email: true, name: true },
   });
-  const researcherUser = await prisma.user.findFirst({
-    where: { role: "RESEARCHER" },
-    select: { id: true, email: true, name: true },
-  });
   const adminUser = await prisma.user.findFirst({
     where: { role: "ADMIN" },
     select: { id: true, email: true, name: true },
   });
 
-  if (patients.length < 2 || !researcherUser || !adminUser) {
+  if (patients.length < 2 || !adminUser) {
     throw new Error("Seed data is incomplete.");
   }
 
   patientA = principal({ ...patients[0]!, userId: patients[0]!.id, role: "PATIENT" });
   patientB = principal({ ...patients[1]!, userId: patients[1]!.id, role: "PATIENT" });
-  researcher = principal({ ...researcherUser, userId: researcherUser.id, role: "RESEARCHER" });
   admin = principal({ ...adminUser, userId: adminUser.id, role: "ADMIN" });
 
   const reading = await prisma.glucoseReading.findFirst({
@@ -416,20 +410,5 @@ describe("admin endpoint authorisation", () => {
     expect(response.status).toBe(200);
     const total = await prisma.user.count({ where: { role: "PATIENT" } });
     expect(payload.meta.pagination.total).toBe(total);
-  });
-
-  it("scopes a researcher to their own studies' participants", async () => {
-    currentPrincipal = researcher;
-
-    const response = await adminParticipantsRoute.GET(
-      get("/api/admin/participants?pageSize=100"),
-      noParams,
-    );
-    const payload = await response.json();
-    const totalParticipants = await prisma.user.count({ where: { role: "PATIENT" } });
-
-    expect(response.status).toBe(200);
-    expect(payload.meta.pagination.total).toBeGreaterThan(0);
-    expect(payload.meta.pagination.total).toBeLessThan(totalParticipants);
   });
 });

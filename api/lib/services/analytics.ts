@@ -249,8 +249,20 @@ export interface ActivityEntry {
 }
 
 /**
- * Latest logging events across the visible cohort, for the dashboard's
+ * Latest participant activity across the visible cohort, for the dashboard's
  * "Recent activity" panel.
+ *
+ * Previously pulled from GlucoseReading/ExerciseLog/HbA1cRecord/Meal — the
+ * generic health-logging models. This study's app has no logging screens
+ * (v1 scope is Help Book + quizzes, see api/docs/UNUSED-BACKEND.md), so
+ * those four queries always returned empty and the panel could never show
+ * anything: a parent could sign up and read every topic in the app and the
+ * admin dashboard would still say "No recent activity" forever. That is the
+ * "sign-in doesn't show up in my dashboard" symptom — it was never wired to
+ * what this app actually does.
+ *
+ * Now sourced from what a participant's phone actually produces: new
+ * sign-ups, topics finished, and quiz attempts completed.
  */
 export async function getRecentActivity(
   userIds: string[] | null,
@@ -258,53 +270,39 @@ export async function getRecentActivity(
 ): Promise<ActivityEntry[]> {
   if (userIds !== null && userIds.length === 0) return [];
 
-  const scope: Prisma.UserWhereInput =
+  const userScope: Prisma.UserWhereInput =
+    userIds === null ? { role: "PATIENT", deletedAt: null } : { id: { in: userIds } };
+  const relatedScope: Prisma.UserWhereInput =
     userIds === null ? {} : { id: { in: userIds } };
 
-  const [glucose, exercise, hba1c, meals] = await Promise.all([
-    prisma.glucoseReading.findMany({
-      where: { user: scope },
-      orderBy: { measuredAt: "desc" },
+  const [signups, topicCompletions, quizAttempts] = await Promise.all([
+    prisma.user.findMany({
+      where: userScope,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: { id: true, createdAt: true, profile: { select: participantNameSelect } },
+    }),
+    prisma.topicProgress.findMany({
+      where: { user: relatedScope, completedAt: { not: null } },
+      orderBy: { completedAt: "desc" },
       take: limit,
       select: {
         id: true,
-        value: true,
-        unit: true,
-        measuredAt: true,
+        topicSlug: true,
+        completedAt: true,
         user: { select: { id: true, profile: { select: participantNameSelect } } },
       },
     }),
-    prisma.exerciseLog.findMany({
-      where: { user: scope },
-      orderBy: { performedAt: "desc" },
+    prisma.quizAttempt.findMany({
+      where: { user: relatedScope, completedAt: { not: null } },
+      orderBy: { completedAt: "desc" },
       take: limit,
       select: {
         id: true,
-        activityName: true,
-        durationMinutes: true,
-        performedAt: true,
-        user: { select: { id: true, profile: { select: participantNameSelect } } },
-      },
-    }),
-    prisma.hbA1cRecord.findMany({
-      where: { user: scope },
-      orderBy: { measuredAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        valuePercent: true,
-        measuredAt: true,
-        user: { select: { id: true, profile: { select: participantNameSelect } } },
-      },
-    }),
-    prisma.meal.findMany({
-      where: { user: scope },
-      orderBy: { consumedAt: "desc" },
-      take: limit,
-      select: {
-        id: true,
-        mealType: true,
-        consumedAt: true,
+        scorePercent: true,
+        passed: true,
+        completedAt: true,
+        quiz: { select: { title: true } },
         user: { select: { id: true, profile: { select: participantNameSelect } } },
       },
     }),
@@ -316,37 +314,32 @@ export async function getRecentActivity(
     profile?.participantCode ?? "—";
 
   const entries: ActivityEntry[] = [
-    ...glucose.map((row) => ({
-      id: `glucose:${row.id}`,
-      kind: "Glucose",
-      occurredAt: row.measuredAt,
-      participantCode: code(row.user.profile),
-      participantName: name(row.user.profile),
-      summary: `${row.value} ${row.unit === "MG_DL" ? "mg/dL" : "mmol/L"}`,
+    ...signups.map((row) => ({
+      id: `signup:${row.id}`,
+      kind: "Sign-up",
+      occurredAt: row.createdAt,
+      participantCode: code(row.profile),
+      participantName: name(row.profile),
+      summary: "Created an account",
     })),
-    ...exercise.map((row) => ({
-      id: `exercise:${row.id}`,
-      kind: "Exercise",
-      occurredAt: row.performedAt,
+    ...topicCompletions.map((row) => ({
+      id: `topic:${row.id}`,
+      kind: "Help Book",
+      occurredAt: row.completedAt!,
       participantCode: code(row.user.profile),
       participantName: name(row.user.profile),
-      summary: `${row.activityName} · ${row.durationMinutes} min`,
+      summary: `Read "${row.topicSlug.replace(/-/g, " ")}"`,
     })),
-    ...hba1c.map((row) => ({
-      id: `hba1c:${row.id}`,
-      kind: "HbA1c",
-      occurredAt: row.measuredAt,
+    ...quizAttempts.map((row) => ({
+      id: `quiz:${row.id}`,
+      kind: "Quiz",
+      occurredAt: row.completedAt!,
       participantCode: code(row.user.profile),
       participantName: name(row.user.profile),
-      summary: `${row.valuePercent}%`,
-    })),
-    ...meals.map((row) => ({
-      id: `meal:${row.id}`,
-      kind: "Meal",
-      occurredAt: row.consumedAt,
-      participantCode: code(row.user.profile),
-      participantName: name(row.user.profile),
-      summary: row.mealType.charAt(0) + row.mealType.slice(1).toLowerCase(),
+      summary:
+        row.scorePercent === null
+          ? row.quiz.title
+          : `${row.quiz.title} — ${row.scorePercent}%${row.passed ? " (passed)" : ""}`,
     })),
   ];
 

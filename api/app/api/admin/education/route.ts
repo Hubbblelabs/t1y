@@ -21,6 +21,7 @@ export const GET = defineRoute({
       listEducationForAdmin({
         status: query.status,
         category: query.category,
+        locale: query.locale,
         search: query.search,
         skip,
         take,

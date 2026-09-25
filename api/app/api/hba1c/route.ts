@@ -41,6 +41,7 @@ export const GET = defineRoute({
 });
 
 export const POST = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createHbA1cSchema,
   handler: async ({ principal, body }) =>

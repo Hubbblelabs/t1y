@@ -44,6 +44,7 @@ export const GET = defineRoute({
 });
 
 export const POST = defineRoute({
+  requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createExerciseLogSchema,
   handler: async ({ principal, body }) =>

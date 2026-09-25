@@ -16,15 +16,10 @@ import {
 import { humaniseEnum } from "@/lib/utils/format";
 
 const STATUSES = ["ACTIVE", "PENDING", "INACTIVE", "SUSPENDED"] as const;
-const DIABETES_TYPES = [
-  "TYPE_1",
-  "TYPE_2",
-  "GESTATIONAL",
-  "PREDIABETES",
-  "MODY",
-  "OTHER",
-  "UNSPECIFIED",
-] as const;
+// No diabetesType filter: this study is Type 1 only (BRD §1.1) — every
+// participant has the same value, so filtering by it can never narrow
+// anything. Removed rather than left as a 7-option dropdown that always
+// does nothing (see lib/config/study-scope.ts).
 
 const ALL = "__all__";
 
@@ -44,12 +39,7 @@ export function ParticipantFilters() {
   const debounced = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const status = searchParams.get("status") ?? ALL;
-  const diabetesType = searchParams.get("diabetesType") ?? ALL;
-  const hasFilters = Boolean(
-    searchParams.get("search") ||
-      searchParams.get("status") ||
-      searchParams.get("diabetesType"),
-  );
+  const hasFilters = Boolean(searchParams.get("search") || searchParams.get("status"));
 
   const push = React.useCallback(
     (mutate: (params: URLSearchParams) => void) => {
@@ -116,23 +106,6 @@ export function ParticipantFilters() {
         <SelectContent>
           <SelectItem value={ALL}>Any status</SelectItem>
           {STATUSES.map((value) => (
-            <SelectItem key={value} value={value}>
-              {humaniseEnum(value)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select
-        value={diabetesType}
-        onValueChange={(value) => handleSelect("diabetesType", value)}
-      >
-        <SelectTrigger className="w-44" aria-label="Filter by diabetes type">
-          <SelectValue placeholder="Any type" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>Any type</SelectItem>
-          {DIABETES_TYPES.map((value) => (
             <SelectItem key={value} value={value}>
               {humaniseEnum(value)}
             </SelectItem>

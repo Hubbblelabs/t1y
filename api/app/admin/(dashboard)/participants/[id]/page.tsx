@@ -4,8 +4,10 @@ import { Suspense } from "react";
 
 import { DateRangePicker } from "@/components/admin/date-range-picker";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
-import { ParticipantHealth } from "@/components/admin/participants/participant-health";
+import { ParticipantEngagement } from "@/components/admin/participants/participant-engagement";
 import { ParticipantProfileCard } from "@/components/admin/participants/participant-profile";
+import { ParticipantStatusControl } from "@/components/admin/participants/participant-status-control";
+import { IcIsfUnlockControl } from "@/components/admin/participants/ic-isf-unlock-control";
 import { ParticipantTimeline } from "@/components/admin/participants/participant-timeline";
 import { StatusBadge } from "@/components/admin/participants/participant-table";
 import { Card } from "@/components/ui/card";
@@ -17,7 +19,8 @@ import {
   requestContextFrom,
 } from "@/lib/audit/audit";
 import { requirePrincipal } from "@/lib/auth/session";
-import { canViewParticipant } from "@/lib/permissions/policies";
+import { can, canViewParticipant } from "@/lib/permissions/policies";
+import { Capability } from "@/lib/permissions/roles";
 import { getParticipantProfile } from "@/lib/services/participants";
 import { dateRangeSchema } from "@/lib/validation/common";
 import { headers } from "next/headers";
@@ -96,6 +99,20 @@ export default async function ParticipantDetailPage(
 
       <div className="grid gap-6 xl:grid-cols-[20rem_1fr]">
         <div className="space-y-6">
+          {(participant.status === "PENDING" ||
+            participant.status === "ACTIVE" ||
+            participant.status === "INACTIVE") &&
+          can(principal, Capability.PARTICIPANTS_EDIT) ? (
+            <ParticipantStatusControl participantId={id} status={participant.status} />
+          ) : null}
+
+          {can(principal, Capability.PARTICIPANTS_EDIT) ? (
+            <IcIsfUnlockControl
+              participantId={id}
+              unlocked={participant.profile?.icIsfUnlocked ?? false}
+            />
+          ) : null}
+
           <ParticipantProfileCard participant={participant} />
 
           <Card className="p-5">
@@ -107,8 +124,8 @@ export default async function ParticipantDetailPage(
         </div>
 
         <div className="min-w-0">
-          <Suspense key={JSON.stringify(range)} fallback={<HealthFallback />}>
-            <ParticipantHealth userId={id} range={range} />
+          <Suspense fallback={<EngagementFallback />}>
+            <ParticipantEngagement userId={id} />
           </Suspense>
         </div>
       </div>
@@ -116,7 +133,7 @@ export default async function ParticipantDetailPage(
   );
 }
 
-function HealthFallback() {
+function EngagementFallback() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

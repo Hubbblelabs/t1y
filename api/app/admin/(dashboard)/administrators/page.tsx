@@ -106,9 +106,8 @@ export default async function AdministratorsPage(
                         ) : null}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        <Badge tone={staff.role === "SUPER_ADMIN" ? "primary" : "neutral"}>
-                          {ROLE_LABELS[staff.role]}
-                        </Badge>
+                        {/* ADMIN is the only staff role now — one badge tone. */}
+                        <Badge tone="primary">{ROLE_LABELS[staff.role]}</Badge>
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={staff.status} />

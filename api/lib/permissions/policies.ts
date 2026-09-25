@@ -3,7 +3,6 @@ import "server-only";
 import { cache } from "react";
 
 import type { Prisma } from "@/generated/prisma/client";
-import type { EnrollmentStatus } from "@/generated/prisma/enums";
 import { ForbiddenError } from "@/lib/api/errors";
 import type { Principal } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -118,6 +117,10 @@ export async function exportableStudyIds(principal: Principal): Promise<string[]
  * A Prisma `where` fragment restricting a participant query to what the
  * principal is allowed to see. Applying this at the query level means an
  * unauthorised row is never loaded in the first place.
+ *
+ * Used to also narrow by study grant for a RESEARCHER role — removed along
+ * with that role (see lib/permissions/roles.ts): ADMIN is now the only
+ * staff role, and sees every participant.
  */
 export async function participantScopeFilter(
   principal: Principal,
@@ -126,52 +129,15 @@ export async function participantScopeFilter(
     return { id: principal.userId };
   }
 
-  if (principal.role === "RESEARCHER") {
-    const studyIds = await accessibleStudyIds(principal);
-    if (studyIds.length === 0) {
-      // No grants: match nothing rather than everything.
-      return { id: "__no_access__" };
-    }
-    return {
-      studyEnrollments: {
-        some: {
-          studyId: { in: studyIds },
-          enrollmentStatus: { in: ENROLLED_STATUSES },
-        },
-      },
-    };
-  }
-
-  // ADMIN, SUPER_ADMIN and CLINICAL_REVIEWER see all participants.
   return {};
 }
-
-/** Enrollment states that make a participant's data visible to a researcher. */
-const ENROLLED_STATUSES: EnrollmentStatus[] = ["ENROLLED", "ACTIVE", "COMPLETED"];
 
 export async function canViewParticipant(
   principal: Principal,
   participantUserId: string,
 ): Promise<boolean> {
   if (principal.userId === participantUserId) return true;
-  if (!can(principal, Capability.PARTICIPANTS_VIEW)) return false;
-
-  if (principal.role === "RESEARCHER") {
-    const studyIds = await accessibleStudyIds(principal);
-    if (studyIds.length === 0) return false;
-
-    const enrollment = await prisma.studyParticipant.findFirst({
-      where: {
-        userId: participantUserId,
-        studyId: { in: studyIds },
-        enrollmentStatus: { in: ["ENROLLED", "ACTIVE", "COMPLETED"] },
-      },
-      select: { id: true },
-    });
-    return enrollment !== null;
-  }
-
-  return true;
+  return can(principal, Capability.PARTICIPANTS_VIEW);
 }
 
 export async function assertCanViewParticipant(
@@ -277,15 +243,15 @@ export async function assertCanViewStudy(
 // ---------------------------------------------------------------------------
 
 /**
- * Guards role assignment. Only a super administrator may create or promote
- * staff, and nobody may change their own role.
+ * Guards role assignment. Only an administrator holding ADMINS_MANAGE may
+ * create or promote staff, and nobody may change their own role.
  */
 export function assertCanAssignRole(
   principal: Principal,
   targetUserId: string | null,
 ): void {
   if (!canManageAdmins(principal)) {
-    throw new ForbiddenError("Only a super administrator may manage staff accounts.");
+    throw new ForbiddenError("Only an administrator may manage staff accounts.");
   }
   if (targetUserId && targetUserId === principal.userId) {
     throw new ForbiddenError("You cannot change your own role.");

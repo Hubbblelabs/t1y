@@ -63,6 +63,22 @@ function daysAgo(days: number, hour = 8, minute = 0): Date {
   return date;
 }
 
+/** A birth date landing the participant somewhere in the 6–15 inclusion band today. */
+function childBirthDate(seed: number): Date {
+  const ageYears = 6 + (seed % 10); // 6..15
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - ageYears);
+  date.setMonth(seed % 12, 1 + (seed % 27));
+  return date;
+}
+
+/** Calendar year of a diagnosis that occurred [monthsAgo] months before today. */
+function diagnosisYearMonthsAgo(monthsAgo: number): number {
+  const date = new Date();
+  date.setMonth(date.getMonth() - monthsAgo);
+  return date.getFullYear();
+}
+
 /**
  * Better Auth's scrypt password format.
  *
@@ -85,6 +101,7 @@ async function createAccount(params: {
   name: string;
   role: UserRole;
   timezone?: string;
+  password?: string;
 }) {
   const user = await prisma.user.create({
     data: {
@@ -93,12 +110,12 @@ async function createAccount(params: {
       role: params.role,
       status: "ACTIVE",
       emailVerified: true,
-      timezone: params.timezone ?? "Europe/London",
+      timezone: params.timezone ?? "Asia/Kolkata",
       accounts: {
         create: {
           accountId: randomUUID(),
           providerId: "credential",
-          password: hashPassword(DEFAULT_PASSWORD),
+          password: hashPassword(params.password ?? DEFAULT_PASSWORD),
         },
       },
     },
@@ -123,9 +140,15 @@ const LAST_NAMES = [
   "Tanaka", "Ueno", "Vargas", "Whitfield", "Xiong", "Zielinski",
 ];
 
-const DIABETES_TYPES: DiabetesType[] = [
-  "TYPE_1", "TYPE_2", "TYPE_2", "TYPE_2", "GESTATIONAL", "PREDIABETES",
-];
+// This study's inclusion criteria (BRD §1.1) is Type 1 diabetes only —
+// children aged 6–15, diagnosed 6–12 months prior. The seed previously drew
+// from a generic multi-condition pool (mostly TYPE_2/PREDIABETES/GESTATIONAL,
+// adults aged 23–71) inherited from the platform's original non-study scope.
+// That produced an admin participant list where 23 of 24 "patients" didn't
+// match who this app is actually for. Every seeded participant is now
+// TYPE_1, matching the only type the study — and the imported curriculum —
+// is about.
+const DIABETES_TYPES: DiabetesType[] = ["TYPE_1"];
 
 const GLUCOSE_CONTEXTS: GlucoseContext[] = [
   "FASTING", "PRE_MEAL", "POST_MEAL", "BEDTIME", "RANDOM",
@@ -158,63 +181,25 @@ async function main() {
   // -------------------------------------------------------------------------
   // Staff accounts
   // -------------------------------------------------------------------------
-  const superAdmin = await createAccount({
-    email: "super.admin@example.com",
-    name: "Sofia Almeida",
-    role: "SUPER_ADMIN",
-  });
-  await prisma.adminUser.create({
-    data: {
-      userId: superAdmin.id,
-      jobTitle: "Platform lead",
-      department: "Operations",
-      organization: "Example Health",
-    },
-  });
-
-  const admin = await createAccount({
-    email: "admin@example.com",
-    name: "Daniel Okonkwo",
+  // Only staff role now is ADMIN (see lib/permissions/roles.ts) — this
+  // deployment serves one study with one operating team, not the platform's
+  // original multi-role newsroom of super-admins/researchers/reviewers.
+  const teamAdmin = await createAccount({
+    email: "teammistake@gmail.com",
+    name: "Team Mistake",
     role: "ADMIN",
+    password: "User@123456789",
   });
   await prisma.adminUser.create({
     data: {
-      userId: admin.id,
-      jobTitle: "Programme administrator",
-      department: "Operations",
-      organization: "Example Health",
+      userId: teamAdmin.id,
+      jobTitle: "Product",
+      department: "Engineering",
+      organization: "Mistake Technologies",
     },
   });
 
-  const researcher = await createAccount({
-    email: "researcher@example.com",
-    name: "Dr Hannah Weiss",
-    role: "RESEARCHER",
-  });
-  await prisma.adminUser.create({
-    data: {
-      userId: researcher.id,
-      jobTitle: "Research fellow",
-      department: "Clinical research",
-      organization: "Example University",
-    },
-  });
-
-  const reviewer = await createAccount({
-    email: "reviewer@example.com",
-    name: "Dr Marcus Bell",
-    role: "CLINICAL_REVIEWER",
-  });
-  await prisma.adminUser.create({
-    data: {
-      userId: reviewer.id,
-      jobTitle: "Consultant diabetologist",
-      department: "Clinical oversight",
-      organization: "Example Health",
-    },
-  });
-
-  console.log("  ✓ 4 staff accounts");
+  console.log("  ✓ 1 staff account");
 
   // -------------------------------------------------------------------------
   // Health metric definitions — metrics are rows, not columns
@@ -285,90 +270,6 @@ async function main() {
   });
 
   // -------------------------------------------------------------------------
-  // Research study
-  // -------------------------------------------------------------------------
-  const study = await prisma.researchStudy.create({
-    data: {
-      code: "DM01",
-      title: "Self-management engagement and glycaemic tracking",
-      description:
-        "An observational study of engagement with digital self-management tools.",
-      objective:
-        "Describe the relationship between logging frequency and recorded HbA1c over 12 months.",
-      status: "ACTIVE",
-      principalInvestigator: "Dr Hannah Weiss",
-      irbNumber: "IRB-2026-0142",
-      consentVersion: "v2.1",
-      startDate: daysAgo(180),
-      targetEnrollment: 40,
-      dataPoints: ["glucose", "medication", "exercise", "hba1c", "health-metrics"],
-      createdById: superAdmin.id,
-    },
-  });
-
-  // The researcher can only see participants in studies granted to them.
-  await prisma.studyAccess.create({
-    data: {
-      studyId: study.id,
-      userId: researcher.id,
-      role: "LEAD_INVESTIGATOR",
-      canExport: true,
-      grantedById: superAdmin.id,
-    },
-  });
-
-  console.log("  ✓ 1 research study with researcher access");
-
-  // -------------------------------------------------------------------------
-  // Clinical thresholds
-  //
-  // Seeded WITH provenance, and only values that come from a published
-  // guideline. The application itself never invents these.
-  // -------------------------------------------------------------------------
-  await prisma.clinicalThreshold.createMany({
-    data: [
-      {
-        key: "glucose.fasting.target",
-        scope: "GLOBAL",
-        domain: "glucose",
-        context: "FASTING",
-        unit: "mg/dL",
-        lowValue: 80,
-        highValue: 130,
-        label: "Fasting glucose target range",
-        source:
-          "ADA Standards of Care 2024, preprandial capillary plasma glucose target for non-pregnant adults. Review before clinical use.",
-        createdById: reviewer.id,
-      },
-      {
-        key: "glucose.postmeal.target",
-        scope: "GLOBAL",
-        domain: "glucose",
-        context: "POST_MEAL",
-        unit: "mg/dL",
-        highValue: 180,
-        label: "Post-meal glucose target",
-        source:
-          "ADA Standards of Care 2024, peak postprandial capillary plasma glucose for non-pregnant adults. Review before clinical use.",
-        createdById: reviewer.id,
-      },
-      {
-        key: "hba1c.general.target",
-        scope: "GLOBAL",
-        domain: "hba1c",
-        unit: "%",
-        highValue: 7,
-        label: "General HbA1c target",
-        source:
-          "ADA Standards of Care 2024, general target for many non-pregnant adults. Individualisation is required.",
-        createdById: reviewer.id,
-      },
-    ],
-  });
-
-  console.log("  ✓ 3 clinical thresholds (each with a stated source)");
-
-  // -------------------------------------------------------------------------
   // Participants and their health history
   // -------------------------------------------------------------------------
   const PARTICIPANT_COUNT = 24;
@@ -394,7 +295,7 @@ async function main() {
         role: "PATIENT",
         status,
         emailVerified: status !== "PENDING",
-        timezone: "Europe/London",
+        timezone: "Asia/Kolkata",
         createdAt: daysAgo(joinedDaysAgo),
         accounts: {
           create: {
@@ -408,21 +309,22 @@ async function main() {
             participantCode: code,
             firstName,
             lastName,
-            dateOfBirth: new Date(
-              `${between(1955, 2003)}-0${between(1, 9)}-1${between(0, 8)}`,
-            ),
+            // Ages 6–15, per the inclusion criteria — was drawing adult
+            // birth years (1955–2003).
+            dateOfBirth: childBirthDate(index),
             sex: pick(["FEMALE", "MALE", "PREFER_NOT_TO_SAY"] as const),
-            phone: `+44 7700 9${String(100000 + index).slice(0, 5)}`,
-            city: pick(["London", "Manchester", "Leeds", "Bristol", "Glasgow"]),
-            country: "United Kingdom",
+            phone: `+91 9${String(400000000 + index * 137).slice(0, 9)}`,
+            city: pick(["Coimbatore", "Tiruppur", "Erode", "Salem", "Pollachi"]),
+            country: "India",
             diabetesType,
-            diagnosisYear: Math.round(between(2005, 2024)),
-            treatmentModality:
-              diabetesType === "TYPE_1"
-                ? "INSULIN"
-                : pick(["ORAL_MEDICATION", "LIFESTYLE_ONLY", "ORAL_AND_INSULIN"] as const),
-            heightCm: between(152, 191, 0),
-            baselineWeightKg: between(58, 112, 1),
+            // "Diagnosed 6–12 months prior" per the inclusion criteria — was
+            // drawing any year 2005–2024 regardless of type.
+            diagnosisYear: diagnosisYearMonthsAgo(between(6, 12)),
+            treatmentModality: "INSULIN",
+            // Paediatric ranges (WHO growth reference, ages 6–15) — was
+            // drawing adult height/weight (152–191cm, 58–112kg).
+            heightCm: between(112, 168, 0),
+            baselineWeightKg: between(18, 58, 1),
             onboardedAt: status === "PENDING" ? null : daysAgo(joinedDaysAgo - 1),
           },
         },
@@ -641,20 +543,44 @@ async function main() {
     await prisma.healthMetric.createMany({ data: metricRows });
 
     // --- Reminders ----------------------------------------------------------
-    await prisma.reminder.create({
-      data: {
-        userId: user.id,
-        type: "MEDICATION_REMINDER",
-        title: "Time for your medication",
-        // No measurement in the body — push previews show on lock screens.
-        body: "Open the app to record this dose.",
-        timeOfDay: "08:00",
-        recurrence: "DAILY",
-        daysOfWeek: [],
-        timezone: "Europe/London",
-        medicationId: medication.id,
-        enabled: true,
-      },
+    //
+    // The previous "Time for your medication" reminder was removed: nothing
+    // in the study's source documents covers a scheduled oral-medication
+    // dose (the only occurrence of "medication" across all eight documents
+    // is incidental — terbutaline raising blood glucose). It pointed at the
+    // Medication model, which api/docs/UNUSED-BACKEND.md already flags as a
+    // Type 2 concept wrong for a Type 1 paediatric app, and told the parent
+    // to "record this dose" in a logging screen that does not exist in v1.
+    //
+    // These two are grounded in the curriculum instead: self-monitoring of
+    // blood glucose (the SMBG document) and HbA1c, which the annual check-up
+    // document says should be tested 3–4 times a year.
+    await prisma.reminder.createMany({
+      data: [
+        {
+          userId: user.id,
+          type: "GLUCOSE_REMINDER",
+          title: "Check blood glucose",
+          body: "Record today's reading before breakfast.",
+          timeOfDay: "08:00",
+          recurrence: "DAILY",
+          daysOfWeek: [],
+          timezone: "Asia/Kolkata",
+          enabled: true,
+        },
+        {
+          userId: user.id,
+          type: "HBA1C_REMINDER",
+          title: "HbA1c test due",
+          body: "HbA1c is checked 3–4 times a year. Ask your diabetes team.",
+          timeOfDay: "09:00",
+          recurrence: "MONTHLY",
+          daysOfWeek: [],
+          dayOfMonth: 1,
+          timezone: "Asia/Kolkata",
+          enabled: true,
+        },
+      ],
     });
 
     // Keep participant lists sortable by recency.
@@ -666,32 +592,26 @@ async function main() {
 
   console.log(`  ✓ ${PARTICIPANT_COUNT} participants with health history`);
 
-  // -------------------------------------------------------------------------
-  // Study enrolment — a subset, so scoping is observable
-  // -------------------------------------------------------------------------
-  const enrolled = participantIds.slice(0, 14);
-  for (const [index, userId] of enrolled.entries()) {
-    await prisma.studyParticipant.create({
-      data: {
-        studyId: study.id,
-        userId,
-        studyParticipantCode: `DM01-${String(index + 1).padStart(4, "0")}`,
-        enrollmentStatus: index < 12 ? "ACTIVE" : "WITHDRAWN",
-        armOrGroup: index % 2 === 0 ? "Intervention" : "Control",
-        consentGivenAt: daysAgo(150),
-        enrolledAt: daysAgo(150),
-        ...(index >= 12
-          ? { withdrawnAt: daysAgo(30), withdrawalReason: "Relocated" }
-          : {}),
-      },
-    });
-  }
-
-  console.log(`  ✓ ${enrolled.length} study enrolments`);
+  // No study enrolment block: it existed to demonstrate researcher-scoped
+  // visibility (StudyParticipant/StudyAccess), a distinction that no longer
+  // exists now that RESEARCHER isn't a role (see lib/permissions/roles.ts).
 
   // -------------------------------------------------------------------------
   // Education content
   // -------------------------------------------------------------------------
+  //
+  // DISABLED — these six generic placeholder articles predate the study and
+  // are English-only. Because the Help Book collapses by slug and falls back
+  // to English for any topic with no Tamil row, seeding them made the Tamil
+  // Help Book render as an alternating EN/TA list: the eight real curriculum
+  // topics in Tamil, interleaved (by sortOrder 0-5) with these six stuck in
+  // English. The real content comes from `scripts/import-content.ts`, which
+  // imports all eight topics in both locales from `content/docx/`.
+  //
+  // Kept rather than deleted so the shape is on record if a future non-study
+  // deployment ever wants demo articles — but it must not run for this study.
+  const SEED_PLACEHOLDER_ARTICLES = false;
+
   const articles = [
     {
       slug: "understanding-blood-glucose",
@@ -737,158 +657,39 @@ async function main() {
     },
   ];
 
-  for (const [index, article] of articles.entries()) {
-    await prisma.educationContent.create({
-      data: {
-        ...article,
-        body: article.body,
-        externalReferences: [],
-        tags: [article.category.toLowerCase().replace(/_/g, "-")],
-        status: index < 5 ? "PUBLISHED" : "DRAFT",
-        publishedAt: index < 5 ? daysAgo(60 - index * 5) : null,
-        readingTimeMinutes: 3,
-        sortOrder: index,
-        authorId: admin.id,
-      },
-    });
+  if (SEED_PLACEHOLDER_ARTICLES) {
+    for (const [index, article] of articles.entries()) {
+      await prisma.educationContent.create({
+        data: {
+          ...article,
+          body: article.body,
+          externalReferences: [],
+          tags: [article.category.toLowerCase().replace(/_/g, "-")],
+          status: index < 5 ? "PUBLISHED" : "DRAFT",
+          publishedAt: index < 5 ? daysAgo(60 - index * 5) : null,
+          readingTimeMinutes: 3,
+          sortOrder: index,
+          authorId: teamAdmin.id,
+        },
+      });
+    }
+    console.log(`  ✓ ${articles.length} education articles`);
+  } else {
+    console.log("  – placeholder education articles skipped (study uses import-content.ts)");
   }
 
-  console.log(`  ✓ ${articles.length} education articles`);
-
-  // -------------------------------------------------------------------------
-  // Exercise programmes
-  // -------------------------------------------------------------------------
-  const programmes = [
-    {
-      slug: "morning-breathing",
-      title: "Morning breathing",
-      description: "A short breathing routine to start the day.",
-      category: "BREATHING" as const,
-      difficulty: "BEGINNER" as const,
-      durationMinutes: 10,
-      instructions:
-        "<p>Sit comfortably with your back supported.</p><ol><li>Breathe in through your nose for four counts.</li><li>Hold for two counts.</li><li>Breathe out slowly for six counts.</li></ol><p>Repeat for ten minutes. Stop if you feel light-headed.</p>",
-      equipment: [],
-    },
-    {
-      slug: "gentle-walking-plan",
-      title: "Gentle walking plan",
-      description: "A structured walking routine that builds up over four weeks.",
-      category: "WALKING" as const,
-      difficulty: "BEGINNER" as const,
-      durationMinutes: 20,
-      instructions:
-        "<p>Start with 20 minutes at a comfortable pace, three times a week. Add five minutes each week.</p><p>You should be able to hold a conversation while walking.</p>",
-      equipment: ["Comfortable footwear"],
-    },
-    {
-      slug: "seated-strength",
-      title: "Seated strength routine",
-      description: "Resistance exercises that can be done from a chair.",
-      category: "STRENGTH" as const,
-      difficulty: "INTERMEDIATE" as const,
-      durationMinutes: 25,
-      instructions:
-        "<p>Complete two rounds of each movement, resting a minute between rounds.</p><p>Stop any movement that causes pain.</p>",
-      equipment: ["Sturdy chair", "Resistance band"],
-      precautions:
-        "Speak to your care team before starting if you have diabetic retinopathy or neuropathy.",
-    },
-  ];
-
-  for (const [index, programme] of programmes.entries()) {
-    await prisma.exerciseContent.create({
-      data: {
-        ...programme,
-        status: "PUBLISHED",
-        publishedAt: daysAgo(45 - index * 5),
-        sortOrder: index,
-        authorId: admin.id,
-      },
-    });
-  }
-
-  console.log(`  ✓ ${programmes.length} exercise programmes`);
-
-  // -------------------------------------------------------------------------
-  // A sent notification campaign
-  // -------------------------------------------------------------------------
-  const campaign = await prisma.notificationCampaign.create({
-    data: {
-      title: "New education article available",
-      body: "A new article on understanding your readings is now available in the app.",
-      type: "EDUCATION",
-      status: "SENT",
-      targetType: "ALL_PARTICIPANTS",
-      targetUserIds: [],
-      sentAt: daysAgo(5),
-      totalRecipients: participantIds.length,
-      deliveredCount: participantIds.length,
-      createdById: admin.id,
-    },
-  });
-
-  await prisma.notification.createMany({
-    data: participantIds.map((userId) => ({
-      userId,
-      campaignId: campaign.id,
-      type: "EDUCATION" as const,
-      title: campaign.title,
-      body: campaign.body,
-      status: "SENT" as const,
-      sentAt: daysAgo(5),
-    })),
-  });
-
-  console.log("  ✓ 1 notification campaign");
-
-  // -------------------------------------------------------------------------
-  // A little audit history, so the page is not empty on first load
-  // -------------------------------------------------------------------------
-  await prisma.auditLog.createMany({
-    data: [
-      {
-        actorId: superAdmin.id,
-        actorEmail: "super.admin@example.com",
-        actorRole: "SUPER_ADMIN",
-        action: "study.created",
-        resourceType: "study",
-        resourceId: study.id,
-        studyId: study.id,
-        description: `Created study DM01`,
-        ipAddress: "203.0.113.10",
-      },
-      {
-        actorId: superAdmin.id,
-        actorEmail: "super.admin@example.com",
-        actorRole: "SUPER_ADMIN",
-        action: "study.access_granted",
-        resourceType: "study-access",
-        studyId: study.id,
-        description: "Granted LEAD_INVESTIGATOR access to researcher@example.com",
-        ipAddress: "203.0.113.10",
-      },
-      {
-        actorId: admin.id,
-        actorEmail: "admin@example.com",
-        actorRole: "ADMIN",
-        action: "education.published",
-        resourceType: "education-content",
-        description: 'Published article "Understanding blood glucose readings"',
-        ipAddress: "203.0.113.24",
-      },
-    ],
-  });
-
-  console.log("  ✓ audit history");
+  // No exercise-programme, notification-campaign or demo-audit-log blocks:
+  // all three were fabricated filler for the platform's original generic
+  // scope (ExerciseContent, NotificationCampaign, and audit rows that quoted
+  // the now-deleted demo study and researcher@example.com). None of it came
+  // from the study's source documents, and it was already removed from the
+  // live database for the same reason — see the DB cleanup covered earlier
+  // in this conversation.
 
   console.log("\nSeed complete.\n");
-  console.log("  Sign in at /admin/login with any of:");
-  console.log("    super.admin@example.com   (Super administrator)");
-  console.log("    admin@example.com         (Administrator)");
-  console.log("    researcher@example.com    (Researcher — study DM01 only)");
-  console.log("    reviewer@example.com      (Clinical reviewer)");
-  console.log(`  Password for every seeded account: ${DEFAULT_PASSWORD}`);
+  console.log("  Sign in at /admin/login with:");
+  console.log("    teammistake@gmail.com   (Administrator)");
+  console.log(`  Password: User@123456789`);
   console.log("\n  All participant data above is fabricated.\n");
 }
 

@@ -78,6 +78,18 @@ export function SelectItem({
   );
 }
 
+export function SelectSeparator({
+  className,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Separator>) {
+  return (
+    <SelectPrimitive.Separator
+      className={cn("bg-line -mx-1 my-1 h-px", className)}
+      {...props}
+    />
+  );
+}
+
 export function SelectLabel({
   className,
   ...props

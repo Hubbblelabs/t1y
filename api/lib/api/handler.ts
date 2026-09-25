@@ -25,6 +25,7 @@ import { requestContextFrom, type RequestContext } from "@/lib/audit/audit";
 import { trustedOrigins } from "@/lib/env";
 import { assertCan } from "@/lib/permissions/policies";
 import type { CapabilityValue } from "@/lib/permissions/roles";
+import { isFeatureEnabled, type FeatureFlagKey } from "@/lib/services/feature-flags";
 import { logger } from "@/lib/utils/logger";
 import { captureException } from "@/lib/observability/sentry";
 
@@ -70,6 +71,15 @@ interface RouteConfig<TBody, TQuery, TParams, TAuth extends AuthMode> {
   capability?: CapabilityValue;
   /** Requires a verified email address. Defaults to true for authenticated routes. */
   requireVerifiedEmail?: boolean;
+  /**
+   * Requires this feature flag to be enabled, or the request is rejected
+   * before the handler runs. For a mutation the API itself should refuse
+   * even if some future client grows a UI for it — see
+   * `health_logging_enabled` in lib/services/feature-flags.ts, which exists
+   * specifically because this study's ethics approval doesn't cover
+   * collecting health data the Flutter app has no screens to gather anyway.
+   */
+  requiresFlag?: FeatureFlagKey;
   rateLimit?: RateLimitRule;
   body?: z.ZodType<TBody>;
   query?: z.ZodType<TQuery>;
@@ -137,6 +147,10 @@ export function defineRoute<
       // --- 4. Authorisation -------------------------------------------------
       if (config.capability && principal) {
         assertCan(principal, config.capability);
+      }
+
+      if (config.requiresFlag && !(await isFeatureEnabled(config.requiresFlag))) {
+        throw new ForbiddenError("This feature is not enabled for this deployment.");
       }
 
       // --- 5. Validation ----------------------------------------------------
