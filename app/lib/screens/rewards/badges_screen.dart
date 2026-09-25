@@ -36,17 +36,26 @@ class _BadgesScreenState extends State<BadgesScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = RewardsService.instance.collection());
+    setState(() {
+      _future = RewardsService.instance.collection();
+    });
     await _future;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightest,
+      backgroundColor: const Color(0xFFF4F7FB),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(S.myBadges),
-        backgroundColor: AppTheme.lightest,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        titleTextStyle: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+        ),
       ),
       body: FutureBuilder<BadgeCollection>(
         future: _future,
@@ -62,23 +71,30 @@ class _BadgesScreenState extends State<BadgesScreen> {
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
+              padding: EdgeInsets.zero,
               children: [
-                const SizedBox(height: 8),
                 _Hero(collection: data),
-                const SizedBox(height: 26),
-                if (data.badges.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Text(
-                      S.recentBadges,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.deep,
-                      ),
-                    ),
+                Transform.translate(
+                  offset: const Offset(0, -34),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _StatsRow(collection: data),
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: _NextRankCard(collection: data),
+                ),
+                const SizedBox(height: 22),
+                _SectionTitle(S.badgeCollection),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _TierGrid(counts: data.countsByTier),
+                ),
+                const SizedBox(height: 24),
+                if (data.badges.isNotEmpty) ...[
+                  _SectionTitle(S.recentBadges),
                   const SizedBox(height: 12),
                   _RecentBadgeRow(badges: data.badges),
                 ] else
@@ -87,13 +103,14 @@ class _BadgesScreenState extends State<BadgesScreen> {
                     child: Text(
                       S.noBadgesYet,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 14,
                         height: 1.5,
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: AppTheme.inkSoft,
                       ),
                     ),
                   ),
+                const SizedBox(height: 32),
               ],
             ),
           );
@@ -103,8 +120,26 @@ class _BadgesScreenState extends State<BadgesScreen> {
   }
 }
 
-/// Glowing badge, rank title, and a star gauge for the average score —
-/// tappable to open the full-screen celebration.
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 20),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontSize: 17,
+        fontWeight: FontWeight.w800,
+        color: AppTheme.ink,
+      ),
+    ),
+  );
+}
+
+/// The headline, on a deep gradient: the glowing badge for how much of the
+/// course has been taken, and the name the child's average score has earned.
 class _Hero extends StatelessWidget {
   final BadgeCollection collection;
 
@@ -126,63 +161,341 @@ class _Hero extends StatelessWidget {
     final rank = collection.rank;
     final colors = _colors;
     final icon = rank?.icon ?? noBadgeIcon;
+    final top = MediaQuery.of(context).padding.top + kToolbarHeight;
 
-    return Column(
-      children: [
-        GestureDetector(
-          onTap: () => BadgeGlowView.show(
-            context,
-            icon: icon,
-            colors: colors,
-            glow: collection.attemptedFraction,
-            title: rank?.localTitle ?? S.startFirstQuiz,
-            subtitle: S.takenOfQuizzes(
-              collection.quizzesAttempted,
-              collection.totalQuizzes,
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, top + 4, 20, 58),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0B3C8C), AppTheme.deep, AppTheme.primary],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
+      ),
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () => BadgeGlowView.show(
+              context,
+              icon: icon,
+              colors: colors,
+              glow: collection.attemptedFraction,
+              title: rank?.localTitle ?? S.startFirstQuiz,
+              subtitle: S.takenOfQuizzes(
+                collection.quizzesAttempted,
+                collection.totalQuizzes,
+              ),
+            ),
+            child: GlowBadge(
+              glow: collection.attemptedFraction,
+              icon: icon,
+              colors: colors,
+              size: 180,
             ),
           ),
-          child: GlowBadge(
-            glow: collection.attemptedFraction,
-            icon: icon,
-            colors: colors,
-            size: 210,
-          ),
-        ),
-        const SizedBox(height: 14),
-        Text(
-          S.takenOfQuizzes(
-            collection.quizzesAttempted,
-            collection.totalQuizzes,
-          ),
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.black.withValues(alpha: 0.55),
-          ),
-        ),
-        const SizedBox(height: 10),
-        // The headline: who this child is, from their average score.
-        Text(
-          rank?.localTitle ?? S.startFirstQuiz,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
-            color: AppTheme.deep,
-            height: 1.2,
-          ),
-        ),
-        if (collection.averageScore != null) ...[
           const SizedBox(height: 10),
-          // Score shown as a filled-star gauge rather than a "84%" label — a
-          // glance tells a child whether that's good, where a raw number
-          // needs reading and comparing against nothing shown on screen.
-          _ScoreStars(
-            scorePercent: collection.averageScore!,
-            color: colors.last,
+          Text(
+            rank?.localTitle ?? S.startFirstQuiz,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 27,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              height: 1.2,
+            ),
+          ),
+          if (collection.averageScore != null) ...[
+            const SizedBox(height: 8),
+            _ScoreStars(
+              scorePercent: collection.averageScore!,
+              color: const Color(0xFFFFD54F),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Three numbers a child can be proud of, floating over the hero's edge.
+class _StatsRow extends StatelessWidget {
+  final BadgeCollection collection;
+  const _StatsRow({required this.collection});
+
+  @override
+  Widget build(BuildContext context) {
+    final average = collection.averageScore;
+    return Row(
+      children: [
+        Expanded(
+          child: _StatCard(
+            icon: Icons.quiz_rounded,
+            value: '${collection.quizzesAttempted}/${collection.totalQuizzes}',
+            label: S.quizzesTaken,
+            color: AppTheme.primary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.military_tech_rounded,
+            value: '${collection.totalBadges}',
+            label: S.badgesWon,
+            color: const Color(0xFFFF8F00),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatCard(
+            icon: Icons.insights_rounded,
+            value: average == null ? '—' : '$average%',
+            label: S.averageScore,
+            color: const Color(0xFF2E7D32),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+  final Color color;
+
+  const _StatCard({
+    required this.icon,
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deep.withValues(alpha: 0.12),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: AppTheme.ink,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 11.5,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.inkSoft,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// How close the child is to the next name up — a bar, not a lecture.
+class _NextRankCard extends StatelessWidget {
+  final BadgeCollection collection;
+  const _NextRankCard({required this.collection});
+
+  @override
+  Widget build(BuildContext context) {
+    final average = collection.averageScore;
+    final current = collection.rank;
+    // Ranks are ordered highest first; the next one up is the lowest bar
+    // above the current one.
+    LearnerRank? next;
+    for (final rank in LearnerRank.values.reversed) {
+      if (rank.minAverage > (current?.minAverage ?? -1)) {
+        next = rank;
+        break;
+      }
+    }
+    final fromScore = current?.minAverage ?? 0;
+    final toScore = next?.minAverage ?? 100;
+    final progress = average == null || next == null
+        ? (next == null ? 1.0 : 0.0)
+        : ((average - fromScore) / (toScore - fromScore)).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.trending_up_rounded,
+                color: AppTheme.primary,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  next == null
+                      ? S.topRankReached
+                      : S.nextRankAt(next.localTitle, next.minAverage),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 900),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 10,
+                backgroundColor: AppTheme.lightest,
+                color: AppTheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every badge there is, two to a row: the ones won in full colour with a
+/// count, the ones still to win faded — so there is always something to aim at.
+class _TierGrid extends StatelessWidget {
+  final Map<BadgeTier, int> counts;
+  const _TierGrid({required this.counts});
+
+  @override
+  Widget build(BuildContext context) {
+    final tiers = BadgeTier.values;
+    return Column(
+      children: [
+        for (var i = 0; i < tiers.length; i += 2) ...[
+          if (i > 0) const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _TierTile(tier: tiers[i], count: counts[tiers[i]] ?? 0)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: i + 1 < tiers.length
+                    ? _TierTile(tier: tiers[i + 1], count: counts[tiers[i + 1]] ?? 0)
+                    : const SizedBox(),
+              ),
+            ],
           ),
         ],
       ],
+    );
+  }
+}
+
+class _TierTile extends StatelessWidget {
+  final BadgeTier tier;
+  final int count;
+  const _TierTile({required this.tier, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    final won = count > 0;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: won
+              ? tier.colors.last.withValues(alpha: 0.55)
+              : AppTheme.fieldBorder.withValues(alpha: 0.6),
+          width: won ? 1.6 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Opacity(
+            opacity: won ? 1 : 0.35,
+            child: HexBadge(tier: tier, size: 64),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tier.localLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.ink,
+            ),
+          ),
+          Text(
+            tier.localAnimalName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.inkSoft,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: won
+                  ? tier.colors.last.withValues(alpha: 0.14)
+                  : AppTheme.lightest,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              won ? S.tierEarnedCount(count) : S.scoreFrom(tier.minScore),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: won ? AppTheme.ink : AppTheme.inkSoft,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -278,7 +591,7 @@ class _BadgeCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.3,
-                color: Colors.black.withValues(alpha: 0.65),
+                color: AppTheme.inkSoft,
               ),
             ),
             const SizedBox(height: 5),

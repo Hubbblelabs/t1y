@@ -48,7 +48,7 @@ export function CalculatorVisibilityToggle({ id, active }: { id: string; active:
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
       <label className="flex items-center gap-2">
-        <span className="text-ink-muted text-sm">Show in the app</span>
+        <span className="text-ink-muted text-sm">Available to run</span>
         <Switch checked={checked} onCheckedChange={toggle} disabled={pending} />
       </label>
       {error ? (

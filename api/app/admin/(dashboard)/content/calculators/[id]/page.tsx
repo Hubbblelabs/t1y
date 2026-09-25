@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Repeat } from "lucide-react";
+import { Play, Repeat } from "lucide-react";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -56,19 +56,27 @@ export default async function CalculatorDetailPage(
           { label: calculator.nameEn },
         ]}
         actions={
-          <Button asChild variant="secondary">
-            <Link href={`/admin/content/calculators/new?replaces=${calculator.id}`}>
-              <Repeat className="size-4" aria-hidden="true" />
-              Make a replacement
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild variant="primary">
+              <Link href={`/admin/content/calculators/${calculator.id}/run`}>
+                <Play className="size-4" aria-hidden="true" />
+                Run for a participant
+              </Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href={`/admin/content/calculators/new?replaces=${calculator.id}`}>
+                <Repeat className="size-4" aria-hidden="true" />
+                Make a replacement
+              </Link>
+            </Button>
+          </div>
         }
       />
 
       <div className="bg-warning-soft text-ink mb-4 rounded-md p-3 text-sm">
-        This calculator cannot be changed. If a sum needs correcting, make a replacement — this one
-        is then hidden, and both stay on the record so it stays clear what families were shown and
-        when.
+        This is not shown to families — only staff run a calculator, for one participant at a time,
+        from "Run for a participant". It cannot be changed; if a sum needs correcting, make a
+        replacement, which hides this one while keeping both on the record.
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -88,8 +96,8 @@ export default async function CalculatorDetailPage(
                 </div>
                 <p className="text-ink-subtle mt-0.5 text-xs">
                   {input.source === "DATA"
-                    ? `Filled in from ${sourceName(input.sourceKey)}, and the parent can change it`
-                    : "Asked for on the screen each time"}
+                    ? `Filled in from ${sourceName(input.sourceKey)}, and staff can override it`
+                    : "Typed in by staff when they run it"}
                   {input.min != null || input.max != null
                     ? ` · allowed ${input.min ?? "any"} to ${input.max ?? "any"}`
                     : ""}
@@ -105,7 +113,7 @@ export default async function CalculatorDetailPage(
         <Card className="p-4">
           <h2 className="text-ink mb-1 font-semibold">The formulas behind it</h2>
           <p className="text-ink-muted mb-3 text-sm">
-            These are sent to the app, which does the working out on the phone.
+            Worked out on the server when staff run this calculator.
           </p>
           <dl className="divide-line divide-y">
             {outputs.map((output) => (
@@ -135,7 +143,7 @@ export default async function CalculatorDetailPage(
           Added {formatDate(calculator.createdAt)} by {calculator.createdBy.name}
         </p>
         <Badge tone={calculator.active ? "success" : "neutral"}>
-          {calculator.active ? "Showing in the app" : "Hidden from the app"}
+          {calculator.active ? "Available to run" : "Hidden"}
         </Badge>
       </Card>
     </PageContainer>

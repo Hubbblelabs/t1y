@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'glow_badge.dart';
+import '../theme/app_theme.dart';
 
 /// Full-screen celebration behind a tapped badge — a slowly turning radiant
 /// burst on a deep tinted backdrop, with the badge enlarged at its centre.
@@ -37,7 +38,7 @@ class BadgeGlowView extends StatefulWidget {
     return Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        barrierColor: Colors.black54,
+        barrierColor: AppTheme.inkSoft,
         transitionDuration: const Duration(milliseconds: 320),
         reverseTransitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (context, _, _) => BadgeGlowView(

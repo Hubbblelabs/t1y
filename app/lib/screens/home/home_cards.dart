@@ -90,7 +90,7 @@ class WeekTrendCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 10.5,
               height: 1.35,
-              color: Colors.black.withValues(alpha: 0.4),
+              color: AppTheme.inkSoft,
             ),
           ),
         ],
@@ -143,9 +143,7 @@ class WeekTrendCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 11,
               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected
-                  ? AppTheme.deep
-                  : Colors.black.withValues(alpha: 0.4),
+              color: isSelected ? AppTheme.deep : AppTheme.inkSoft,
             ),
           ),
         ],
@@ -231,7 +229,7 @@ class LearningProgressCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12.5,
                     height: 1.35,
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: AppTheme.inkSoft,
                   ),
                 ),
               ],
@@ -322,9 +320,7 @@ class HomeTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.3,
-                  color: highlight
-                      ? AppTheme.primary
-                      : Colors.black.withValues(alpha: 0.5),
+                  color: highlight ? AppTheme.primary : AppTheme.inkSoft,
                   fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),

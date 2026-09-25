@@ -8,6 +8,7 @@ import { ParticipantEngagement } from "@/components/admin/participants/participa
 import { ParticipantProfileCard } from "@/components/admin/participants/participant-profile";
 import { ParticipantStatusControl } from "@/components/admin/participants/participant-status-control";
 import { IcIsfUnlockControl } from "@/components/admin/participants/ic-isf-unlock-control";
+import { ParticipantFeaturesControl } from "@/components/admin/participants/participant-features-control";
 import { ParticipantTimeline } from "@/components/admin/participants/participant-timeline";
 import { StatusBadge } from "@/components/admin/participants/participant-table";
 import { Card } from "@/components/ui/card";
@@ -102,6 +103,13 @@ export default async function ParticipantDetailPage(
             participant.status === "INACTIVE") &&
           can(principal, Capability.PARTICIPANTS_EDIT) ? (
             <ParticipantStatusControl participantId={id} status={participant.status} />
+          ) : null}
+
+          {can(principal, Capability.PARTICIPANTS_EDIT) ? (
+            <ParticipantFeaturesControl
+              participantId={id}
+              enabledFeatures={participant.profile?.enabledFeatures ?? []}
+            />
           ) : null}
 
           {can(principal, Capability.PARTICIPANTS_EDIT) ? (

@@ -45,6 +45,7 @@ const ME_SELECT = {
       emergencyContactPhone: true,
       customFieldValues: true,
       icIsfUnlocked: true,
+      enabledFeatures: true,
       onboardedAt: true,
       lastActivityAt: true,
     },
@@ -163,4 +164,55 @@ export async function completeOnboarding(userId: string) {
     where: { userId, onboardedAt: null },
     data: { onboardedAt: new Date() },
   });
+}
+
+/**
+ * Deletes the caller's own account, from the app.
+ *
+ * What goes: everything that identifies the child or the family — name, email,
+ * date of birth, phone numbers, city, clinician, emergency contact, answers to
+ * added questions, help-and-support conversations, registered devices — and
+ * the ability to sign in (password and every session). The account is marked
+ * deleted, so it no longer appears anywhere in the app or in a household.
+ *
+ * What stays: the health and learning records (readings, doses, quiz results),
+ * attached only to the participant code, because they are the study's research
+ * data and the consent covers keeping them in de-identified form. This is
+ * stated to the family on the deletion screen and in the terms before they
+ * confirm, and in docs/COMPLIANCE.md.
+ */
+export async function deleteOwnAccount(userId: string): Promise<void> {
+  const placeholder = "Deleted participant";
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: placeholder,
+        email: `deleted-${userId}@deleted.invalid`,
+        emailVerified: false,
+        image: null,
+        status: "INACTIVE",
+        deletedAt: new Date(),
+      },
+    }),
+    prisma.profile.updateMany({
+      where: { userId },
+      data: {
+        name: placeholder,
+        dateOfBirth: null,
+        phone: null,
+        city: null,
+        country: null,
+        primaryClinician: null,
+        emergencyContactName: null,
+        emergencyContactPhone: null,
+        customFieldValues: {},
+      },
+    }),
+    prisma.supportThread.deleteMany({ where: { userId } }),
+    prisma.deviceToken.deleteMany({ where: { userId } }),
+    prisma.session.deleteMany({ where: { userId } }),
+    prisma.account.deleteMany({ where: { userId } }),
+  ]);
 }

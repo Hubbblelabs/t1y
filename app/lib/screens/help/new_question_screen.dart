@@ -92,7 +92,8 @@ class _NewQuestionScreenState extends State<NewQuestionScreen> {
               autofocus: true,
               style: const TextStyle(color: Colors.black),
               decoration: InputDecoration(
-                hintText: S.writeYourQuestion,
+                hintText: S.supportHint,
+                hintMaxLines: 4,
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
@@ -122,7 +123,7 @@ class _NewQuestionScreenState extends State<NewQuestionScreen> {
                 S.messagesLeftToday(widget.remainingToday!, 3),
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.black.withValues(alpha: 0.5),
+                  color: AppTheme.inkSoft,
                 ),
               ),
             ],

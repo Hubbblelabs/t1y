@@ -14,11 +14,14 @@ export function HealthPage({
   title,
   description,
   searchKey,
+  before,
   children,
 }: {
   title: string;
   description: string;
   searchKey: string;
+  /** Extra content shown above the table, e.g. a status summary. */
+  before?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -29,6 +32,8 @@ export function HealthPage({
         breadcrumbs={[{ label: "Health data" }, { label: title }]}
         actions={<DateRangePicker />}
       />
+
+      {before}
 
       <Card>
         <div className="border-line border-b p-4">

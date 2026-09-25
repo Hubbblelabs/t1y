@@ -38,7 +38,6 @@ class S {
   static ({String en, String ta}) both(String Function() read) =>
       (en: inLocale('en', read), ta: inLocale('ta', read));
 
-  static bool get isTamilNow => _l == 'ta';
 
   static String _t(String en, String ta) => _l == 'ta' ? ta : en;
 
@@ -234,18 +233,6 @@ class S {
     '"$l" is too long ago. Please check the date.',
     '"$l" மிகவும் பழையது. தேதியைச் சரிபார்க்கவும்.',
   );
-  static String enterNumberFor(String l) =>
-      _t('Enter a number for "$l".', '"$l" க்கு ஒரு எண்ணை உள்ளிடவும்.');
-  static String mustBeMoreThanZero(String l) => _t(
-    '"$l" must be more than zero. Please check the number and enter it again.',
-    '"$l" பூஜ்யத்தை விட அதிகமாக இருக்க வேண்டும். எண்ணைச் சரிபார்த்து மீண்டும் உள்ளிடவும்.',
-  );
-  static String get calcCouldNotWork => _t(
-    'This could not be worked out with those numbers. Please check them.',
-    'இந்த எண்களைக் கொண்டு கணக்கிட முடியவில்லை. அவற்றைச் சரிபார்க்கவும்.',
-  );
-  static String get timeInFuture =>
-      _t('That time is in the future.', 'அந்த நேரம் எதிர்காலத்தில் உள்ளது.');
 
   // Times
   static String get dueNow => _t('due now', 'இப்போது');
@@ -298,23 +285,17 @@ class S {
   // ── Shared states ────────────────────────────────────────────────────────
   static String get loading => _t('Loading…', 'ஏற்றுகிறது…');
   static String get tryAgain => _t('Try again', 'மீண்டும் முயற்சிக்கவும்');
-  static String get retry => _t('Retry', 'மீண்டும்');
   static String get close => _t('Close', 'மூடு');
   static String get cancel => _t('Cancel', 'ரத்து செய்');
   static String get save => _t('Save', 'சேமி');
   static String get couldNotLoad =>
       _t('Could not load content.', 'உள்ளடக்கத்தை ஏற்ற முடியவில்லை.');
-  static String get offlineHint => _t(
-    'You appear to be offline. Showing the last downloaded copy.',
-    'நீங்கள் இணையத்தில் இல்லை எனத் தெரிகிறது. கடைசியாகப் பதிவிறக்கியது காட்டப்படுகிறது.',
-  );
 
   // ── Help Book ────────────────────────────────────────────────────────────
   static String get noTopicsYet =>
       _t('No topics published yet.', 'இதுவரை தலைப்புகள் எதுவும் இல்லை.');
   static String get noContentYet =>
       _t('No content yet.', 'இதுவரை உள்ளடக்கம் இல்லை.');
-  static String get yourLearning => _t('Your learning', 'உங்கள் கற்றல்');
   static String topicsRead(int read, int total) => _t(
     '$read of $total topics read',
     '$total-ல் $read தலைப்புகள் படிக்கப்பட்டன',
@@ -329,8 +310,6 @@ class S {
   );
   static String get takeInEnglish =>
       _t('Take in English', 'ஆங்கிலத்தில் எழுது');
-  static String get unitsShort => _t('u', 'அலகு');
-  static String get todayWord => _t('today', 'இன்று');
   static String get englishOnly => _t('English only', 'ஆங்கிலம் மட்டும்');
   static String get tamilNotPublished => _t(
     "A Tamil translation isn't published yet — showing English.",
@@ -343,7 +322,6 @@ class S {
 
   // ── Language ─────────────────────────────────────────────────────────────
   static String get language => _t('Language', 'மொழி');
-  static String get switchLanguage => _t('Switch language', 'மொழியை மாற்று');
   static String get pendingApprovalTitle =>
       _t('Almost there', 'கிட்டத்தட்ட முடிந்தது');
   static String get pendingApprovalBody => _t(
@@ -354,33 +332,9 @@ class S {
   );
   static String get backToStart =>
       _t('Back to start', 'தொடக்கத்திற்குத் திரும்பு');
-  static String get english => 'English';
-  static String get tamil => 'தமிழ்';
 
   // ── Calculations ─────────────────────────────────────────────────────────
-  static String get ruleOf15 => _t('Rule of 15', '15 விதி');
-  static String get icIsf => _t('IC / ISF', 'IC / ISF');
-  static String get calculators => _t('Calculators', 'கணக்கிடும் கருவிகள்');
-  static String get calculatorsIntro => _t(
-    "Work out ratios and doses from your child's own numbers.",
-    'உங்கள் குழந்தையின் எண்களிலிருந்து விகிதங்களையும் அளவுகளையும் கணக்கிடுங்கள்.',
-  );
-  static String get noCalculators => _t(
-    'No calculators are available right now.',
-    'தற்போது எந்த கணக்கிடும் கருவிகளும் இல்லை.',
-  );
 
-  /// Where a pre-filled number came from. [when] is absent for a profile
-  /// detail, which has no moment of its own.
-  static String fromYourRecords([String? when]) => when == null
-      ? _t('From your records', 'உங்கள் பதிவுகளிலிருந்து')
-      : _t('From your records · $when', 'உங்கள் பதிவுகளிலிருந்து · $when');
-  static String get enteredByYou => _t('Entered by you', 'நீங்கள் உள்ளிட்டது');
-  static String get nothingOnFile => _t(
-    'Nothing on file yet — please enter it yourself.',
-    'இன்னும் பதிவு இல்லை — நீங்களே உள்ளிடவும்.',
-  );
-  static String get yourResult => _t('Your result', 'உங்கள் முடிவு');
 
   // ── Sign in / sign up (always shown in both languages) ───────────────────
   static String get getStarted => _t('Get Started', 'தொடங்குங்கள்');
@@ -417,51 +371,32 @@ class S {
   static String quizzesReady(int n) => _t('$n to try', '$n முயற்சிக்க');
   static String get testWhatYouLearn =>
       _t('Test what you learn', 'கற்றதைச் சோதியுங்கள்');
-  static String get calculatorsLine =>
-      _t('Ratios and doses', 'விகிதங்கள் மற்றும் அளவுகள்');
   static String get recordDose => _t('Record a dose', 'அளவைப் பதிவு செய்');
   static String get newAnswerFromTeam =>
       _t('New answer from the team', 'குழுவிடமிருந்து புதிய பதில்');
   static String get questionsAndAnswers =>
       _t('Questions and answers', 'கேள்விகள் மற்றும் பதில்கள்');
-  static String get noReadingThisDay => _t('No readings', 'அளவீடுகள் இல்லை');
 
   // ── Insulin ──────────────────────────────────────────────────────────────
   static String get insulin => _t('Insulin', 'இன்சுலின்');
-  static String get logInsulin =>
-      _t('Record an insulin dose', 'இன்சுலின் அளவைப் பதிவு செய்');
-  static String get insulinRecordNote => _t(
-    'This records what was given. It does not tell you how much to give — confirm doses with your diabetes team.',
-    'இது கொடுக்கப்பட்டதைப் பதிவு செய்கிறது. எவ்வளவு கொடுக்க வேண்டும் என்று சொல்லாது — அளவுகளை உங்கள் நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
-  );
-  static String get insulinKind => _t('Kind of insulin', 'இன்சுலின் வகை');
-  static String get insulinName =>
-      _t('Insulin name (e.g. Humalog)', 'இன்சுலின் பெயர் (எ.கா. Humalog)');
-  static String get doseUnits => _t('Dose (units)', 'அளவு (யூனிட்கள்)');
-  static String get whenGiven => _t('When it was given', 'கொடுத்த நேரம்');
-  static String get recentDoses => _t('Recent doses', 'சமீபத்திய அளவுகள்');
   static String todayTotal(String units) =>
       _t('Today: $units units', 'இன்று: $units யூனிட்கள்');
   static String get doseSaved =>
       _t('Dose recorded', 'அளவு பதிவு செய்யப்பட்டது');
-  static String get noDosesYet => _t(
-    'No doses recorded yet.',
-    'இதுவரை அளவுகள் எதுவும் பதிவு செய்யப்படவில்லை.',
-  );
-  static String get needInsulinName => _t(
-    'Please enter the name of the insulin.',
-    'இன்சுலினின் பெயரை உள்ளிடவும்.',
-  );
   static String get badDose => _t(
     'Please check the dose — it should be more than 0 and no more than 300 units.',
     'அளவைச் சரிபார்க்கவும் — அது 0-க்கு மேல் 300 யூனிட்களுக்குள் இருக்க வேண்டும்.',
   );
-  static String get rapidActing2 => _t('Rapid-acting', 'வேகமாகச் செயல்படும்');
-  static String get shortActing => _t('Short-acting', 'குறுகிய-செயல்');
-  static String get intermediateActing => _t('Intermediate', 'இடைநிலை');
-  static String get longActing => _t('Long-acting', 'நீண்ட-செயல்');
-  static String get premixed => _t('Premixed', 'கலப்பு');
-  static String get otherInsulin => _t('Other', 'மற்றவை');
+
+  // ── Carbohydrates ────────────────────────────────────────────────────────
+  static String get carbs => _t('Carbs', 'கார்போஹைட்ரேட்');
+  static String get logCarbs =>
+      _t('Record carbohydrates', 'கார்போஹைட்ரேட்டைப் பதிவு செய்');
+  static String get carbsSaved => _t('Recorded', 'பதிவு செய்யப்பட்டது');
+  static String get badCarbs => _t(
+    'Please check the amount — it should be more than 0 and no more than 500g.',
+    'அளவைச் சரிபார்க்கவும் — அது 0-க்கு மேல் 500 கிராமுக்குள் இருக்க வேண்டும்.',
+  );
 
   // ── Help and support ─────────────────────────────────────────────────────
   static String get helpAndSupport =>
@@ -479,7 +414,6 @@ class S {
   static String get stateSeen => _t('Seen by the team', 'குழு பார்த்தது');
   static String get stateReplied => _t('Replied', 'பதிலளிக்கப்பட்டது');
   static String get stateClosed => _t('Closed', 'முடிக்கப்பட்டது');
-  static String get yourMessage => _t('Your message', 'உங்கள் செய்தி');
   static String get send => _t('Send', 'அனுப்பு');
   static String messagesLeftToday(int left, int limit) => _t(
     '$left of $limit messages left today',
@@ -489,91 +423,16 @@ class S {
     'You have sent all your messages for today. You can send more tomorrow — the team will reply here.',
     'இன்றைய செய்திகள் அனைத்தையும் அனுப்பிவிட்டீர்கள். நாளை மேலும் அனுப்பலாம் — குழு இங்கே பதிலளிக்கும்.',
   );
-  static String get writeYourQuestion =>
-      _t('Write your question here', 'உங்கள் கேள்வியை இங்கே எழுதுங்கள்');
   static String get writeReply => _t('Write a reply…', 'பதிலை எழுதுங்கள்…');
   static String get studyTeam => _t('Study team', 'ஆய்வுக் குழு');
   static String get you => _t('You', 'நீங்கள்');
   static String get newAnswer => _t('New answer', 'புதிய பதில்');
   static String get needMessage =>
       _t('Please write your message.', 'உங்கள் செய்தியை எழுதுங்கள்.');
-  static String get enterIn => _t('Enter in', 'இதில் உள்ளிடவும்');
-  static String get calculate => _t('Calculate', 'கணக்கிடு');
-  static String get iUnderstand => _t('I understand', 'எனக்குப் புரிகிறது');
-  static String get calculatorDisclaimerTitle => _t(
-    'This tool is provided as an educational aid',
-    'இந்த கருவி ஒரு கல்வி உதவியாக வழங்கப்படுகிறது',
-  );
-  static String calculatorDisclaimerBody(String calculatorName) => _t(
-    "$calculatorName does not replace your diabetes team's guidance. "
-        'Always confirm doses and thresholds with your clinician.',
-    '$calculatorName உங்கள் நீரிழிவு குழுவின் வழிகாட்டுதலுக்குப் பதிலாக இல்லை. '
-        'மருந்தளவு மற்றும் வரம்புகளை எப்போதும் உங்கள் மருத்துவரிடம் உறுதிப்படுத்தவும்.',
-  );
-  static String ruleOf15AboveRange(int bg) => _t(
-    'Blood glucose is $bg mg/dL — the Rule of 15 is for readings below 70 mg/dL.',
-    'இரத்த சர்க்கரை $bg mg/dL — 15 விதி 70 mg/dL-க்கும் குறைவான அளவீடுகளுக்கானது.',
-  );
-  static String ruleOf15Result(int grams, int servings) => _t(
-    'Take about $grams g of fast-acting sugar (e.g. glucose tablets, '
-        'juice, or $servings serving(s) of 15g carbs).\n\n'
-        'Recheck blood glucose in 15 minutes. If still under 100 mg/dL, repeat with another 15g.',
-    'சுமார் $grams கிராம் வேகமாகச் செயல்படும் சர்க்கரை எடுத்துக் கொள்ளுங்கள் '
-        '(எ.கா. குளுக்கோஸ் மாத்திரைகள், சாறு, அல்லது 15கிராம் கார்போஹைட்ரேட்டின் $servings பரிமாணம்).\n\n'
-        '15 நிமிடங்களில் இரத்த சர்க்கரையை மீண்டும் சரிபார்க்கவும். இன்னும் 100 mg/dL-க்குக் குறைவாக இருந்தால், '
-        'மேலும் 15கிராம் எடுத்துக் கொள்ளுங்கள்.',
-  );
-  static String get totalDailyInsulinDose => _t(
-    'Total daily insulin dose (units)',
-    'மொத்த தினசரி இன்சுலின் அளவு (யூனிட்கள்)',
-  );
-  static String get rapidActingInsulin =>
-      _t('Rapid-acting insulin', 'வேகமாகச் செயல்படும் இன்சுலின்');
-  static String get uses1800Rule =>
-      _t('Uses 1800 rule', '1800 விதியைப் பயன்படுத்துகிறது');
-  static String get uses1500Rule => _t(
-    'Uses 1500 rule (short-acting)',
-    '1500 விதியைப் பயன்படுத்துகிறது (குறுகிய-செயல்)',
-  );
-  static String get computeRatiosFirst => _t(
-    'Enter your total daily dose above and calculate your ratios first.',
-    'முதலில் மேலே உங்கள் மொத்த தினசரி அளவை உள்ளிட்டு உங்கள் விகிதங்களைக் கணக்கிடவும்.',
-  );
-  static String get mealDoseTitle => _t('Meal dose', 'உணவு அளவு');
-  static String get carbsInMeal => _t(
-    'Carbohydrates in this meal (g)',
-    'இந்த உணவில் உள்ள கார்போஹைட்ரேட் (கிராம்)',
-  );
-  static String get enterCarbs => _t(
-    'Enter the carbohydrates for this meal.',
-    'இந்த உணவிற்கான கார்போஹைட்ரேட்டை உள்ளிடவும்.',
-  );
-  static String mealDoseResult(
-    String units,
-    String carbs,
-    String icRatio,
-  ) => _t(
-    '≈ $units unit(s) of bolus insulin for $carbs g of carbs, at your IC ratio of 1 unit '
-        'per $icRatio g.\n\nConfirm with your diabetes team before dosing.',
-    '$carbs கிராம் கார்போஹைட்ரேட்டுக்கு, உங்கள் IC விகிதமான $icRatio கிராமுக்கு 1 யூனிட் என்ற '
-        'அடிப்படையில் ≈ $units யூனிட் போலஸ் இன்சுலின்.\n\nமருந்தளவு செய்யும் முன் உங்கள் '
-        'நீரிழிவு குழுவிடம் உறுதிப்படுத்தவும்.',
-  );
-  static String icIsfResult(String icRatio, String isf) => _t(
-    'IC ratio ≈ 1 unit per $icRatio g of carbs\n\n'
-        'ISF (correction factor) ≈ 1 unit lowers blood glucose by $isf mg/dL\n\n'
-        'These are starting-point ratios from the standard formula — your diabetes team should '
-        'confirm and adjust them for you.',
-    'IC விகிதம் ≈ 1 யூனிட் ஒவ்வொரு $icRatio கிராம் கார்போஹைட்ரேட்டுக்கும்\n\n'
-        'ISF (திருத்தக் காரணி) ≈ 1 யூனிட் இரத்த சர்க்கரையை $isf mg/dL குறைக்கும்\n\n'
-        'இவை நிலையான சூத்திரத்திலிருந்து தொடக்க-புள்ளி விகிதங்கள் — உங்கள் நீரிழிவு குழு இவற்றை '
-        'உறுதிப்படுத்தி உங்களுக்கேற்ப சரிசெய்ய வேண்டும்.',
-  );
 
   // ── Quizzes ──────────────────────────────────────────────────────────────
   static String get noQuizzesYet =>
       _t('No quizzes published yet.', 'இதுவரை வினாடி வினா எதுவும் இல்லை.');
-  static String get startQuiz => _t('Start quiz', 'வினாடி வினாவைத் தொடங்கு');
   static String get answered => _t('Answered', 'பதிலளிக்கப்பட்டது');
   static String get unanswered => _t('Unanswered', 'பதிலளிக்கப்படவில்லை');
   static String answeredOfTotal(int answered, int total) => _t(
@@ -582,7 +441,6 @@ class S {
   );
   static String get submitQuiz => _t('Submit quiz', 'வினாடி வினாவைச் சமர்ப்பி');
   static String get questionNumber => _t('Question', 'கேள்வி');
-  static String get yourScore => _t('Your score', 'உங்கள் மதிப்பெண்');
   static String get markToRevisit =>
       _t('Mark to revisit', 'மீண்டும் பார்க்க குறி');
   static String get markedToRevisit =>
@@ -601,19 +459,10 @@ class S {
     'Match each item to its description:',
     'ஒவ்வொரு உருப்படியையும் அதன் விளக்கத்துடன் பொருத்தவும்:',
   );
-  static String get quizComplete =>
-      _t('Quiz complete', 'வினாடி வினா முடிந்தது');
   static String get done => _t('Done', 'முடிந்தது');
-  static String get passed => _t('Passed', 'தேர்ச்சி பெற்றது');
-  static String get notYetTryAgain => _t(
-    'Not yet — try reviewing the topic again.',
-    'இன்னும் இல்லை — தலைப்பை மீண்டும் பார்வையிடவும்.',
-  );
 
   // ── Rewards ──────────────────────────────────────────────────────────────
   static String get myBadges => _t('My Badges', 'என் பதக்கங்கள்');
-  static String get badgesEarned => _t('Badges', 'பதக்கங்கள்');
-  static String get earnedBadges => _t('Your collection', 'உங்கள் சேகரிப்பு');
   static String get recentBadges => _t('Recently earned', 'சமீபத்தில் பெற்றது');
   static String get quizzesTaken =>
       _t('Quizzes taken', 'எடுத்த வினாடி வினாக்கள்');
@@ -636,38 +485,22 @@ class S {
     'Take your first quiz to meet your animal!',
     'உங்கள் விலங்கைச் சந்திக்க முதல் வினாடி வினாவை எடுங்கள்!',
   );
-  static String get notYetEarned => _t('Not yet earned', 'இன்னும் பெறவில்லை');
-  static String badgesOfQuizzes(int earned, int total) => _t(
-    '$earned of $total quizzes conquered',
-    '$total வினாடி வினாக்களில் $earned வென்றது',
-  );
   static String get noBadgesYet => _t(
     'No badges yet.\nFinish a quiz to earn your first one!',
     'இதுவரை பதக்கங்கள் இல்லை.\nஉங்கள் முதல் பதக்கத்தைப் பெற ஒரு வினாடி வினாவை முடிக்கவும்!',
   );
-  static String get newBadge => _t('New badge!', 'புதிய பதக்கம்!');
   static String get tryAgainQuote => _t(
     'Every expert started right where you are. Try once more!',
     'ஒவ்வொரு நிபுணரும் நீங்கள் இருக்கும் இடத்தில்தான் தொடங்கினார். மீண்டும் முயற்சிக்கவும்!',
   );
-  static String get newBestScore =>
-      _t('New best score!', 'புதிய சிறந்த மதிப்பெண்!');
-  static String badgeEarnedFor(String tier) =>
-      _t('You earned the $tier badge', '$tier பதக்கத்தை வென்றீர்கள்');
   static String get gaveYourBest => _t(
     'You gave it your best — try again to earn a badge!',
     'நீங்கள் சிறப்பாக முயற்சித்தீர்கள் — பதக்கம் பெற மீண்டும் முயற்சிக்கவும்!',
-  );
-  static String get bestKept => _t(
-    'Your best score for this quiz is still safe.',
-    'இந்த வினாடி வினாவுக்கான உங்கள் சிறந்த மதிப்பெண் பாதுகாப்பாக உள்ளது.',
   );
 
   // ── Children / household ─────────────────────────────────────────────────
   static String get whoIsLearning =>
       _t('Who is learning today?', 'இன்று யார் கற்கிறார்கள்?');
-  static String get selectChild =>
-      _t('Select a child', 'ஒரு குழந்தையைத் தேர்ந்தெடுக்கவும்');
   static String get addChild => _t('Add child', 'குழந்தையைச் சேர்');
   static String get addAnotherChild =>
       _t('Add another child', 'மற்றொரு குழந்தையைச் சேர்');
@@ -708,7 +541,6 @@ class S {
   );
   static String get continueLabel => _t('Continue', 'தொடரவும்');
   static String get password => _t('Password', 'கடவுச்சொல்');
-  static String get switchChild => _t('Switch child', 'குழந்தையை மாற்று');
   static String get addChildFromProfile => _t(
     'Sign in as one of your children first, then add another from '
         'Profile → Your children.',
@@ -726,17 +558,8 @@ class S {
 
   // ── Glucose entry ────────────────────────────────────────────────────────
   static String get glucose => _t('Glucose', 'குளுக்கோஸ்');
-  static String get glucoseEntry => _t('Glucose entry', 'குளுக்கோஸ் பதிவு');
-  static String get glucoseLevel => _t('Glucose level', 'குளுக்கோஸ் அளவு');
-  static String get recentReadings =>
-      _t('Recent readings', 'சமீபத்திய அளவீடுகள்');
-  static String get noReadingsYet =>
-      _t('No readings yet.', 'இதுவரை அளவீடுகள் இல்லை.');
-  static String get saveReading => _t('Save reading', 'அளவீட்டைச் சேமி');
   static String get readingSaved =>
       _t('Reading saved', 'அளவீடு சேமிக்கப்பட்டது');
-  static String get enterGlucoseValue =>
-      _t('Enter a glucose value.', 'ஒரு குளுக்கோஸ் மதிப்பை உள்ளிடவும்.');
   static String get glucoseOutOfRange => _t(
     'That value looks out of range. Please check the meter.',
     'அந்த மதிப்பு வரம்பிற்கு வெளியே உள்ளது. மீட்டரைச் சரிபார்க்கவும்.',
@@ -747,44 +570,16 @@ class S {
     'காட்டப்படும் வரம்புகள் பொதுவான வழிகாட்டுதல் மட்டுமே. உங்கள் நீரிழிவு குழு '
         'உங்கள் குழந்தையின் இலக்குகளை நிர்ணயிக்கிறது.',
   );
-  static String get low => _t('Low', 'குறைவு');
-  static String get inRange => _t('In range', 'வரம்பில்');
-  static String get high => _t('High', 'அதிகம்');
   static String get glucoseDisabled => _t(
     'Glucose entry is not enabled for this study yet. Your study coordinator '
         'will turn it on when it is approved.',
     'இந்த ஆய்வுக்கு குளுக்கோஸ் பதிவு இன்னும் இயக்கப்படவில்லை. ஒப்புதல் பெற்றவுடன் '
         'உங்கள் ஆய்வு ஒருங்கிணைப்பாளர் அதை இயக்குவார்.',
   );
-  static String get needAReadingFirst => _t(
-    'Save a reading, or pick one from your recent log below.',
-    'ஒரு அளவீட்டைச் சேமிக்கவும், அல்லது கீழே உள்ள உங்கள் சமீபத்திய பதிவிலிருந்து ஒன்றைத் தேர்வுசெய்யவும்.',
-  );
-  static String get glucoseCalculators =>
-      _t('The glucose calculators', 'குளுக்கோஸ் கணிப்பான்கள்');
-  static String get tapReadingToCheck => _t(
-    'Tap a reading to check a dose against it.',
-    'ஒரு மருந்தளவைச் சரிபார்க்க ஒரு அளவீட்டைத் தட்டவும்.',
-  );
   static String get health => _t('Health', 'சுகாதாரம்');
   static String get healthTools => _t('Health tools', 'சுகாதார கருவிகள்');
-  static String get filter => _t('Filter', 'வடிகட்டி');
-  static String get sort => _t('Sort', 'வரிசைப்படுத்து');
-  static String get allDates => _t('All dates', 'அனைத்து தேதிகளும்');
-  static String get pickADate =>
-      _t('Pick a date', 'ஒரு தேதியைத் தேர்ந்தெடுக்கவும்');
-  static String get newestFirst => _t('Newest first', 'புதியது முதலில்');
-  static String get oldestFirst => _t('Oldest first', 'பழையது முதலில்');
-  static String get noReadingsForDate =>
-      _t('No readings on this date.', 'இந்த தேதியில் அளவீடுகள் இல்லை.');
-  static String nextReadingAt(String when) =>
-      _t('Next reading available $when', 'அடுத்த அளவீடு $when கிடைக்கும்');
-  static String lastRecordedAt(String when) =>
-      _t('Last recorded $when', 'கடைசியாக $when பதிவு செய்யப்பட்டது');
   static String get enterRecentReading =>
       _t('Enter my recent reading', 'என் சமீபத்திய அளவீட்டை உள்ளிடு');
-  static String get readingAvailableNow =>
-      _t('A reading can be entered now', 'இப்போது ஒரு அளவீட்டை உள்ளிடலாம்');
 
   // ── MPIN ─────────────────────────────────────────────────────────────────
   static String get healthLockedTitle =>
@@ -792,10 +587,6 @@ class S {
   static String get healthLockedBody => _t(
     'Enter your 4-digit PIN to record readings and doses, and to work out a calculation.',
     'அளவீடுகள் மற்றும் மருந்தளவுகளைப் பதிவு செய்யவும், கணக்கிடவும் உங்கள் 4 இலக்க பின்னை உள்ளிடவும்.',
-  );
-  static String get timeToRecord => _t(
-    'Time to record a glucose reading',
-    'குளுக்கோஸ் அளவைப் பதிவு செய்ய வேண்டிய நேரம்',
   );
   static String get notNow => _t('Not now', 'இப்போது வேண்டாம்');
   static String get unlock => _t('Unlock', 'திற');
@@ -818,17 +609,11 @@ class S {
     'Choose any 4 digits. You will use them to open your child\'s health records.',
     'ஏதேனும் 4 இலக்கங்களைத் தேர்ந்தெடுக்கவும். உங்கள் குழந்தையின் சுகாதாரப் பதிவுகளைத் திறக்க இவற்றைப் பயன்படுத்துவீர்கள்.',
   );
-  static String get goToProfile =>
-      _t('Go to Profile', 'சுயவிவரத்திற்குச் செல்');
   static String get pinIncorrect => _t(
     'That PIN is not right. Please try again.',
     'பின் சரியில்லை. மீண்டும் முயற்சிக்கவும்.',
   );
   static String get pinDigitsHint => _t('4 digits', '4 இலக்கங்கள்');
-  static String get forgotPinGoToProfile => _t(
-    'Forgot your PIN? Reset it from Profile with your password.',
-    'பின்னை மறந்துவிட்டீர்களா? உங்கள் கடவுச்சொல்லைக் கொண்டு சுயவிவரத்தில் மீட்டமைக்கவும்.',
-  );
 
   // ── Profile ──────────────────────────────────────────────────────────────
   static String get account => _t('Account', 'கணக்கு');
@@ -843,8 +628,6 @@ class S {
   static String get privacyAndData => _t('Privacy & data', 'தனியுரிமை & தரவு');
   static String get checkForNewContent =>
       _t('Check for new content', 'புதிய உள்ளடக்கத்தைச் சரிபார்');
-  static String get contentUpToDate =>
-      _t('Content is up to date.', 'உள்ளடக்கம் புதுப்பித்த நிலையில் உள்ளது.');
   static String get contentUpdated =>
       _t('New content downloaded.', 'புதிய உள்ளடக்கம் பதிவிறக்கப்பட்டது.');
   static String get couldNotReachServer => _t(
@@ -854,9 +637,6 @@ class S {
   static String get lastUpdated =>
       _t('Last updated', 'கடைசியாகப் புதுப்பிக்கப்பட்டது');
   static String get never => _t('Never', 'இதுவரை இல்லை');
-  static String get tapToFlip =>
-      _t('Tap for settings', 'அமைப்புகளுக்குத் தட்டவும்');
-  static String get backToCard => _t('Back to card', 'அட்டைக்குத் திரும்பு');
   static String get participant => _t('Participant', 'பங்கேற்பாளர்');
   static String get studyParticipant => _t(
     'Type 1 Diabetes · Study participant',
@@ -873,45 +653,16 @@ class S {
   static String get notStated => _t('Not stated', 'குறிப்பிடவில்லை');
   static String get yourDetails => _t('Your details', 'உங்கள் விவரங்கள்');
   static String get editDetails => _t('Edit details', 'விவரங்களைத் திருத்து');
-  static String get viewAllDetails =>
-      _t('View all details', 'அனைத்து விவரங்களையும் காண்க');
-  static String get viewAllDetailsHint => _t(
-    'Everything on file for this child, filled or not',
-    'இந்தக் குழந்தைக்கான அனைத்து விவரங்களும், நிரப்பப்பட்டதோ இல்லையோ',
-  );
   static String get notProvided => _t('Not provided', 'வழங்கப்படவில்லை');
   static String completeProfileNudge(int remaining) => _t(
     '$remaining more detail${remaining == 1 ? '' : 's'} to complete this profile',
     'இந்த சுயவிவரத்தை முடிக்க $remaining மேலும் விவரங்கள்',
   );
   static String get phone => _t('Phone', 'தொலைபேசி');
-  static String get city => _t('City', 'நகரம்');
-  static String get country => _t('Country', 'நாடு');
-  static String get height => _t('Height', 'உயரம்');
-  static String get weight => _t('Weight', 'எடை');
   static String get bmi => _t('BMI', 'உடல் நிறை குறியீடு');
   static String get treatmentModality => _t('Treatment', 'சிகிச்சை');
   static String get emergencyContact => _t('Emergency contact', 'அவசர தொடர்பு');
-  static String get emergencyContactName =>
-      _t('Emergency contact name', 'அவசர தொடர்பு பெயர்');
-  static String get emergencyContactPhone =>
-      _t('Emergency contact phone', 'அவசர தொடர்பு தொலைபேசி');
-  static String get primaryClinician =>
-      _t("Treating doctor's name", 'சிகிச்சை அளிக்கும் மருத்துவரின் பெயர்');
   static String get isRequired => _t('is required.', 'தேவை.');
-  static String get diagnosisYear =>
-      _t('Diagnosis year', 'கண்டறியப்பட்ட ஆண்டு');
-  static String get heightHint => _t('Height (cm)', 'உயரம் (செ.மீ)');
-  static String get weightHint => _t('Weight (kg)', 'எடை (கிலோ)');
-  static String get lifestyleOnly =>
-      _t('Lifestyle only', 'வாழ்க்கை முறை மட்டும்');
-  static String get oralMedication => _t('Oral medication', 'வாய்வழி மருந்து');
-  static String get insulinTreatment => _t('Insulin', 'இன்சுலின்');
-  static String get oralAndInsulin =>
-      _t('Oral & insulin', 'வாய்வழி & இன்சுலின்');
-  static String get nonInsulinInjectable =>
-      _t('Non-insulin injectable', 'இன்சுலின் அல்லாத ஊசி மருந்து');
-  static String get otherTreatment => _t('Other', 'மற்றவை');
   static String get detailsSaved =>
       _t('Details saved', 'விவரங்கள் சேமிக்கப்பட்டன');
   static String get contact => _t('Contact', 'தொடர்பு');
@@ -941,17 +692,8 @@ class S {
       _t('No readings this day', 'இந்த நாளில் அளவீடுகள் இல்லை');
   static String get continueReadingBadge =>
       _t('Continue reading', 'படிப்பைத் தொடரவும்');
-  static String get continueReading =>
-      _t('Continue where you left off', 'நிறுத்திய இடத்திலிருந்து தொடரவும்');
   static String get startLearning =>
       _t('Start learning', 'கற்கத் தொடங்குங்கள்');
-  static String get tipOfTheDay => _t('Tip of the day', 'இன்றைய குறிப்பு');
-  static String get yourProgress => _t('Your progress', 'உங்கள் முன்னேற்றம்');
-  static String get quickActions => _t('Quick actions', 'விரைவு செயல்கள்');
-  static String get allTopicsDone => _t(
-    'All topics read. Well done!',
-    'அனைத்து தலைப்புகளும் படித்தாகிவிட்டது. வாழ்த்துக்கள்!',
-  );
 
   // ── Terms ────────────────────────────────────────────────────────────────
   static String get termsTitle =>
@@ -959,5 +701,200 @@ class S {
   static String get agreeToTermsCheckbox => _t(
     'I agree to your Terms of Service and Privacy Policy',
     'உங்கள் சேவை விதிமுறைகள் மற்றும் தனியுரிமைக் கொள்கையை நான் ஏற்கிறேன்',
+  );
+
+  // ── Health: glance and record ───────────────────────────────────────────
+  static String get todaysAverage => _t("Today's average", 'இன்றைய சராசரி');
+  static String get noReadingsToday =>
+      _t('No readings today', 'இன்று அளவீடுகள் இல்லை');
+  static String lastReadingAgo(String ago) =>
+      _t('Last reading $ago', 'கடைசி அளவீடு $ago');
+  static String lastEntryAgo(String ago) =>
+      _t('Last recorded $ago', 'கடைசியாகப் பதிவு செய்தது $ago');
+  static String get noReadingEver => _t(
+    'No reading recorded yet',
+    'இதுவரை அளவீடு எதுவும் பதிவு செய்யப்படவில்லை',
+  );
+  static String get recordTitle => _t('Record', 'பதிவு செய்');
+  static String get healthGlanceHint => _t(
+    'Your parent PIN is asked before anything can be recorded.',
+    'எதையும் பதிவு செய்வதற்கு முன் உங்கள் பெற்றோர் பின் கேட்கப்படும்.',
+  );
+  static String get glucoseReadingLabel =>
+      _t('Glucose reading (mg/dL)', 'குளுக்கோஸ் அளவு (mg/dL)');
+  static String get unitsGiven => _t('Units given', 'கொடுத்த யூனிட்கள்');
+  static String get carbsEaten =>
+      _t('Carbohydrates eaten (g)', 'சாப்பிட்ட கார்போஹைட்ரேட் (கிராம்)');
+  static String get whenLabel => _t('When', 'எப்போது');
+  static String get nowLabel => _t('Now', 'இப்போது');
+  static String get chooseTime => _t('Choose a time', 'நேரத்தைத் தேர்வுசெய்');
+  static String get recentEntries => _t('Recent', 'சமீபத்தியவை');
+  static String get nothingRecorded => _t(
+    'Nothing recorded yet.',
+    'இதுவரை எதுவும் பதிவு செய்யப்படவில்லை.',
+  );
+  static String get recordGlucoseHint => _t(
+    'Read the number on the meter and enter it.',
+    'மீட்டரில் உள்ள எண்ணைப் படித்து உள்ளிடவும்.',
+  );
+  static String get recordInsulinHint => _t(
+    'Enter the units given. This records what was given — it does not tell you how much to give.',
+    'கொடுத்த யூனிட்களை உள்ளிடவும். இது கொடுக்கப்பட்டதைப் பதிவு செய்கிறது — எவ்வளவு கொடுக்க வேண்டும் என்று சொல்லாது.',
+  );
+  static String get recordCarbsHint => _t(
+    'Whenever your child eats, enter the carbohydrates in the food.',
+    'உங்கள் குழந்தை சாப்பிடும்போதெல்லாம், உணவில் உள்ள கார்போஹைட்ரேட்டை உள்ளிடவும்.',
+  );
+  static String unitsValue(String units) =>
+      _t('$units units', '$units யூனிட்கள்');
+  static String gramsValue(String grams) => _t('$grams g', '$grams கி');
+
+  // ── Reading time and short units ────────────────────────────────────────
+  static String topicOfTotal(int read, int total) =>
+      _t('$read of $total topics read', '$total-ல் $read தலைப்புகள் படித்தது');
+  static String get resumeLabel => _t('Resume', 'தொடர்');
+  static String get beginLabel => _t('Begin', 'தொடங்கு');
+
+  // ── Badges ──────────────────────────────────────────────────────────────
+  static String get badgesWon => _t('Badges earned', 'பெற்ற பதக்கங்கள்');
+  static String get averageScore => _t('Average score', 'சராசரி மதிப்பெண்');
+  static String nextRankAt(String title, int percent) => _t(
+    'Next: $title at a $percent% average',
+    'அடுத்து: $percent% சராசரியில் $title',
+  );
+  static String get topRankReached => _t(
+    "You've reached the top rank!",
+    'நீங்கள் உயர்ந்த நிலையை அடைந்துவிட்டீர்கள்!',
+  );
+  static String get badgeCollection => _t('Badge collection', 'பதக்கத் தொகுப்பு');
+  static String tierEarnedCount(int n) => _t('$n earned', '$n பெற்றது');
+  static String scoreFrom(int percent) =>
+      _t('$percent% and above', '$percent% மற்றும் அதற்கு மேல்');
+
+  // ── Profile and settings ────────────────────────────────────────────────
+  static String get details => _t('Details', 'விவரங்கள்');
+  static String get detailsSubtitle => _t(
+    "Your child's details. Tap Edit to change them.",
+    'உங்கள் குழந்தையின் விவரங்கள். மாற்ற "திருத்து" என்பதைத் தட்டவும்.',
+  );
+  static String get switchProfile => _t('Switch profile', 'சுயவிவரத்தை மாற்று');
+  static String switchToChild(String name) =>
+      _t('Switch to $name', '$name க்கு மாறு');
+  static String get switchNeedsPassword => _t(
+    "Enter your account password to open this child's record.",
+    'இந்தக் குழந்தையின் பதிவைத் திறக்க உங்கள் கணக்கு கடவுச்சொல்லை உள்ளிடவும்.',
+  );
+  static String get switchLabel => _t('Switch', 'மாறு');
+  static String get tapToSwitch =>
+      _t('Tap to switch to this child', 'இந்தக் குழந்தைக்கு மாற தட்டவும்');
+  static String get takeTheTour => _t('Take the app tour', 'செயலி வழிகாட்டி');
+  static String get takeTheTourSubtitle => _t(
+    'A quick walk through the main screens',
+    'முக்கியத் திரைகளின் சிறு விளக்கம்',
+  );
+  static String get allowRemindersTitle =>
+      _t('Allow reminders?', 'நினைவூட்டல்களை அனுமதிக்கவா?');
+  static String get allowRemindersBody => _t(
+    'T1D Prajana Yandra would like to send you reminders — for example, when it is time to record a glucose reading. Your phone will ask you to allow notifications next.',
+    'T1D பிரஜ்ஞா யந்திரா உங்களுக்கு நினைவூட்டல்களை அனுப்ப விரும்புகிறது — உதாரணமாக, குளுக்கோஸ் அளவைப் பதிவு செய்ய வேண்டிய நேரத்தில். அடுத்து உங்கள் தொலைபேசி அறிவிப்புகளை அனுமதிக்கக் கேட்கும்.',
+  );
+  static String get allow => _t('Allow', 'அனுமதி');
+  static String get notificationsBlocked => _t(
+    'Notifications are turned off for this app. Open your phone settings to turn them on.',
+    'இந்தச் செயலிக்கு அறிவிப்புகள் அணைக்கப்பட்டுள்ளன. அவற்றை இயக்க உங்கள் தொலைபேசி அமைப்புகளைத் திறக்கவும்.',
+  );
+  static String get openSettings => _t('Open settings', 'அமைப்புகளைத் திற');
+  static String get reminderTitle =>
+      _t('Time to check blood glucose', 'இரத்த குளுக்கோஸைச் சரிபார்க்க வேண்டிய நேரம்');
+  static String get reminderBody => _t(
+    'It has been a while since the last reading. Add a new one in the app.',
+    'கடைசி அளவீட்டிற்குப் பிறகு சிறிது நேரம் ஆகிவிட்டது. செயலியில் புதிய ஒன்றைச் சேர்க்கவும்.',
+  );
+  static String get remindersOn => _t('Reminders are on', 'நினைவூட்டல்கள் இயக்கத்தில் உள்ளன');
+
+  // ── Privacy and your data ───────────────────────────────────────────────
+  static String get howDataUsed =>
+      _t('How your data is used', 'உங்கள் தரவு எவ்வாறு பயன்படுத்தப்படுகிறது');
+  static String get howDataUsedSubtitle => _t(
+    'What we collect, why, and who can see it',
+    'நாங்கள் என்ன சேகரிக்கிறோம், ஏன், யார் பார்க்க முடியும்',
+  );
+  static String get correctOrDelete =>
+      _t('Correct or delete your data', 'தரவைத் திருத்த அல்லது நீக்க');
+  static String get correctOrDeleteSubtitle => _t(
+    'Fix your details, or delete your account',
+    'உங்கள் விவரங்களைத் திருத்தவும், அல்லது கணக்கை நீக்கவும்',
+  );
+  static String get correctMyDetails =>
+      _t('Correct my details', 'என் விவரங்களைத் திருத்து');
+  static String get correctMyDetailsSubtitle => _t(
+    'Open your details and tap Edit.',
+    'உங்கள் விவரங்களைத் திறந்து "திருத்து" என்பதைத் தட்டவும்.',
+  );
+  static String get deleteAccount => _t('Delete my account', 'என் கணக்கை நீக்கு');
+  static String get deleteAccountBody => _t(
+    "Deleting removes your child's name, date of birth, contact details, answers to extra questions and help messages, and you can no longer sign in. Readings, doses and quiz results are kept for the research study without any name attached, as agreed in the terms. This cannot be undone.",
+    'நீக்கினால் உங்கள் குழந்தையின் பெயர், பிறந்த தேதி, தொடர்பு விவரங்கள், கூடுதல் கேள்விகளுக்கான பதில்கள் மற்றும் உதவிச் செய்திகள் அகற்றப்படும்; நீங்கள் இனி உள்நுழைய முடியாது. அளவீடுகள், மருந்தளவுகள் மற்றும் தேர்வு முடிவுகள் விதிமுறைகளில் ஒப்புக்கொண்டபடி பெயர் இல்லாமல் ஆய்வுக்காக வைக்கப்படும். இதைத் திரும்பப் பெற முடியாது.',
+  );
+  static String get deleteConfirmTitle =>
+      _t('Delete this account?', 'இந்தக் கணக்கை நீக்கவா?');
+  static String get deletePasswordPrompt => _t(
+    'Enter your account password to confirm.',
+    'உறுதிப்படுத்த உங்கள் கணக்கு கடவுச்சொல்லை உள்ளிடவும்.',
+  );
+  static String get deleteForever => _t('Delete', 'நீக்கு');
+  static String get accountDeleted =>
+      _t('Your account has been deleted.', 'உங்கள் கணக்கு நீக்கப்பட்டது.');
+
+  // ── Language preference at sign-up ──────────────────────────────────────
+  static String get preferredLanguageQuestion => _t(
+    'Which language would you like the app in? You can switch any time.',
+    'செயலி எந்த மொழியில் வேண்டும்? எப்போது வேண்டுமானாலும் மாற்றலாம்.',
+  );
+
+  // ── Help and support ────────────────────────────────────────────────────
+  static String get supportHint => _t(
+    'Type what you need — a question about readings, insulin, food, school or the app. Write as much as you like.',
+    'உங்களுக்கு என்ன தேவை என்று எழுதுங்கள் — அளவீடுகள், இன்சுலின், உணவு, பள்ளி அல்லது செயலி பற்றிய கேள்வி. எவ்வளவு வேண்டுமானாலும் எழுதலாம்.',
+  );
+
+  // ── App tour ────────────────────────────────────────────────────────────
+  static String get tourNext => _t('Next', 'அடுத்து');
+  static String get tourBack => _t('Back', 'பின்');
+  static String get tourSkip => _t('Skip', 'தவிர்');
+  static String get tourHomeTitle => _t('Your home', 'உங்கள் முகப்பு');
+  static String get tourHomeBody => _t(
+    "Today's glucose, your learning and what to do next — all in one place.",
+    'இன்றைய குளுக்கோஸ், உங்கள் கற்றல், அடுத்து செய்ய வேண்டியவை — அனைத்தும் ஒரே இடத்தில்.',
+  );
+  static String get tourLanguageTitle => _t('English or Tamil', 'ஆங்கிலம் அல்லது தமிழ்');
+  static String get tourLanguageBody => _t(
+    'Switch the language at any time. The whole app changes with it.',
+    'எப்போது வேண்டுமானாலும் மொழியை மாற்றலாம். முழுச் செயலியும் அதனுடன் மாறும்.',
+  );
+  static String get tourProfileTitle => _t('Profile & settings', 'சுயவிவரம் & அமைப்புகள்');
+  static String get tourProfileBody => _t(
+    "Your child's details, reminders, parent PIN, help, and switching between children.",
+    'உங்கள் குழந்தையின் விவரங்கள், நினைவூட்டல்கள், பெற்றோர் பின், உதவி, குழந்தைகளுக்கு இடையே மாறுதல்.',
+  );
+  static String get tourReadingsTitle => _t('Glucose at a glance', 'குளுக்கோஸ் ஒரு பார்வையில்');
+  static String get tourReadingsBody => _t(
+    'Pick a day in the week above to see its average. Tap here to record a reading.',
+    'சராசரியைப் பார்க்க மேலே உள்ள வாரத்தில் ஒரு நாளைத் தேர்ந்தெடுக்கவும். அளவீட்டைப் பதிவு செய்ய இங்கே தட்டவும்.',
+  );
+  static String get tourHelpBookTitle => _t('Help Book', 'உதவி புத்தகம்');
+  static String get tourHelpBookBody => _t(
+    'Short topics on caring for a child with Type 1 diabetes.',
+    'வகை 1 நீரிழிவு உள்ள குழந்தையைப் பராமரிப்பது பற்றிய சிறு தலைப்புகள்.',
+  );
+  static String get tourQuizzesTitle => _t('Quizzes', 'தேர்வுகள்');
+  static String get tourQuizzesBody => _t(
+    'Test what you have learnt and earn badges.',
+    'கற்றதைச் சோதித்து பதக்கங்களைப் பெறுங்கள்.',
+  );
+  static String get tourHealthTitle => _t('Health', 'சுகாதாரம்');
+  static String get tourHealthBody => _t(
+    'Record glucose, insulin and food. Your parent PIN keeps it private.',
+    'குளுக்கோஸ், இன்சுலின், உணவைப் பதிவு செய்யுங்கள். உங்கள் பெற்றோர் பின் அதைத் தனிப்பட்டதாக வைக்கும்.',
   );
 }

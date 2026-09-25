@@ -130,11 +130,6 @@ class ProgressService {
     }
   }
 
-  Future<int> pendingCount() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(_outboxKey) ?? []).length;
-  }
-
   Future<Set<String>> _readCache() async {
     final prefs = await SharedPreferences.getInstance();
     return (prefs.getStringList(_readCacheKey) ?? []).toSet();

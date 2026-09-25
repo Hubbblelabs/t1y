@@ -255,7 +255,7 @@ class _CategoryIconRow extends StatelessWidget {
     if (categories.length < 2) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 108,
+      height: 128,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
@@ -312,13 +312,13 @@ class _CategoryIconTileState extends State<_CategoryIconTile> {
         duration: const Duration(milliseconds: 130),
         curve: Curves.easeOut,
         child: SizedBox(
-          width: 66,
+          width: 78,
           // A fixed height, not just a fixed width: the label's natural line
           // height varies slightly by platform/font metrics, and that's what
           // was overflowing the row by a few pixels even with headroom in
           // the parent — pinning every piece of this tile's size removes
           // the guesswork entirely instead of padding around it.
-          height: 90,
+          height: 108,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -346,20 +346,23 @@ class _CategoryIconTileState extends State<_CategoryIconTile> {
                 ),
               ),
               const SizedBox(height: 6),
+              // Two lines, not an ellipsis: Tamil category names are longer
+              // than their English ones and must still be readable in full.
               SizedBox(
-                height: 16,
+                height: 34,
                 child: Text(
                   widget.label,
                   textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
+                  overflow: TextOverflow.visible,
+                  softWrap: true,
                   style: TextStyle(
                     fontSize: 10.5,
-                    height: 1.1,
+                    height: 1.2,
                     fontWeight: FontWeight.w600,
                     color: widget.selected
                         ? AppTheme.deep
-                        : Colors.black.withValues(alpha: 0.6),
+                        : AppTheme.inkSoft,
                   ),
                 ),
               ),

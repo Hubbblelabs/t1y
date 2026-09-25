@@ -211,7 +211,7 @@ class _QuizTakeScreenState extends State<QuizTakeScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black.withValues(alpha: 0.6),
+                      color: AppTheme.inkSoft,
                     ),
                   ),
                 ],
@@ -404,7 +404,7 @@ class _QuestionCard extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: answered
                           ? const Color(0xFF2E7D32)
-                          : Colors.black.withValues(alpha: 0.5),
+                          : AppTheme.inkSoft,
                     ),
                   ),
                 ),

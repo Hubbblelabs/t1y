@@ -3,8 +3,11 @@ import '../../utils/tamil_name.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/child.dart';
+import '../../services/api_client.dart';
 import '../../services/household_service.dart';
+import '../../services/session_actions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/error_banner.dart';
 import '../auth/add_child_screen.dart';
 
 /// The children enrolled under this parent, and the way to add another.
@@ -14,7 +17,10 @@ import '../auth/add_child_screen.dart';
 /// the picker entirely. That's the only place it's discoverable, so it is
 /// shown as a value to copy rather than buried as metadata.
 class ChildrenScreen extends StatefulWidget {
-  const ChildrenScreen({super.key});
+  /// Opened from "Switch profile": the same list, titled for switching.
+  final bool switching;
+
+  const ChildrenScreen({super.key, this.switching = false});
 
   @override
   State<ChildrenScreen> createState() => _ChildrenScreenState();
@@ -30,7 +36,9 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
   }
 
   Future<void> _reload() async {
-    setState(() => _future = HouseholdService.instance.siblings());
+    setState(() {
+      _future = HouseholdService.instance.siblings();
+    });
     await _future;
   }
 
@@ -50,11 +58,21 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
     );
   }
 
+  /// Opens a sibling's record, after the family's account password.
+  Future<void> _switchTo(Child child) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _SwitchDialog(child: child),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.lightest,
-      appBar: AppBar(title: Text(S.yourChildren)),
+      appBar: AppBar(
+        title: Text(widget.switching ? S.switchProfile : S.yourChildren),
+      ),
       body: FutureBuilder<List<Child>>(
         future: _future,
         builder: (context, snapshot) {
@@ -73,11 +91,17 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
                   style: TextStyle(
                     fontSize: 12.5,
                     height: 1.4,
-                    color: Colors.black.withValues(alpha: 0.6),
+                    color: AppTheme.inkSoft,
                   ),
                 ),
                 const SizedBox(height: 16),
-                for (final child in children) _ChildRow(child: child),
+                for (final child in children)
+                  _ChildRow(
+                    child: child,
+                    onSwitch: child.isCurrent || !child.isActive
+                        ? null
+                        : () => _switchTo(child),
+                  ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _addChild,
@@ -96,13 +120,115 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
   }
 }
 
-class _ChildRow extends StatelessWidget {
+class _SwitchDialog extends StatefulWidget {
   final Child child;
+  const _SwitchDialog({required this.child});
 
-  const _ChildRow({required this.child});
+  @override
+  State<_SwitchDialog> createState() => _SwitchDialogState();
+}
+
+class _SwitchDialogState extends State<_SwitchDialog> {
+  final _password = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _go() async {
+    if (_password.text.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await SessionActions.switchToChild(
+        childId: widget.child.childId,
+        password: _password.text,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = S.couldNotReach;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(S.switchToChild(localName(widget.child.name))),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(S.switchNeedsPassword),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _password,
+            obscureText: true,
+            autofocus: true,
+            decoration: InputDecoration(labelText: S.password),
+            onSubmitted: (_) => _go(),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ErrorBanner(message: _error!),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: Text(S.cancel),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(minimumSize: const Size(96, 44)),
+          onPressed: _busy ? null : _go,
+          child: _busy
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(S.switchLabel),
+        ),
+      ],
+    );
+  }
+}
+
+class _ChildRow extends StatelessWidget {
+  final Child child;
+
+  /// Null for the child already open, or one still awaiting approval.
+  final VoidCallback? onSwitch;
+
+  const _ChildRow({required this.child, this.onSwitch});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onSwitch,
+      child: _rowBody(context),
+    );
+  }
+
+  Widget _rowBody(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
@@ -191,7 +317,7 @@ class _ChildRow extends StatelessWidget {
                         '${S.childId}: ',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black.withValues(alpha: 0.5),
+                          color: AppTheme.inkSoft,
                         ),
                       ),
                       SelectableText(
@@ -216,9 +342,22 @@ class _ChildRow extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (onSwitch != null) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    S.tapToSwitch,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          if (onSwitch != null)
+            const Icon(Icons.swap_horiz_rounded, color: AppTheme.primary),
         ],
       ),
     );

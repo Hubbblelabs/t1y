@@ -89,7 +89,9 @@ class _PinGateState extends State<PinGate> {
     setState(() => _unlocked = true);
   }
 
-  void _reload() => setState(() => _status = MpinService.instance.status());
+  void _reload() => setState(() {
+    _status = MpinService.instance.status();
+  });
 
   Future<void> _enter() async {
     final pin = _pin.text.trim();
@@ -208,7 +210,7 @@ class _PinGateState extends State<PinGate> {
                 style: TextStyle(
                   fontSize: 13.5,
                   height: 1.45,
-                  color: Colors.black.withValues(alpha: 0.6),
+                  color: AppTheme.inkSoft,
                 ),
               ),
               const SizedBox(height: 22),

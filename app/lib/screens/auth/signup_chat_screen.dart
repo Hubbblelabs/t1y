@@ -77,6 +77,11 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   String? _error;
   bool _showingTerms = false;
 
+  /// The first thing asked: which language the family wants the app in. The
+  /// answer switches the app at once and is saved on the account as its
+  /// default (see ProfileService.stashPreferredLocale).
+  bool _languageChosen = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,7 +93,27 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
         isUser: false,
       ),
     );
+    final question = S.both(() => S.preferredLanguageQuestion);
+    _messages.add(
+      _ChatMessage(question.en, secondary: question.ta, isUser: false),
+    );
     _loadQuestions();
+  }
+
+  Future<void> _chooseLanguage(String locale) async {
+    setState(() {
+      _languageChosen = true;
+      _messages.add(
+        _ChatMessage(
+          locale == 'ta' ? 'தமிழ்' : 'English',
+          secondary: locale == 'ta' ? 'Tamil' : 'ஆங்கிலம்',
+          isUser: true,
+        ),
+      );
+      if (_questions != null) _askCurrentQuestion();
+    });
+    _scrollToEnd();
+    await ProfileService.instance.stashPreferredLocale(locale);
   }
 
   Future<void> _loadQuestions() async {
@@ -96,7 +121,9 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     if (!mounted) return;
     setState(() {
       _questions = questions;
-      _askCurrentQuestion();
+      // Asked only once the language is picked — the question list may load
+      // before the parent has answered that.
+      if (_languageChosen) _askCurrentQuestion();
     });
     _scrollToEnd();
   }
@@ -293,7 +320,9 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: _questions == null
+                child: !_languageChosen
+                    ? _LanguageChoice(onChoose: _chooseLanguage)
+                    : _questions == null
                     ? const Center(
                         child: SizedBox(
                           height: 24,
@@ -535,7 +564,7 @@ class _AnswerInput extends StatelessWidget {
                         Text(
                           option.labelTa!,
                           style: TextStyle(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: AppTheme.inkSoft,
                             fontSize: 10.5,
                           ),
                         ),
@@ -635,6 +664,48 @@ class _AnswerInput extends StatelessWidget {
 /// Single "read the terms" prompt shown once all questions are answered —
 /// tapping it opens [TermsScreen], whose own "I Agree" button is the actual
 /// gate before the account is created (see [SignupChatScreen._openTerms]).
+/// English or Tamil — two large buttons, each labelled in its own language.
+class _LanguageChoice extends StatelessWidget {
+  final ValueChanged<String> onChoose;
+  const _LanguageChoice({required this.onChoose});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget option(String locale, String label, String sub) => Expanded(
+      child: FilledButton(
+        onPressed: () => onChoose(locale),
+        style: FilledButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: AppTheme.deep,
+          minimumSize: const Size.fromHeight(64),
+          side: const BorderSide(color: AppTheme.primary, width: 1.4),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            Text(
+              sub,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return Row(
+      children: [
+        option('en', 'English', 'ஆங்கிலம்'),
+        const SizedBox(width: 12),
+        option('ta', 'தமிழ்', 'Tamil'),
+      ],
+    );
+  }
+}
+
 class _TermsPromptInput extends StatelessWidget {
   final VoidCallback onOpenTerms;
   const _TermsPromptInput({required this.onOpenTerms});

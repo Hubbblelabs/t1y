@@ -38,7 +38,7 @@ export const SETTING_DEFAULTS = {
   // getGlucoseEntryStatus, which is what actually enforces it. Configurable
   // here rather than hard-coded because it's a study-protocol decision, not
   // an engineering one.
-  "health.glucoseEntryCooldownHours": 8,
+  "health.glucoseEntryCooldownHours": 1,
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

@@ -31,11 +31,11 @@ class InsulinDose {
 /// What was given, as reported by the parent.
 ///
 /// This records; it never recommends. The server has no dose calculation and
-/// this has none either — anything that suggests an amount lives in the
-/// calculators, which show their working and carry a clinician-confirmation
-/// note.
+/// this has none either — a dose calculation, when the study team needs one,
+/// is worked out by staff from the admin dashboard, from these same records.
 ///
-/// Gated on the server by the `health_logging_enabled` flag, like glucose.
+/// Gated on the server by the `health_logging_enabled` flag, like glucose,
+/// and by this child's own `INSULIN_LOGGING` eligibility.
 class InsulinService {
   InsulinService._();
   static final InsulinService instance = InsulinService._();
@@ -52,11 +52,13 @@ class InsulinService {
     ];
   }
 
+  /// Only the units and the time matter to the study; the name and kind are
+  /// no longer asked for, so a plain "Insulin" / `OTHER` is sent in their place.
   Future<void> record({
-    required String name,
-    required String type,
     required double units,
     required DateTime administeredAt,
+    String name = 'Insulin',
+    String type = 'OTHER',
   }) async {
     await ApiClient.instance.post(
       '/api/insulin',

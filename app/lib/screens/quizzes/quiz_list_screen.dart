@@ -55,11 +55,15 @@ class _QuizListScreenState extends State<QuizListScreen>
 
   @override
   void onLocaleChanged(String locale) {
-    setState(() => _future = _load(locale));
+    setState(() {
+      _future = _load(locale);
+    });
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = _load(AppState.instance.locale));
+    setState(() {
+      _future = _load(AppState.instance.locale);
+    });
     await _future;
   }
 

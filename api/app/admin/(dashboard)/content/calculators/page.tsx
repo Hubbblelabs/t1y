@@ -22,7 +22,7 @@ export default async function CalculatorsPage() {
     <PageContainer>
       <PageHeader
         title="Calculators"
-        description="The working-out tools families can use in the app"
+        description="Staff-only working-out tools — run one for a participant to see what it gives them"
         breadcrumbs={[{ label: "What families see" }, { label: "Calculators" }]}
         actions={
           <Button asChild variant="primary">
@@ -63,7 +63,7 @@ export default async function CalculatorsPage() {
                         {calculator.nameEn}
                       </Link>
                       <Badge tone={calculator.active ? "success" : "neutral"}>
-                        {calculator.active ? "In the app" : "Hidden"}
+                        {calculator.active ? "Available to run" : "Hidden"}
                       </Badge>
                     </div>
 
@@ -84,7 +84,13 @@ export default async function CalculatorsPage() {
                     </p>
                   </div>
 
-                  <div className="relative z-10">
+                  <div className="relative z-10 flex flex-col items-end gap-2">
+                    <Button asChild variant="secondary" size="sm">
+                      <Link href={`/admin/content/calculators/${calculator.id}/run`}>
+                        <Calculator className="size-3.5" aria-hidden="true" />
+                        Run for a participant
+                      </Link>
+                    </Button>
                     <CalculatorVisibilityToggle id={calculator.id} active={calculator.active} />
                   </div>
                 </li>

@@ -9,6 +9,7 @@ import 'services/content_service.dart';
 import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/strings.dart';
+import 'widgets/locale_transition.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,10 @@ Future<void> main() async {
 
   runApp(const T1dpeApp());
 }
+
+/// The app's one navigator, reachable from places with no `BuildContext` of
+/// their own — switching child, for instance, replaces every route.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// What replaces a widget that failed to draw.
 class _DrawingFailed extends StatelessWidget {
@@ -109,6 +114,7 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
       animation: AppState.instance,
       builder: (context, _) => MaterialApp(
         title: 'T1D Prajana Yandra',
+        navigatorKey: rootNavigatorKey,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         // The app has no considered dark-mode design — AppTheme.dark() is a
@@ -129,7 +135,7 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
               : media.textScaler.scale(1.0);
           return MediaQuery(
             data: media.copyWith(textScaler: TextScaler.linear(scale)),
-            child: child!,
+            child: LocaleTransition(child: child!),
           );
         },
         home: const _StartupGate(),

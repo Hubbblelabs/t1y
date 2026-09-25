@@ -4,6 +4,7 @@ import { buildPagination, created, paginated } from "@/lib/api/response";
 import { createGlucoseReading, listGlucoseReadings } from "@/lib/services/glucose";
 import { resolveDateRange, toSkipTake } from "@/lib/validation/common";
 import { createGlucoseSchema, glucoseQuerySchema } from "@/lib/validation/health";
+import { assertFeatureEnabled } from "@/lib/services/participant-features";
 
 /**
  * GET  /api/glucose  — the caller's own readings, paginated.
@@ -40,6 +41,8 @@ export const POST = defineRoute({
   requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createGlucoseSchema,
-  handler: async ({ principal, body }) =>
-    created(await createGlucoseReading(principal.userId, body)),
+  handler: async ({ principal, body }) => {
+    await assertFeatureEnabled(principal.userId, "GLUCOSE_LOGGING");
+    return created(await createGlucoseReading(principal.userId, body));
+  },
 });

@@ -8,15 +8,27 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
+import {
+  ALL_PARTICIPANT_FEATURES,
+  PARTICIPANT_FEATURE_LABELS,
+  type ParticipantFeatureKey,
+} from "@/lib/participant-feature-registry";
 
 interface FormValue {
   email: string;
   name: string;
   diagnosisYear: string;
   phone: string;
+  enabledFeatures: ParticipantFeatureKey[];
 }
 
-const EMPTY: FormValue = { email: "", name: "", diagnosisYear: "", phone: "" };
+const EMPTY: FormValue = {
+  email: "",
+  name: "",
+  diagnosisYear: "",
+  phone: "",
+  enabledFeatures: ALL_PARTICIPANT_FEATURES,
+};
 
 /**
  * Enrols a participant from the admin side — the facility that was missing
@@ -61,6 +73,7 @@ export function ParticipantForm() {
       diabetesType: "TYPE_1" as const,
       diagnosisYear: value.diagnosisYear.trim() ? Number(value.diagnosisYear) : undefined,
       phone: value.phone.trim() || undefined,
+      enabledFeatures: value.enabledFeatures,
     };
 
     try {
@@ -252,6 +265,36 @@ export function ParticipantForm() {
           <Input id="phone" value={value.phone} onChange={(e) => set("phone", e.target.value)} />
         </Field>
       </div>
+
+      <fieldset>
+        <legend className="text-ink mb-1 text-sm font-medium">
+          Which features is this family eligible for?
+        </legend>
+        <p className="text-ink-muted mb-2 text-xs">
+          Chosen when the record is made, and can be changed later from the participant's page.
+          A feature switched off here does not appear in their app.
+        </p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {ALL_PARTICIPANT_FEATURES.map((feature) => (
+            <label key={feature} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="accent-primary size-4"
+                checked={value.enabledFeatures.includes(feature)}
+                onChange={(event) =>
+                  setValue((prev) => ({
+                    ...prev,
+                    enabledFeatures: event.target.checked
+                      ? [...prev.enabledFeatures, feature]
+                      : prev.enabledFeatures.filter((key) => key !== feature),
+                  }))
+                }
+              />
+              {PARTICIPANT_FEATURE_LABELS[feature]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div>
         <Button

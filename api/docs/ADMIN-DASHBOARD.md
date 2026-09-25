@@ -94,6 +94,12 @@ Two faults found and fixed while doing it:
 Replaces the unused Exercise programmes section (verified empty before its
 table was dropped).
 
+**Not shown to a parent.** A calculator is run only by staff, for one named
+participant, from **Calculators → Run for a participant** — see
+`docs/CALCULATORS.md`. Everything below about how a calculator is defined,
+made immutable, and validated is unchanged; only who ever sees a result
+changed.
+
 ### Created once, never edited
 
 A calculator's formulas are fixed at creation. `active` is the only mutable
@@ -125,9 +131,9 @@ explicit grammar for arithmetic and nothing else: numbers, variables,
 `+ - * / ( )`, and `min/max/round/floor/ceil`. No strings, no property access,
 no comparisons, no function definitions.
 
-It is implemented **twice** — TypeScript for the server, Dart for the app,
-since the app must work offline — and both suites assert identical results for
-identical expressions, so drift fails the build.
+It runs on the server only now — a calculator is run from the admin
+workbench, never on a child's phone — but the grammar itself is unchanged, and
+`lib/utils/formula.ts` is still the one place it is implemented.
 
 Three refusals worth naming:
 
@@ -143,9 +149,9 @@ Three refusals worth naming:
 - **An unknown name is an error**, not silently zero. A typo like `ttd` for
   `tdd` fails when written, not as a wrong dose months later.
 
-The same rule runs on the phone. `app/lib/services/calculator_runner.dart` is
-the Dart twin of `runCalculator`, and both test suites assert the *same error
-wording*, so a number the dashboard refuses cannot be accepted in a kitchen.
+The same `runCalculator` is what the admin's run panel calls, so a number
+refused in the "try it" preview at authoring time is refused identically when
+staff actually run the calculator for a child later.
 
 ### The builder reads the way the sum reads
 
@@ -194,9 +200,8 @@ with real numbers, because it cannot be corrected afterwards.
 | `refuses zero even when the formula would not have divided by it` | The guard is about the number being wrong, not just protecting the arithmetic |
 | `allows zero only when the calculator deliberately permits it` | The escape hatch works, so genuinely-zero quantities stay possible |
 | `refuses a value outside the range the calculator allows` | Typos like a daily dose of 900 units are caught |
-| 9 Dart tests in `app/test/calculator_runner_test.dart` | The phone refuses the same numbers, with the same words |
 | 24 unit tests in `tests/unit/formula.test.ts` | Grammar, precedence, and **13 injection attempts** that must not evaluate |
-| 18 Dart tests in `app/test/formula_test.dart` | The phone computes exactly what the server validated |
+| `fills a DATA input from that child's own records`, `lets staff override a value`, `asOf works out what the calculator would have shown at an earlier moment` (`tests/integration/calculator-run-and-participant-features.test.ts`) | The admin workbench, not the phone, is what actually runs a calculator |
 | 7 unit tests in `tests/unit/expression-display.test.ts` | Formulas read back in words, and the derived input list matches the sums |
 
 ## 6. What a calculator may know about a child

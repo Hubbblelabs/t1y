@@ -202,9 +202,12 @@ class ApiClient {
     );
   }
 
-  Future<void> delete(String path) async {
+  Future<void> delete(String path, {Object? body}) async {
     final uri = await _uri(path);
-    final headers = await _headers(json: false);
-    _unwrap(await _send(() => http.delete(uri, headers: headers)));
+    final headers = await _headers(json: body != null);
+    final encoded = body == null ? null : jsonEncode(body);
+    _unwrap(
+      await _send(() => http.delete(uri, headers: headers, body: encoded)),
+    );
   }
 }

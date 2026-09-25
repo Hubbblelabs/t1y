@@ -2,192 +2,235 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../widgets/pin_gate.dart';
-
 import '../../l10n/strings.dart';
 import '../../models/glucose_reading.dart';
+import '../../providers/app_state.dart';
+import '../../services/carb_service.dart';
 import '../../services/glucose_service.dart';
+import '../../services/health_access.dart';
+import '../../services/insulin_service.dart';
+import '../../services/local_reminders.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/relative_time.dart';
 import '../../widgets/app_header.dart';
-import '../glucose/glucose_section_screen.dart';
-import 'insulin_screen.dart';
+import 'record_screen.dart';
 
-/// The Health tab: a single glance at where things stand — the most recent
-/// glucose reading, and when the next one is due — with one action, "Enter
-/// my recent reading", that goes through the PIN gate into the combined
-/// entry-and-calculators screen (see GlucoseEntryScreen). There is nothing
-/// else here to navigate to: the Rule of 15 and IC/ISF calculators used to
-/// be separate destinations reached from this hub, but both now live on
-/// that same screen, fed directly from a reading instead of asking the
-/// parent to type the number in twice.
-class HealthHubScreen extends StatelessWidget {
-  /// Where the PIN screen's Back goes when this is a tab.
-  final VoidCallback? onBack;
-
-  const HealthHubScreen({super.key, this.onBack});
+/// The Health tab: a glance, then one way in.
+///
+/// Today's average glucose in the circle, how long since the last reading, and
+/// today's insulin and carbohydrate totals — then "Enter my recent reading",
+/// which asks for the parent PIN before anything can be recorded. Each part
+/// shows only when this child is enrolled for it and the study has it on.
+class HealthHubScreen extends StatefulWidget {
+  const HealthHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      PinGate(onBack: onBack, child: const _HealthHubBody());
+  State<HealthHubScreen> createState() => _HealthHubScreenState();
 }
 
-class _HealthHubBody extends StatefulWidget {
-  const _HealthHubBody();
+class _HealthGlance {
+  final HealthAccess access;
+  final List<GlucoseReading> today;
+  final DateTime? lastReadingAt;
+  final double? insulinToday;
+  final double? carbsToday;
 
-  @override
-  State<_HealthHubBody> createState() => __HealthHubBodyState();
+  const _HealthGlance({
+    required this.access,
+    required this.today,
+    required this.lastReadingAt,
+    required this.insulinToday,
+    required this.carbsToday,
+  });
+
+  double? get averageToday => today.isEmpty
+      ? null
+      : today.map((r) => r.value).reduce((a, b) => a + b) / today.length;
 }
 
-class __HealthHubBodyState extends State<_HealthHubBody> {
-  // A field initializer, not `late` + initState: this screen is kept alive
-  // inside HomeShell's IndexedStack, and a `late` field assigned in
-  // initState has thrown LateInitializationError there before — assigning
-  // here runs during construction, before build can ever see it unset.
-  Future<_HealthSnapshot> _snapshot = _loadSnapshot();
+class _HealthHubScreenState extends State<HealthHubScreen> {
+  // A field initializer, not `late` + initState: this screen lives inside
+  // HomeShell's IndexedStack, and assigning here means build never sees it
+  // unset.
+  Future<_HealthGlance> _glance = _load();
 
-  static Future<_HealthSnapshot> _loadSnapshot() async {
-    try {
-      final results = await Future.wait([
-        GlucoseService.instance.status(),
-        GlucoseService.instance.recent(limit: 1),
-      ]);
-      final readings = results[1] as List<GlucoseReading>;
-      return _HealthSnapshot(
-        available: true,
-        status: results[0] as GlucoseEntryStatus,
-        latest: readings.isEmpty ? null : readings.first,
+  static Future<T?> _quiet<T>(Future<T> call) =>
+      call.timeout(const Duration(seconds: 15)).then<T?>((v) => v).catchError(
+        (Object _) => null,
       );
-    } catch (_) {
-      // Glucose entry is off for this study by default (ethics gate — see
-      // GlucoseCooldownPanel's own note) or the request failed; either way
-      // this reads as "nothing to show yet", not an error.
-      return const _HealthSnapshot(
-        available: false,
-        status: null,
-        latest: null,
+
+  static Future<_HealthGlance> _load() async {
+    final access = await HealthAccess.load();
+    final now = DateTime.now();
+
+    final results = await Future.wait<Object?>([
+      access.glucose
+          ? _quiet(GlucoseService.instance.recent(limit: 100, onDate: now))
+          : Future.value(null),
+      access.glucose
+          ? _quiet(GlucoseService.instance.recent(limit: 1))
+          : Future.value(null),
+      access.insulin
+          ? _quiet(InsulinService.instance.recent(limit: 30))
+          : Future.value(null),
+      access.carbs
+          ? _quiet(CarbService.instance.recent(limit: 30))
+          : Future.value(null),
+    ]);
+
+    final today = (results[0] as List<GlucoseReading>?) ?? const [];
+    final latest = results[1] as List<GlucoseReading>?;
+    if (access.glucose && latest != null) {
+      // Keeps the phone's own reminder in step with readings recorded on
+      // another phone in the family.
+      await LocalReminders.scheduleAfter(
+        latest.isEmpty ? null : latest.first.measuredAt,
       );
     }
+    final doses = results[2] as List<InsulinDose>?;
+    final carbs = results[3] as List<CarbEntry>?;
+
+    return _HealthGlance(
+      access: access,
+      today: today,
+      lastReadingAt: (latest == null || latest.isEmpty)
+          ? null
+          : latest.first.measuredAt,
+      insulinToday: doses == null ? null : InsulinService.totalOn(now, doses),
+      carbsToday: carbs == null ? null : CarbService.totalOn(now, carbs),
+    );
   }
 
   Future<void> _refresh() async {
-    final next = _loadSnapshot();
-    setState(() => _snapshot = next);
+    final next = _load();
+    setState(() {
+      _glance = next;
+    });
     await next;
   }
 
-  /// Waking hours only, and only once the last reading is a few hours old —
-  /// a reminder to keep the record going, not a nag at night.
-  static bool _isDueForReading(GlucoseReading? latest) {
-    final now = DateTime.now();
-    if (now.hour < 6 || now.hour >= 22) return false;
-    if (latest == null) return true;
-    return now.difference(latest.measuredAt) > const Duration(hours: 4);
-  }
-
-  Future<void> _openGlucose() async {
+  Future<void> _record(RecordKind kind) async {
     await Navigator.of(
       context,
-    ).push(MaterialPageRoute(builder: (_) => const GlucoseSectionScreen()));
-    // A reading may have just been entered — refresh the dial to show it.
+    ).push(MaterialPageRoute(builder: (_) => RecordScreen(initial: kind)));
     _refresh();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppHeader(title: S.healthTools),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: FutureBuilder<_HealthSnapshot>(
-          future: _snapshot,
+        child: FutureBuilder<_HealthGlance>(
+          future: _glance,
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
             }
             final data = snapshot.data!;
-            if (!data.available) {
+            final access = data.access;
+            if (!access.anything) {
               return ListView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(28),
                 children: [
                   const SizedBox(height: 60),
-                  Icon(
-                    Icons.water_drop_outlined,
-                    size: 44,
-                    color: AppTheme.deep.withValues(alpha: 0.3),
-                  ),
-                  const SizedBox(height: 14),
                   Text(
                     S.glucoseDisabled,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
+                    style: const TextStyle(
+                      fontSize: 14.5,
                       height: 1.45,
-                      color: Colors.black.withValues(alpha: 0.6),
+                      color: AppTheme.inkSoft,
                     ),
                   ),
                 ],
               );
             }
 
+            final locale = AppState.instance.locale;
+            final average = data.averageToday;
+            final last = data.lastReadingAt;
+            final overdue =
+                last == null ||
+                DateTime.now().difference(last) > const Duration(hours: 6);
+
             return ListView(
-              padding: const EdgeInsets.fromLTRB(24, 40, 24, 32),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               children: [
-                Center(child: _GlucoseDial(reading: data.latest)),
-                if (_isDueForReading(data.latest)) ...[
-                  const SizedBox(height: 18),
-                  _RecordNudge(onTap: _openGlucose),
+                if (access.glucose) ...[
+                  Center(child: _AverageDial(average: average)),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: _SincePill(
+                      text: last == null
+                          ? S.noReadingEver
+                          : S.lastReadingAgo(relativeTime(last, locale: locale)),
+                      warn: overdue,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
                 ],
-                const SizedBox(height: 18),
-                Center(
-                  child: Text(
-                    data.latest == null
-                        ? S.noReadingsYet
-                        : _formatWhen(data.latest!.measuredAt),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black.withValues(alpha: 0.55),
-                    ),
+                if (access.insulin || access.carbs) ...[
+                  Row(
+                    children: [
+                      if (access.insulin)
+                        Expanded(
+                          child: _TodayTile(
+                            icon: Icons.vaccines_outlined,
+                            title: S.insulin,
+                            value: S.unitsValue(_plain(data.insulinToday ?? 0)),
+                            onTap: () => _record(RecordKind.insulin),
+                          ),
+                        ),
+                      if (access.insulin && access.carbs)
+                        const SizedBox(width: 12),
+                      if (access.carbs)
+                        Expanded(
+                          child: _TodayTile(
+                            icon: Icons.restaurant_outlined,
+                            title: S.carbs,
+                            value: S.gramsValue(_plain(data.carbsToday ?? 0)),
+                            onTap: () => _record(RecordKind.carbs),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 28),
-                Center(child: _NextReadingNote(status: data.status)),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _openGlucose,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.deep,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(S.enterRecentReading),
+                  const SizedBox(height: 24),
+                ],
+                FilledButton.icon(
+                  onPressed: () => _record(
+                    access.glucose
+                        ? RecordKind.glucose
+                        : (access.insulin
+                              ? RecordKind.insulin
+                              : RecordKind.carbs),
                   ),
+                  icon: const Icon(Icons.edit_note_rounded),
+                  label: Text(S.enterRecentReading),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const InsulinScreen()),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 16,
+                      color: AppTheme.inkSoft,
                     ),
-                    icon: const Icon(Icons.vaccines_outlined, size: 20),
-                    label: Text(S.logInsulin),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.deep,
-                      side: BorderSide(
-                        color: AppTheme.deep.withValues(alpha: 0.25),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        S.healthGlanceHint,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppTheme.inkSoft,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             );
@@ -198,63 +241,63 @@ class __HealthHubBodyState extends State<_HealthHubBody> {
   }
 }
 
-class _HealthSnapshot {
-  final bool available;
-  final GlucoseEntryStatus? status;
-  final GlucoseReading? latest;
+String _plain(double v) =>
+    v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
-  const _HealthSnapshot({
-    required this.available,
-    required this.status,
-    required this.latest,
-  });
-}
+/// Today's average glucose inside a ring of dots, coloured by band.
+class _AverageDial extends StatelessWidget {
+  final double? average;
+  const _AverageDial({required this.average});
 
-/// The centre piece: the most recent reading inside a ring of dots, coloured
-/// by band (low/in range/high) — a glance, not a chart.
-class _GlucoseDial extends StatelessWidget {
-  final GlucoseReading? reading;
-
-  const _GlucoseDial({required this.reading});
-
-  static const _bandColors = {
-    GlucoseBand.low: Color(0xFFE53935),
-    GlucoseBand.inRange: Color(0xFF2E7D32),
-    GlucoseBand.high: Color(0xFFEF6C00),
-  };
+  static Color _colour(double v) {
+    if (v < 70) return const Color(0xFFE53935);
+    if (v > 180) return const Color(0xFFEF6C00);
+    return const Color(0xFF2E7D32);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final r = reading;
-    final color = r == null ? AppTheme.primary : _bandColors[r.band]!;
+    final a = average;
+    final color = a == null ? AppTheme.primary : _colour(a);
 
     return SizedBox(
-      width: 216,
-      height: 216,
+      width: 230,
+      height: 230,
       child: CustomPaint(
         painter: _DottedRingPainter(color: color),
         child: Center(
           child: Container(
-            width: 148,
-            height: 148,
+            width: 164,
+            height: 164,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.deep.withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 6),
+                  color: AppTheme.deep.withValues(alpha: 0.10),
+                  blurRadius: 22,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
+            padding: const EdgeInsets.all(14),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  r == null ? '—' : r.value.toStringAsFixed(0),
+                  S.todaysAverage,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  a == null ? '—' : a.toStringAsFixed(0),
                   style: TextStyle(
-                    fontSize: 44,
+                    fontSize: 46,
                     fontWeight: FontWeight.w800,
                     color: color,
                     height: 1,
@@ -262,11 +305,12 @@ class _GlucoseDial extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'mg/dL',
+                  a == null ? S.noReadingsToday : 'mg/dL',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: a == null ? 11.5 : 13,
                     fontWeight: FontWeight.w600,
-                    color: color.withValues(alpha: 0.75),
+                    color: a == null ? AppTheme.inkSoft : color,
                   ),
                 ),
               ],
@@ -278,11 +322,8 @@ class _GlucoseDial extends StatelessWidget {
   }
 }
 
-/// A halo of dots around the reading, varying in size the way a hand-drawn
-/// ring would rather than a perfectly uniform one.
 class _DottedRingPainter extends CustomPainter {
   final Color color;
-
   const _DottedRingPainter({required this.color});
 
   @override
@@ -290,18 +331,16 @@ class _DottedRingPainter extends CustomPainter {
     final center = size.center(Offset.zero);
     final radius = size.width / 2;
     const dotCount = 48;
-
     for (var i = 0; i < dotCount; i++) {
       final angle = (2 * pi / dotCount) * i;
       final big = i % 4 == 0;
-      final dotRadius = big ? 3.2 : 1.8;
-      final alpha = big ? 0.55 : 0.25;
+      final dotRadius = big ? 3.4 : 1.9;
       final position =
           center + Offset(cos(angle), sin(angle)) * (radius - dotRadius);
       canvas.drawCircle(
         position,
         dotRadius,
-        Paint()..color = color.withValues(alpha: alpha),
+        Paint()..color = color.withValues(alpha: big ? 0.6 : 0.3),
       );
     }
   }
@@ -311,41 +350,38 @@ class _DottedRingPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// "Next reading at…" from the cooldown status, or an "available now" note
-/// — never silent about when the next entry is allowed.
-class _NextReadingNote extends StatelessWidget {
-  final GlucoseEntryStatus? status;
-
-  const _NextReadingNote({required this.status});
+/// "Last reading 2 h ago" — amber once it has been six hours or more, the same
+/// gap after which the study sends a reminder.
+class _SincePill extends StatelessWidget {
+  final String text;
+  final bool warn;
+  const _SincePill({required this.text, required this.warn});
 
   @override
   Widget build(BuildContext context) {
-    final s = status;
-    final text = (s == null || s.canEnterNow || s.nextAllowedAt == null)
-        ? S.readingAvailableNow
-        : S.nextReadingAt(_formatWhen(s.nextAllowedAt!));
-
+    final fg = warn ? const Color(0xFFB45309) : AppTheme.deep;
+    final bg = warn ? const Color(0xFFFFF4E0) : Colors.white;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: AppTheme.lightest,
+        color: bg,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: fg.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.schedule,
-            size: 15,
-            color: AppTheme.deep.withValues(alpha: 0.6),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.deep.withValues(alpha: 0.75),
+          Icon(Icons.history_rounded, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fg,
+              ),
             ),
           ),
         ],
@@ -354,49 +390,64 @@ class _NextReadingNote extends StatelessWidget {
   }
 }
 
-String _formatDate(DateTime d) =>
-    '${d.day.toString().padLeft(2, '0')}-${d.month.toString().padLeft(2, '0')}-${d.year}';
-
-String _formatWhen(DateTime when) {
-  final now = DateTime.now();
-  final sameDay =
-      when.year == now.year && when.month == now.month && when.day == now.day;
-  final time =
-      '${when.hour.toString().padLeft(2, '0')}:${when.minute.toString().padLeft(2, '0')}';
-  if (sameDay) return '${S.todayWord}, $time';
-  return '${_formatDate(when)}, $time';
-}
-
-/// "Time to record a reading", shown when the last one is a few hours old.
-class _RecordNudge extends StatelessWidget {
+class _TodayTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String value;
   final VoidCallback onTap;
-  const _RecordNudge({required this.onTap});
+
+  const _TodayTile({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.primary.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(14),
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              const Icon(Icons.edit_note_rounded, color: AppTheme.deep),
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppTheme.lightest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: AppTheme.primary),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  S.timeToRecord,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.deep,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.inkSoft,
+                      ),
+                    ),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppTheme.deep),
             ],
           ),
         ),

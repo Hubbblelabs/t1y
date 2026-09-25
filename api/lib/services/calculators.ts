@@ -286,21 +286,3 @@ export async function getCalculatorById(id: string) {
   return calculator;
 }
 
-/** What the mobile app fetches: active calculators only, in display order. */
-export async function listActiveCalculators() {
-  return prisma.calculator.findMany({
-    where: { active: true },
-    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-    select: {
-      key: true,
-      nameEn: true,
-      nameTa: true,
-      descriptionEn: true,
-      descriptionTa: true,
-      inputs: true,
-      outputs: true,
-      noteEn: true,
-      noteTa: true,
-    },
-  });
-}

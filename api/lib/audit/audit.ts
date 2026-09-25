@@ -20,6 +20,10 @@ export const AuditAction = {
   LOGOUT: "auth.logout",
   LOGIN_FAILED: "auth.login_failed",
   PASSWORD_RESET_REQUESTED: "auth.password_reset_requested",
+  /// A family deleted their own account from the app (Profile → Settings →
+  /// Correct or delete your data). Required by Google Play for any app that
+  /// lets people create an account.
+  ACCOUNT_DELETED: "auth.account_deleted",
 
   // Participants
   PARTICIPANT_VIEWED: "participant.viewed",
@@ -55,6 +59,10 @@ export const AuditAction = {
   CALCULATOR_CREATED: "calculator.created",
   CALCULATOR_SHOWN: "calculator.shown",
   CALCULATOR_HIDDEN: "calculator.hidden",
+  /// A calculator run for one participant from the admin workbench. Read-only
+  /// — nothing is written to the participant's own record — but who looked at
+  /// what, for which child, stays worth keeping.
+  CALCULATOR_RUN: "calculator.run",
   SUPPORT_REPLIED: "support.replied",
   SUPPORT_STATUS_CHANGED: "support.status_changed",
   QUIZ_CREATED: "quiz.created",

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../providers/app_state.dart';
 import '../services/content_service.dart';
+import '../services/profile_service.dart';
 import '../theme/app_theme.dart';
 
 /// Sliding EN / தமிழ் pill.
@@ -41,6 +42,9 @@ class LanguageToggle extends StatelessWidget {
           onTap: () async {
             final next = isTamil ? 'en' : 'ta';
             await AppState.instance.setLocale(next);
+            // Saved on the account too, so it is this family's language the
+            // next time they sign in.
+            unawaited(ProfileService.instance.saveLocale(next));
             // Fire-and-forget: screens listen to AppState and re-resolve from
             // cache immediately; this just makes sure the cache is fresh.
             // Offline failures are fine — the cached copy still renders.

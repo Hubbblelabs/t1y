@@ -1,38 +1,6 @@
 import '../models/glucose_reading.dart';
 import 'api_client.dart';
 
-/// Whether a parent may record another reading right now, from
-/// `GET /api/glucose/status`.
-///
-/// The cooldown length is admin-configurable (Settings → Glucose entry on
-/// the backend), not fixed in the app — this is always the server's current
-/// answer, never a value computed on-device.
-class GlucoseEntryStatus {
-  final int cooldownHours;
-  final DateTime? lastReadingAt;
-  final DateTime? nextAllowedAt;
-  final bool canEnterNow;
-
-  const GlucoseEntryStatus({
-    required this.cooldownHours,
-    required this.lastReadingAt,
-    required this.nextAllowedAt,
-    required this.canEnterNow,
-  });
-
-  factory GlucoseEntryStatus.fromJson(Map<String, dynamic> json) =>
-      GlucoseEntryStatus(
-        cooldownHours: json['cooldownHours'] as int? ?? 8,
-        lastReadingAt: json['lastReadingAt'] == null
-            ? null
-            : DateTime.tryParse(json['lastReadingAt'] as String)?.toLocal(),
-        nextAllowedAt: json['nextAllowedAt'] == null
-            ? null
-            : DateTime.tryParse(json['nextAllowedAt'] as String)?.toLocal(),
-        canEnterNow: json['canEnterNow'] as bool? ?? true,
-      );
-}
-
 /// Glucometer readings entered by the parent.
 ///
 /// Both endpoints are gated server-side by the `health_logging_enabled`
@@ -44,14 +12,6 @@ class GlucoseEntryStatus {
 class GlucoseService {
   GlucoseService._();
   static final GlucoseService instance = GlucoseService._();
-
-  /// Whether a reading may be recorded right now, and when next if not.
-  /// Read before showing the entry form, so the cooldown reads as "next
-  /// reading at 6:00 PM" rather than a rejected save.
-  Future<GlucoseEntryStatus> status() async {
-    final data = await ApiClient.instance.get('/api/glucose/status');
-    return GlucoseEntryStatus.fromJson(data['data'] as Map<String, dynamic>);
-  }
 
   /// Readings for the log, newest or oldest first per [newestFirst], and
   /// optionally restricted to one calendar day ([onDate]) for the date filter.

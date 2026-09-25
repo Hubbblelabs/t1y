@@ -98,8 +98,6 @@ class TopicCard extends StatelessWidget {
                   children: [
                     Text(
                       topic.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -112,12 +110,12 @@ class TopicCard extends StatelessWidget {
                         topic.description!.isNotEmpty)
                       Text(
                         topic.description!,
-                        maxLines: 2,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12.5,
                           height: 1.35,
-                          color: Colors.black.withValues(alpha: 0.6),
+                          color: AppTheme.inkSoft,
                         ),
                       ),
                     const SizedBox(height: 10),
@@ -128,8 +126,6 @@ class TopicCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             _categoryLabel(topic.category),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
@@ -142,14 +138,14 @@ class TopicCard extends StatelessWidget {
                           Icon(
                             Icons.schedule,
                             size: 13,
-                            color: Colors.black.withValues(alpha: 0.4),
+                            color: AppTheme.inkSoft,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${topic.readingTimeMinutes} min',
+                            S.minutesRead(topic.readingTimeMinutes!),
                             style: TextStyle(
                               fontSize: 11.5,
-                              color: Colors.black.withValues(alpha: 0.5),
+                              color: AppTheme.inkSoft,
                             ),
                           ),
                         ],
@@ -250,7 +246,7 @@ class _Pill extends StatelessWidget {
   final IconData icon;
   final Color color;
 
-  _Pill({required this.label, required this.icon, required this.color});
+  const _Pill({required this.label, required this.icon, required this.color});
 
   @override
   Widget build(BuildContext context) {

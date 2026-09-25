@@ -1,10 +1,13 @@
 import { z } from "zod";
 
 import { defineRoute } from "@/lib/api/handler";
-import { ok } from "@/lib/api/response";
+import { noContent, ok } from "@/lib/api/response";
 import { RateLimits } from "@/lib/api/rate-limit";
 import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
-import { getCurrentUser, updateCurrentUser } from "@/lib/services/users";
+import { UnauthenticatedError } from "@/lib/api/errors";
+import { AuditAction, actorFromPrincipal, recordAudit } from "@/lib/audit/audit";
+import { auth } from "@/lib/auth/auth";
+import { deleteOwnAccount, getCurrentUser, updateCurrentUser } from "@/lib/services/users";
 import { flexibleDate, shortTextSchema, timezoneSchema } from "@/lib/validation/common";
 
 const updateMeSchema = z
@@ -82,4 +85,43 @@ export const PATCH = defineRoute({
   body: updateMeSchema,
   handler: async ({ principal, body }) =>
     ok(await updateCurrentUser(principal.userId, body)),
+});
+
+const deleteMeSchema = z.object({ password: z.string().min(1).max(128) });
+
+/**
+ * DELETE /api/users/me — a family deletes their own account from the app.
+ *
+ * The password is asked for again, so a phone left unlocked cannot be used to
+ * delete an account in one tap. See deleteOwnAccount for what is removed and
+ * what de-identified research data is kept.
+ */
+export const DELETE = defineRoute({
+  rateLimit: RateLimits.write,
+  body: deleteMeSchema,
+  handler: async ({ principal, body, audit }) => {
+    const verified = await auth.api
+      .signInEmail({
+        body: { email: principal.email, password: body.password },
+        asResponse: true,
+      })
+      .catch(() => null);
+    if (!verified || !verified.ok) throw new UnauthenticatedError("That password didn't match.");
+
+    await deleteOwnAccount(principal.userId);
+
+    await recordAudit(
+      actorFromPrincipal(principal),
+      {
+        action: AuditAction.ACCOUNT_DELETED,
+        resourceType: "participant",
+        resourceId: principal.userId,
+        participantId: principal.userId,
+        description: "A family deleted their own account from the app",
+      },
+      audit,
+    );
+
+    return noContent();
+  },
 });

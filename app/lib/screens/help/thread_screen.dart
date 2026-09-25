@@ -149,7 +149,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                               style: TextStyle(
                                 fontSize: 12.5,
                                 height: 1.4,
-                                color: Colors.black.withValues(alpha: 0.55),
+                                color: AppTheme.inkSoft,
                               ),
                             ),
                           )
@@ -306,7 +306,7 @@ class _Bubble extends StatelessWidget {
                 fontSize: 10.5,
                 color: mine
                     ? Colors.white70
-                    : Colors.black.withValues(alpha: 0.4),
+                    : AppTheme.inkSoft,
               ),
             ),
           ],

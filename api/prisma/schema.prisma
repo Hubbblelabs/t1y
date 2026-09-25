@@ -573,6 +573,15 @@ model Profile {
   /// (e.g. at a care team's request), not to turn it on.
   icIsfUnlocked Boolean @default(true)
 
+  /// Which app features this participant is enrolled for, set when the
+  /// account is created and editable afterwards. Keys are
+  /// lib/services/participant-features.ts's registry — that file is the
+  /// source of truth for which are valid, the same closed-allowlist pattern
+  /// as FeatureFlag.key. A parent's app hides what is not in this list, and
+  /// the corresponding write endpoints (glucose, insulin, meals) refuse a
+  /// request for a feature that is not.
+  enabledFeatures String[] @default(["GLUCOSE_LOGGING", "INSULIN_LOGGING", "CARB_LOGGING", "HELP_BOOK", "QUIZZES", "HELP_SUPPORT"])
+
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?
   onboardedAt    DateTime?

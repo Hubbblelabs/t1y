@@ -150,7 +150,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
                     style: TextStyle(
                       fontSize: 14.5,
                       color: dob == null
-                          ? Colors.black.withValues(alpha: 0.5)
+                          ? AppTheme.inkSoft
                           : AppTheme.deep,
                     ),
                   ),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/question.dart';
+import '../providers/app_state.dart';
 import 'api_client.dart';
 
 /// The child/participant profile.
@@ -18,6 +19,7 @@ class ProfileService {
   static final ProfileService instance = ProfileService._();
 
   static const _pendingKey = 'pending_profile';
+  static const _pendingLocaleKey = 'pending_locale';
   static const _cacheKey = 'profile_cache';
 
   /// Stashes the sign-up chat answers until there is a session to send them
@@ -98,17 +100,50 @@ class ProfileService {
   Future<void> flushPendingProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_pendingKey);
-    if (raw == null) return;
+    final locale = prefs.getString(_pendingLocaleKey);
+    if (raw == null && locale == null) return;
 
     try {
       await ApiClient.instance.patch(
         '/api/users/me',
-        body: {'profile': jsonDecode(raw)},
+        body: {
+          if (raw != null) 'profile': jsonDecode(raw),
+          'locale': ?locale,
+        },
       );
       await prefs.remove(_pendingKey);
+      await prefs.remove(_pendingLocaleKey);
     } catch (_) {
       // Leave it queued; retried on the next sign-in.
     }
+  }
+
+  /// The language chosen in the sign-up chat, kept until there is an account
+  /// to save it on (see [flushPendingProfile]). Applied to the app at once.
+  Future<void> stashPreferredLocale(String locale) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingLocaleKey, locale);
+    await AppState.instance.setLocale(locale);
+  }
+
+  /// After signing in: switch the app to the language saved on this account,
+  /// so each child opens in the language their family chose.
+  Future<void> adoptServerLocale() async {
+    final me = await this.me(forceRefresh: true);
+    final locale = me?['locale'];
+    if ((locale == 'en' || locale == 'ta') &&
+        locale != AppState.instance.locale) {
+      await AppState.instance.setLocale(locale as String);
+    }
+  }
+
+  /// The parent switched language: remember it on the account too, so it is
+  /// the default the next time they sign in. Best-effort — the switch itself
+  /// has already happened on the phone.
+  Future<void> saveLocale(String locale) async {
+    try {
+      await ApiClient.instance.patch('/api/users/me', body: {'locale': locale});
+    } catch (_) {}
   }
 
   /// Saves any subset of the extended profile fields (phone, address,
@@ -156,6 +191,15 @@ class ProfileService {
     final raw = prefs.getString(_cacheKey);
     if (raw == null) return null;
     return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  /// Deletes this child's account (see DELETE /api/users/me for exactly what
+  /// is removed). The account password is asked for again.
+  Future<void> deleteAccount(String password) async {
+    await ApiClient.instance.delete(
+      '/api/users/me',
+      body: {'password': password},
+    );
   }
 
   Future<void> clearCache() async {

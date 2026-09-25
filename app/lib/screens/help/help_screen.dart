@@ -89,7 +89,7 @@ class _HelpScreenState extends State<HelpScreen> {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
-                color: Colors.black.withValues(alpha: 0.6),
+                color: AppTheme.inkSoft,
               ),
             ),
             if (_remainingToday != null) ...[
@@ -119,7 +119,7 @@ class _HelpScreenState extends State<HelpScreen> {
                 child: Text(
                   S.noQuestionsYet,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black.withValues(alpha: 0.5)),
+                  style: TextStyle(color: AppTheme.inkSoft),
                 ),
               )
             else
@@ -240,7 +240,7 @@ class _ThreadTile extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   height: 1.35,
-                  color: Colors.black.withValues(alpha: 0.55),
+                  color: AppTheme.inkSoft,
                 ),
               ),
             ],
@@ -252,7 +252,7 @@ class _ThreadTile extends StatelessWidget {
               ),
               style: TextStyle(
                 fontSize: 11.5,
-                color: Colors.black.withValues(alpha: 0.4),
+                color: AppTheme.inkSoft,
               ),
             ),
           ],

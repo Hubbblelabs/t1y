@@ -4,6 +4,7 @@ import { buildPagination, created, paginated } from "@/lib/api/response";
 import { createInsulinLog, getInsulinSummary, listInsulinLogs } from "@/lib/services/insulin";
 import { resolveDateRange, toSkipTake } from "@/lib/validation/common";
 import { createInsulinLogSchema, insulinQuerySchema } from "@/lib/validation/health";
+import { assertFeatureEnabled } from "@/lib/services/participant-features";
 
 /**
  * Insulin administration records.
@@ -42,6 +43,8 @@ export const POST = defineRoute({
   requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createInsulinLogSchema,
-  handler: async ({ principal, body }) =>
-    created(await createInsulinLog(principal.userId, body)),
+  handler: async ({ principal, body }) => {
+    await assertFeatureEnabled(principal.userId, "INSULIN_LOGGING");
+    return created(await createInsulinLog(principal.userId, body));
+  },
 });

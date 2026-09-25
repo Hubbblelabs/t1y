@@ -73,6 +73,14 @@ export const FEATURE_FLAGS = {
       "This study's ethics approval covers an education app, not health-data collection. " +
       "Confirm ethics-committee sign-off before enabling.",
   },
+  carb_logging_enabled: {
+    default: true,
+    publicRead: true,
+    clinicalSafety: false,
+    description:
+      "Shows the carbohydrate log in the app and lets families record what their child ate. " +
+      "Switch off to hide it for everyone (a family's own eligibility still applies when on).",
+  },
   glucagon_dose_calculator: {
     default: false,
     publicRead: true,

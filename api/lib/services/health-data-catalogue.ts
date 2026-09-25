@@ -230,23 +230,28 @@ export interface ResolvedValue {
 /**
  * Fills in the catalogue values for one child.
  *
- * Used by the app's calculator screen to pre-fill inputs. A value that
- * cannot be resolved comes back null with a reason rather than as a zero —
- * a missing reading must never be silently treated as a glucose of 0.
+ * Used to pre-fill a calculator's inputs, both on the phone (always for the
+ * caller's own current moment) and from the admin's calculator workbench,
+ * where a coordinator may ask for a value "as of" an earlier point instead —
+ * working out what a calculator would have shown a child last Tuesday. A
+ * value that cannot be resolved comes back null with a reason rather than as
+ * a zero — a missing reading must never be silently treated as a glucose
+ * of 0.
  */
 export async function resolveCatalogueValues(
   userId: string,
   keys: readonly string[],
+  asOf: Date = new Date(),
 ): Promise<ResolvedValue[]> {
   const wanted = new Set(keys);
   const resolved: ResolvedValue[] = [];
 
-  const startOfToday = new Date();
+  const startOfToday = new Date(asOf);
   startOfToday.setHours(0, 0, 0, 0);
 
   if (wanted.has("glucose_latest")) {
     const latest = await prisma.glucoseReading.findFirst({
-      where: { userId },
+      where: { userId, measuredAt: { lte: asOf } },
       orderBy: { measuredAt: "desc" },
       select: { value: true, unit: true, measuredAt: true },
     });
@@ -263,7 +268,7 @@ export async function resolveCatalogueValues(
     // stored in either unit and each one has to be converted before it can
     // be added to the others. A day's readings are a handful of rows.
     const today = await prisma.glucoseReading.findMany({
-      where: { userId, measuredAt: { gte: startOfToday } },
+      where: { userId, measuredAt: { gte: startOfToday, lte: asOf } },
       select: { value: true, unit: true, measuredAt: true },
     });
 
@@ -283,7 +288,7 @@ export async function resolveCatalogueValues(
 
   if (wanted.has("insulin_total_today")) {
     const today = await prisma.insulinLog.aggregate({
-      where: { userId, administeredAt: { gte: startOfToday } },
+      where: { userId, administeredAt: { gte: startOfToday, lte: asOf } },
       _sum: { doseUnits: true },
       _max: { administeredAt: true },
       _count: true,

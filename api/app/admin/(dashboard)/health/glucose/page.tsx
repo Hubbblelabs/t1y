@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { HealthBrowserTable } from "@/components/admin/health/health-browser";
 import { HealthPage } from "@/components/admin/health/health-page";
+import { GlucoseLoggingStatus } from "@/components/admin/health/glucose-logging-status";
 import { requirePrincipal } from "@/lib/auth/session";
 import { browseGlucose } from "@/lib/services/health-browser";
 import { formatGlucoseUnit, humaniseEnum } from "@/lib/utils/format";
@@ -21,6 +22,7 @@ export default async function GlucosePage(
       title="Glucose"
       description="Recorded glucose readings across participants"
       searchKey={JSON.stringify(searchParams)}
+      before={<GlucoseLoggingStatus />}
     >
       <GlucoseTable principal={principal} params={params} />
     </HealthPage>

@@ -1,5 +1,6 @@
 import '../models/child.dart';
 import 'api_client.dart';
+import 'profile_service.dart';
 
 /// Parent sign-in and the child picker.
 ///
@@ -51,6 +52,8 @@ class HouseholdService {
 
     final payload = data['data'] as Map<String, dynamic>;
     await ApiClient.instance.setToken(payload['token'] as String);
+    // Each child opens in the language their family chose for them.
+    await ProfileService.instance.adoptServerLocale().catchError((_) {});
     return payload['mustChangePassword'] as bool? ?? false;
   }
 

@@ -243,7 +243,7 @@ class _ChildCard extends StatelessWidget {
                         ].join(' · '),
                         style: TextStyle(
                           fontSize: 12.5,
-                          color: Colors.black.withValues(alpha: 0.55),
+                          color: AppTheme.inkSoft,
                         ),
                       ),
                       if (!selectable) ...[

@@ -72,14 +72,6 @@ class QuestionService {
     return _sorted(defaultQuestions);
   }
 
-  /// Fetches ahead of time so the list is already on the phone when needed.
-  /// Best-effort; safe to call on every launch.
-  Future<void> warmUp() async {
-    await Future.wait([
-      _fetch('/api/signup-questions', _signupKey, public: true),
-    ]);
-  }
-
   bool _isUsableSignupList(List<Question> list) {
     final keys = list.map((q) => q.key).toSet();
     return _coreKeys.every(keys.contains);

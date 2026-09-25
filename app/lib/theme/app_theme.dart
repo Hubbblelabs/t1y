@@ -22,6 +22,18 @@ class AppTheme {
   static const Color primary = Color(0xFF2196F3);
   static const Color deep = Color(0xFF0D47A1);
 
+  /// Text colours. Secondary text used to be black at 40–60% opacity, which
+  /// read as washed-out grey on a phone in daylight; these are solid, dark
+  /// shades instead — [ink] for primary text, [inkSoft] for anything that
+  /// only needs to read as secondary.
+  static const Color ink = Color(0xFF111827);
+  static const Color inkSoft = Color(0xFF374151);
+
+  /// Where a parent types. Always white, with a visible edge, so an entry
+  /// field never looks like a disabled or read-only box.
+  static const Color field = Colors.white;
+  static const Color fieldBorder = Color(0xFFB6C7DC);
+
   static TextTheme _textTheme(Brightness brightness) {
     final base = brightness == Brightness.dark
         ? ThemeData.dark().textTheme
@@ -33,8 +45,8 @@ class AppTheme {
     return brightness == Brightness.dark
         ? theme
         : theme.apply(
-            bodyColor: const Color(0xDD000000),
-            displayColor: const Color(0xDD000000),
+            bodyColor: ink,
+            displayColor: ink,
           );
   }
 
@@ -101,20 +113,37 @@ class AppTheme {
           ),
         ),
       ),
+      // No double shade under the selected tab: the icon draws its own halo
+      // (see AnimatedNavIcon), so Material's indicator pill is switched off.
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: Colors.transparent,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => GoogleFonts.poppins(
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected) ? primary : inkSoft,
+          ),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: lightest,
+        fillColor: field,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 20,
           vertical: 16,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: fieldBorder),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: fieldBorder),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -124,8 +153,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: scheme.error, width: 1.4),
         ),
-        hintStyle: GoogleFonts.poppins(color: deep.withValues(alpha: 0.4)),
-        labelStyle: GoogleFonts.poppins(color: deep.withValues(alpha: 0.6)),
+        hintStyle: GoogleFonts.poppins(color: inkSoft.withValues(alpha: 0.75)),
+        labelStyle: GoogleFonts.poppins(color: inkSoft),
       ),
     );
   }

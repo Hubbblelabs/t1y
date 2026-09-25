@@ -8,37 +8,35 @@ What is left is listed under each heading, and in the last section.
 
 ---
 
-## 1. Calculators — wired
+## 1. Calculators — wired, and now admin-only
 
-`Calculator` table → create/hide API → `GET /api/calculators` (definitions) and
-`GET /api/calculators/values` (a child's own stored numbers) → the app.
+Calculators are **not shown to a parent at all.** The app's Calculators
+screen, its `calculator_runner.dart`/`formula.dart`/`unit_conversion.dart`
+twins of the server's engine, and the participant-facing
+`/api/calculators`/`/api/calculators/values` routes have all been removed.
+See `docs/CALCULATORS.md`.
 
-- The app fetches the definitions and caches them, so a calculator works with no
-  connection. Only *pre-filling from records* needs the network, and when that
-  fails the parent simply types the number.
-- The hardcoded `_InsulinCalculatorCard` (formulas written in Dart) is **gone**.
-  The glucose screen now has a doorway to `screens/calculators/`, and Home has a
-  tile. The three seeded calculators reproduce its arithmetic exactly (500 ÷ dose,
-  1800 ÷ dose, 1500 ÷ dose, carbs ÷ ratio) — checked in both suites.
-- The phone evaluates formulas itself with `services/formula.dart`, the twin of
-  the server's parser; `services/calculator_runner.dart` twins `runCalculator`
-  and asserts the *same error wording* as the dashboard.
-- **Zero, negative and out-of-range numbers are refused** with an instruction
-  ("…must be more than zero. Please check the number and enter it again.").
-- **Filled-in values show when they were recorded** ("From your records · 2 h
-  ago"), stay editable, and become "Entered by you" the moment they are typed
-  over. A missing reading is an empty box and a message, never a zero.
-- **Units are converted on the phone.** A glucose box offers mmol/L; 5.5 mmol/L
-  is converted to 99 mg/dL *before* the formula sees it, and switching units
-  converts what is already in the box. Pounds/kg and inches/cm are covered too.
-  The stored calculator names one unit and never changes.
-- Every calculator opens with the "educational aid" disclaimer first.
-- Sign-out clears the cached list, so a shared phone does not show the previous
-  family's.
+`Calculator` table → create/hide API (unchanged) → **run API**
+(`POST /api/admin/calculators/:id/run`) → the admin's own workbench
+(`Calculators → Run for a participant`). Staff pick a participant and a
+moment in time; a `DATA`-sourced input is filled in from that child's own
+records as of that moment and stays overridable, exactly the properties the
+old parent-facing screen had — they simply now belong to staff, not the app.
 
-**Left:** the Rule of 15 is still its own purpose-built screen. It is a
-conditional rule (below 70 → 15 g, retest in 15 min), not a sum, and the formula
-grammar has no conditionals on purpose.
+- **Zero, negative and out-of-range numbers are still refused**, by the same
+  `runCalculator` the dashboard's "try it" preview already used.
+- **What went into a result is shown**, whether it was typed in or came from
+  a record, and when that record was made — carried over from the old
+  "From your records · 2 h ago" behaviour.
+- What the app *does* still collect — glucose, insulin, carbohydrates — feeds
+  these runs. Recording them consistently is why they matter; see
+  `docs/PARTICIPANT-FEATURES.md` for which of the three a given child is
+  enrolled for, and `docs/GLUCOSE-REMINDERS.md` for the reminder that nudges
+  a family who has gone quiet.
+
+**Left:** the Rule of 15 is still its own purpose-built screen on the phone.
+It is a conditional rule (below 70 → 15 g, retest in 15 min), not a sum, and
+the formula grammar has no conditionals on purpose.
 
 ---
 
@@ -55,6 +53,27 @@ It **records; it never advises**, and says so on screen. Gated on the server by
 This is what makes the two insulin entries in the calculator data catalogue
 ("Insulin taken today", "Usual total daily insulin dose") real: they were reading
 an empty table.
+
+---
+
+## 2a. Carbohydrates — wired
+
+`Meal`/`POST /api/meals` already existed, built for a richer nutrition feature
+than this app offers; there was no screen. There is now a Carbs screen (Health
+tab, and a tile on Home) that records just what this app asks for — grams, a
+meal type, when — using that same endpoint. Like glucose and insulin, it
+**records; it never calculates.**
+
+## 2b. Participant features and the glucose reminder — wired
+
+- **Which features a child is enrolled for** (glucose, insulin, carbs, Help
+  Book, quizzes, help and support) is chosen when the participant is created
+  and editable from their record afterwards. Glucose, insulin and carb
+  logging are enforced server-side, not just hidden in the app. See
+  `docs/PARTICIPANT-FEATURES.md`.
+- **A glucose-eligible participant who goes 6 hours without a reading** gets a
+  push notification (hourly cron), and staff see the same gap listed on the
+  admin's Glucose page. See `docs/GLUCOSE-REMINDERS.md`.
 
 ---
 

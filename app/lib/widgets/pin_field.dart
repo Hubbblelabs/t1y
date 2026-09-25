@@ -74,15 +74,25 @@ class PinField extends StatelessWidget {
             counterText: '',
             helperText: S.pinDigitsHint,
             helperStyle: const TextStyle(fontSize: 11.5),
+            // White with a visible edge, like every other place a parent
+            // types — never the pale-blue box that read as disabled.
             filled: true,
-            fillColor: AppTheme.lightest,
+            fillColor: AppTheme.field,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: AppTheme.fieldBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppTheme.fieldBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: AppTheme.primary, width: 1.6),
             ),
           ),
         ),

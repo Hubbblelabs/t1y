@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PARTICIPANT_FEATURE_KEYS } from "@/lib/services/participant-features";
 
 import {
   dateRangeSchema,
@@ -120,6 +121,8 @@ export const createParticipantSchema = z.object({
   diagnosisYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   phone: z.string().trim().max(32).optional(),
   timezone: z.string().trim().max(64).optional(),
+  /** Defaults to every feature when left out — see createParticipant. */
+  enabledFeatures: z.array(z.enum(PARTICIPANT_FEATURE_KEYS)).optional(),
 });
 
 export const bulkParticipantRowSchema = z
@@ -168,6 +171,7 @@ export const updateParticipantSchema = z.object({
       emergencyContactName: z.string().trim().max(120).nullish(),
       emergencyContactPhone: z.string().trim().max(32).nullish(),
       icIsfUnlocked: z.boolean().optional(),
+      enabledFeatures: z.array(z.enum(PARTICIPANT_FEATURE_KEYS)).optional(),
     })
     .optional(),
 });

@@ -1,13 +1,23 @@
 # Calculators
 
-The nine calculators in the app, taken from the study documents (Nutrition;
+The nine calculators in the study, taken from the study documents (Nutrition;
 Insulin Types & Storage; Hypoglycaemia; Insulin Pump). They replaced every
-earlier calculator. They are view-only: staff can hide one but not edit it.
+earlier calculator. They are immutable once created: staff can hide one but
+not edit it.
 
-Parents type the numbers on the phone. Where the phone already holds a value,
-it is filled in with the time it was recorded, and the parent can change it.
-Zero and negative numbers are refused, except doses in the total-daily-dose
-calculator, where 0 is allowed.
+**A calculator is never shown to a parent.** The app only ever collects the
+raw numbers — glucose readings, insulin doses, carbohydrates — and every
+calculator is run by staff, one participant at a time, from
+**Calculators → Run for a participant** in the admin dashboard
+(`lib/services/calculator-run.ts`, `POST /api/admin/calculators/:id/run`).
+There is no `/api/calculators` endpoint any more and no Calculators screen in
+the Flutter app.
+
+Staff pick a participant and a moment in time ("as of"); a `DATA`-sourced
+input is filled in from that child's own records as of that moment (so a
+coordinator can ask "what would this have shown last Tuesday"), and any input
+can be typed over instead. Zero and negative numbers are refused, except
+doses in the total-daily-dose calculator, where 0 is allowed.
 
 | # | Calculator | Inputs | Formula | Worked example from the documents |
 |---|---|---|---|---|
@@ -36,7 +46,14 @@ research team, not by parents.
 - Definitions: `scripts/seed-standard-calculators.ts`
   (`npx tsx scripts/seed-standard-calculators.ts --replace` deletes every
   existing calculator and adds these nine).
-- Tests with each worked example: `tests/integration/admin-dashboard.test.ts`.
-- Health screens and calculators sit behind the parent's PIN on the phone.
+- Running one for a participant: `lib/services/calculator-run.ts`,
+  `app/api/admin/calculators/[id]/run/route.ts`,
+  `components/admin/content/calculator-run-panel.tsx`.
+- Tests with each worked example: `tests/integration/admin-dashboard.test.ts`
+  and `tests/integration/calculator-run-and-participant-features.test.ts`.
+- All health-data entry (glucose, insulin, carbohydrates) sits behind the
+  parent's PIN on the phone. See `docs/PARTICIPANT-FEATURES.md` for which of
+  those a given child is enrolled for, and `docs/GLUCOSE-REMINDERS.md` for the
+  hourly reminder that nudges a family who has gone quiet.
 - Researcher figures (average glucose, time in range, estimated HbA1c,
   average daily insulin) are on the admin Reports page.

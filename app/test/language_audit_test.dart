@@ -7,10 +7,10 @@ import 'package:t1dpe/l10n/strings.dart';
 import 'package:t1dpe/models/question.dart';
 import 'package:t1dpe/models/signup_question.dart';
 import 'package:t1dpe/providers/app_state.dart';
-import 'package:t1dpe/screens/calculators/calculators_screen.dart';
-import 'package:t1dpe/screens/glucose/glucose_entry_screen.dart';
 import 'package:t1dpe/screens/health/health_hub_screen.dart';
-import 'package:t1dpe/screens/health/insulin_screen.dart';
+import 'package:t1dpe/screens/health/record_screen.dart';
+import 'package:t1dpe/screens/profile/settings_screen.dart';
+import 'package:t1dpe/screens/profile/privacy_screen.dart';
 import 'package:t1dpe/screens/help/help_screen.dart';
 import 'package:t1dpe/screens/help/new_question_screen.dart';
 import 'package:t1dpe/screens/helpbook/helpbook_list_screen.dart';
@@ -18,7 +18,6 @@ import 'package:t1dpe/screens/quizzes/quiz_list_screen.dart';
 import 'package:t1dpe/screens/rewards/badges_screen.dart';
 import 'package:t1dpe/models/badge.dart';
 import 'package:t1dpe/services/api_client.dart';
-import 'package:t1dpe/services/calculator_runner.dart';
 import 'package:t1dpe/utils/tamil_name.dart';
 import 'package:t1dpe/widgets/pin_gate.dart';
 import 'package:t1dpe/widgets/topic_card.dart';
@@ -169,52 +168,9 @@ void main() {
       S.passwordTooLong(64),
       S.passwordsDontMatch,
       S.passwordSameAsOld,
-      S.timeInFuture,
       S.pinIncorrect,
       S.dailyLimitReached,
       S.needMessage,
-      runCalculator(
-            inputs: [
-              CalculatorInput(
-                key: 'a',
-                label: 'Weight',
-                labelTa: 'எடை',
-                unit: 'kg',
-              ),
-            ],
-            outputs: [
-              CalculatorOutput(
-                key: 'r',
-                label: 'R',
-                unit: 'kg',
-                decimals: 1,
-                expression: 'a*2',
-              ),
-            ],
-            values: const {'a': 0},
-          ).error ??
-          '',
-      runCalculator(
-            inputs: [
-              CalculatorInput(
-                key: 'a',
-                label: 'Weight',
-                labelTa: 'எடை',
-                unit: 'kg',
-              ),
-            ],
-            outputs: [
-              CalculatorOutput(
-                key: 'r',
-                label: 'R',
-                unit: 'kg',
-                decimals: 1,
-                expression: 'a*2',
-              ),
-            ],
-            values: const {'a': null},
-          ).error ??
-          '',
     ];
 
     test('English is English', () async {
@@ -386,13 +342,16 @@ void main() {
     final screens = <String, Widget Function()>{
       'Help and support': () => const HelpScreen(),
       'Ask a question': () => const NewQuestionScreen(remainingToday: 2),
-      'Calculators': () => const CalculatorsScreen(),
       'Help Book': () => const HelpBookListScreen(),
       'Quizzes': () => const QuizListScreen(),
       'Badges': () => const BadgesScreen(),
       'Health': () => const HealthHubScreen(),
-      'Insulin': () => const InsulinScreen(),
-      'Glucose entry': () => const GlucoseEntryScreen(),
+      'Record glucose': () => const RecordScreen(),
+      'Record insulin': () => const RecordScreen(initial: RecordKind.insulin),
+      'Record carbs': () => const RecordScreen(initial: RecordKind.carbs),
+      'Settings': () => const SettingsScreen(),
+      'How your data is used': () => const PrivacyScreen(),
+      'Correct or delete': () => const DataRightsScreen(),
     };
 
     Future<List<String>> shown(WidgetTester tester, Widget screen) async {

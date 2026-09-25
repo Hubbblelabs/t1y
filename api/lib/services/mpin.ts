@@ -29,25 +29,15 @@ const scrypt = promisify(scryptCallback) as (
 const SALT_BYTES = 16;
 const KEY_BYTES = 64;
 
-/** Exactly 4 digits — see the module doc for why the app settled on one length. */
-const PIN_PATTERN = /^\d{4}$/;
-
 /**
- * The handful of PINs that are, in practice, no PIN at all. Rejected at
- * set-time rather than silently accepted — a parent who picks "1234" gets a
- * gate a curious nine-year-old opens on the first try.
+ * Exactly 4 digits, and any 4 digits: the study team chose not to refuse
+ * "easy" PINs such as 1234 — the parent decides.
  */
-const TRIVIAL_PINS = new Set([
-  "0000", "1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999",
-  "1234", "4321", "0123",
-]);
+const PIN_PATTERN = /^\d{4}$/;
 
 function assertWellFormed(pin: string): void {
   if (!PIN_PATTERN.test(pin)) {
     throw new ValidationError("Enter a 4-digit PIN.");
-  }
-  if (TRIVIAL_PINS.has(pin)) {
-    throw new ValidationError("That PIN is too easy to guess. Please choose another.");
   }
 }
 

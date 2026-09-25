@@ -17,12 +17,18 @@ class ParticipantIdCard extends StatelessWidget {
   final int? diagnosisYear;
   final String? sex;
   final String? email;
-  final VoidCallback onFlip;
+
+  /// Opens the Settings page (the gear in the card's corner).
+  final VoidCallback onSettings;
+
+  /// Signs out — on the card itself, where a parent looks for it.
+  final VoidCallback onSignOut;
 
   const ParticipantIdCard({
     super.key,
     required this.name,
-    required this.onFlip,
+    required this.onSettings,
+    required this.onSignOut,
     this.participantCode,
     this.dateOfBirth,
     this.diagnosisYear,
@@ -74,7 +80,7 @@ class ParticipantIdCard extends StatelessWidget {
                   right: 8,
                   child: _CornerButton(
                     icon: Icons.settings_outlined,
-                    onTap: onFlip,
+                    onTap: onSettings,
                   ),
                 ),
                 Align(
@@ -171,6 +177,26 @@ class ParticipantIdCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: onSignOut,
+                    icon: const Icon(
+                      Icons.logout_rounded,
+                      color: Color(0xFFC62828),
+                      size: 19,
+                    ),
+                    label: Text(
+                      S.signOut,
+                      style: const TextStyle(
+                        color: Color(0xFFC62828),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFC62828)),
+                      minimumSize: const Size.fromHeight(46),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -242,48 +268,6 @@ class _CardShell extends StatelessWidget {
   }
 }
 
-/// The settings face of the profile flip card.
-class ParticipantSettingsCard extends StatelessWidget {
-  final VoidCallback onFlipBack;
-  final List<Widget> children;
-
-  const ParticipantSettingsCard({
-    super.key,
-    required this.onFlipBack,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardShell(
-      // No heading here: the screen's own AppBar title switches to
-      // "Settings" when this face is showing, so repeating it inside the
-      // card was redundant chrome eating the top of a small screen.
-      child: Column(
-        children: [
-          Align(
-            alignment: Alignment.topRight,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(0, 10, 10, 0),
-              child: _CornerButton(
-                icon: Icons.badge_outlined,
-                onTap: onFlipBack,
-                onLight: true,
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              children: children,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _Row extends StatelessWidget {
   final String label;
   final String value;
@@ -305,7 +289,7 @@ class _Row extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.3,
-                color: Colors.black.withValues(alpha: 0.45),
+                color: AppTheme.inkSoft,
               ),
             ),
           ),
@@ -331,13 +315,8 @@ class _Row extends StatelessWidget {
 class _CornerButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
-  final bool onLight;
 
-  const _CornerButton({
-    required this.icon,
-    required this.onTap,
-    this.onLight = false,
-  });
+  const _CornerButton({required this.icon, required this.onTap});
 
   @override
   State<_CornerButton> createState() => _CornerButtonState();
@@ -348,10 +327,8 @@ class _CornerButtonState extends State<_CornerButton> {
 
   @override
   Widget build(BuildContext context) {
-    final fg = widget.onLight ? AppTheme.deep : Colors.white;
-    final bg = widget.onLight
-        ? AppTheme.lightest
-        : Colors.white.withValues(alpha: 0.22);
+    const fg = Colors.white;
+    final bg = Colors.white.withValues(alpha: 0.22);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),

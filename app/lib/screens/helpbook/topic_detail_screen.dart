@@ -286,7 +286,20 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_topic.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        // Long (often Tamil) titles wrap onto a second, smaller line instead of
+        // being cut off with an ellipsis.
+        toolbarHeight: 72,
+        title: Text(
+          _topic.title,
+          maxLines: 2,
+          softWrap: true,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.deep,
+            height: 1.25,
+          ),
+        ),
         actions: const [LanguageToggle(), SizedBox(width: 12)],
       ),
       // The AppBar already accounts for the status bar — a SafeArea here
@@ -314,7 +327,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                       S.noContentYet,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.black.withValues(alpha: 0.6),
+                        color: AppTheme.inkSoft,
                       ),
                     ),
                   ],
