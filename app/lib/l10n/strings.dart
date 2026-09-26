@@ -616,6 +616,18 @@ class S {
   );
   static String get pinDigitsHint => _t('4 digits', '4 இலக்கங்கள்');
 
+  // ── Connectivity ─────────────────────────────────────────────────────────
+  static String get youAreOffline => _t(
+    "You're offline — some data may be old. Go back online to see the latest.",
+    'நீங்கள் இணையமில்லாமல் உள்ளீர்கள் — சில தரவு பழையதாக இருக்கலாம். சமீபத்தியதைப் பார்க்க மீண்டும் இணையத்துடன் இணையவும்.',
+  );
+  static String get offlineAuthTitle =>
+      _t('No internet connection', 'இணைய இணைப்பு இல்லை');
+  static String get offlineAuthBody => _t(
+    'Signing in needs an internet connection. Please turn on Wi-Fi or mobile data to continue.',
+    'உள்நுழைவதற்கு இணைய இணைப்பு தேவை. தொடர, வைஃபை அல்லது மொபைல் டேட்டாவை இயக்கவும்.',
+  );
+
   // ── Profile ──────────────────────────────────────────────────────────────
   static String get account => _t('Account', 'கணக்கு');
   static String get signOut => _t('Sign out', 'வெளியேறு');

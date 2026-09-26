@@ -171,9 +171,20 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
 
-    _progress.value = position.maxScrollExtent <= 0
-        ? 1.0
-        : (position.pixels / position.maxScrollExtent).clamp(0.0, 1.0);
+    if (position.maxScrollExtent <= 0) {
+      // A topic short enough to need no scrolling at all. iOS still fires
+      // this listener on the elastic overscroll bounce, with `pixels`
+      // swinging away from and back to zero — feeding that into the block
+      // scan below flickered the header image and progress bar as if the
+      // reader had moved, even though nothing did. Freeze both instead.
+      _progress.value = 1.0;
+      return;
+    }
+
+    _progress.value = (position.pixels / position.maxScrollExtent).clamp(
+      0.0,
+      1.0,
+    );
 
     if (_topic.contentBlocks.isEmpty) return;
     if ((position.pixels - _lastScanPixels).abs() < _scanThresholdPx) return;

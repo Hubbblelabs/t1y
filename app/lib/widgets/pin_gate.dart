@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/strings.dart';
+import '../screens/profile/mpin_screen.dart';
 import '../services/api_client.dart';
 import '../services/mpin_service.dart';
 import '../theme/app_theme.dart';
@@ -92,6 +93,14 @@ class _PinGateState extends State<PinGate> {
   void _reload() => setState(() {
     _status = MpinService.instance.status();
   });
+
+  Future<void> _forgotPin() async {
+    FocusScope.of(context).unfocus();
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const MpinScreen(isReset: true)),
+    );
+    if (changed == true) _open();
+  }
 
   Future<void> _enter() async {
     final pin = _pin.text.trim();
@@ -222,6 +231,16 @@ class _PinGateState extends State<PinGate> {
                 obscure: true,
                 onSubmitted: isSet ? _enter : null,
               ),
+              if (isSet) ...[
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _busy ? null : _forgotPin,
+                    child: Text(S.forgotPin),
+                  ),
+                ),
+              ],
               if (!isSet) ...[
                 const SizedBox(height: 14),
                 PinField(

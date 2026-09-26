@@ -47,6 +47,7 @@ dependencies:
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
   flutter_dotenv: ^5.2.1
+  connectivity_plus: ^6.1.0
 dependency_overrides:
   # permission_handler_android 14.x ships a build.gradle.kts using a newer
   # Kotlin Gradle Plugin DSL (`kotlin { compilerOptions { ... } }`) that this

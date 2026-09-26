@@ -6,6 +6,7 @@ import '../../widgets/auth_background.dart';
 import '../../widgets/bilingual.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
+import '../../widgets/offline_auth_dialog.dart';
 import '../../widgets/slow_slide_route.dart';
 import '../../widgets/wave_header.dart';
 import 'household_login_screen.dart';
@@ -60,6 +61,9 @@ class _IdentifierEntryScreenState extends State<IdentifierEntryScreen> {
       setState(() => _error = S.bothText(() => S.enterValidEmail));
       return;
     }
+
+    if (!await ensureOnlineForAuth(context)) return;
+    if (!mounted) return;
 
     setState(() {
       _checking = true;

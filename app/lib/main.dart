@@ -12,6 +12,7 @@ import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/strings.dart';
 import 'widgets/locale_transition.dart';
+import 'widgets/offline_banner.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -145,7 +146,12 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
               : media.textScaler.scale(1.0);
           return MediaQuery(
             data: media.copyWith(textScaler: TextScaler.linear(scale)),
-            child: LocaleTransition(child: child!),
+            child: Stack(
+              children: [
+                LocaleTransition(child: child!),
+                const OfflineBanner(),
+              ],
+            ),
           );
         },
         home: const _StartupGate(),

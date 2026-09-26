@@ -72,8 +72,15 @@ async function uploadFile(
         });
 
   if (!sent.ok) {
+    // Cloudinary's own rejection reason (wrong format, over the account's
+    // plan limits, quota exhausted) is far more useful than a blanket "not
+    // set up" message once the ticket itself was issued fine — that part
+    // failing is what actually means storage has no credentials configured.
+    const cloudinaryError =
+      ticket.method === "POST" ? (await sent.json().catch(() => null))?.error?.message : null;
     throw new Error(
-      "The file could not be sent to storage. Picture storage may not be set up yet — ask whoever set up this system.",
+      cloudinaryError ??
+        "The file could not be sent to storage. Picture storage may not be set up yet — ask whoever set up this system.",
     );
   }
 

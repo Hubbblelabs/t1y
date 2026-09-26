@@ -25,7 +25,24 @@ import { env, isStorageConfigured } from "@/lib/env";
 
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
 
-/** Only formats the platform actually renders are accepted. */
+/**
+ * Only formats the platform actually renders are accepted.
+ *
+ * `maxBytes` must not exceed what this Cloudinary *account's plan* actually
+ * accepts (`GET /usage` → `media_limits`) — a free-plan account caps raw
+ * incoming bytes at 10 MB for images/raw and 100 MB for video, enforced by
+ * Cloudinary itself before any transformation runs. Setting a larger number
+ * here used to let the app issue a ticket and the browser spend minutes
+ * uploading a file Cloudinary would refuse outright, which surfaced as a
+ * generic "could not be sent to storage" failure well after the file was
+ * already accepted client-side. Keeping these at or under the plan's own
+ * ceiling means an oversized file is rejected immediately, with a size in
+ * the message, when the ticket is requested — before any bytes move.
+ *
+ * If this account is ever upgraded, raise these to match the new plan's
+ * `media_limits` (and it's fine to leave them lower than the ceiling if
+ * that's simply a size the app has no reason to accept).
+ */
 const ALLOWED_CONTENT_TYPES: Record<
   string,
   { kind: AssetKindValue; maxBytes: number; resourceType: "image" | "video" | "raw" }
@@ -34,9 +51,9 @@ const ALLOWED_CONTENT_TYPES: Record<
   "image/png": { kind: "IMAGE", maxBytes: 10 * 1024 * 1024, resourceType: "image" },
   "image/webp": { kind: "IMAGE", maxBytes: 10 * 1024 * 1024, resourceType: "image" },
   "image/avif": { kind: "IMAGE", maxBytes: 10 * 1024 * 1024, resourceType: "image" },
-  "video/mp4": { kind: "VIDEO", maxBytes: 500 * 1024 * 1024, resourceType: "video" },
-  "video/webm": { kind: "VIDEO", maxBytes: 500 * 1024 * 1024, resourceType: "video" },
-  "application/pdf": { kind: "PDF", maxBytes: 50 * 1024 * 1024, resourceType: "raw" },
+  "video/mp4": { kind: "VIDEO", maxBytes: 100 * 1024 * 1024, resourceType: "video" },
+  "video/webm": { kind: "VIDEO", maxBytes: 100 * 1024 * 1024, resourceType: "video" },
+  "application/pdf": { kind: "PDF", maxBytes: 10 * 1024 * 1024, resourceType: "raw" },
   "audio/mpeg": { kind: "AUDIO", maxBytes: 100 * 1024 * 1024, resourceType: "video" }, // Cloudinary treats audio as "video".
 };
 
@@ -147,9 +164,23 @@ export async function createPresignedUpload(params: {
   const publicId = `${folder}/${id}`;
   const timestamp = Math.floor(Date.now() / 1000);
 
+  // A picture from a modern phone camera is routinely well under the 10 MB
+  // size cap above yet still tens of megapixels — comfortably past this
+  // account's 25-megapixel ingest ceiling on its own. Rather than reject
+  // those (or ask an admin to resize a photo by hand before choosing it),
+  // ask Cloudinary to downsize it as part of the upload itself: given as an
+  // upload parameter like this, the resize is applied to the incoming file
+  // *before* Cloudinary checks it against the plan's pixel limit — unlike a
+  // transformation added to the delivery URL afterwards, which runs too late
+  // to avoid a limit enforced at ingest. 4096px on the long edge is far more
+  // than the Help Book's 3:2 reading crop ever needs.
+  const incomingTransformation =
+    rules.resourceType === "image" ? "c_limit,w_4096,h_4096" : undefined;
+
   // Only the parameters actually sent are signed — Cloudinary rejects the
   // request if the browser's form fields don't match what was signed here.
   const paramsToSign: Record<string, string | number> = { folder, public_id: id, timestamp };
+  if (incomingTransformation) paramsToSign.transformation = incomingTransformation;
   const signature = client().utils.api_sign_request(paramsToSign, env.CLOUDINARY_API_SECRET!);
 
   return {
@@ -165,6 +196,7 @@ export async function createPresignedUpload(params: {
       signature,
       folder,
       public_id: id,
+      ...(incomingTransformation ? { transformation: incomingTransformation } : {}),
     },
     fileField: "file",
   };

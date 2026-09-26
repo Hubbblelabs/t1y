@@ -8,6 +8,7 @@ import '../../widgets/auth_background.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/bilingual.dart';
 import '../../widgets/labeled_field.dart';
+import '../../widgets/offline_auth_dialog.dart';
 import '../../widgets/wave_header.dart';
 import 'child_select_screen.dart';
 import 'login_loading_screen.dart';
@@ -45,6 +46,9 @@ class _HouseholdLoginScreenState extends State<HouseholdLoginScreen> {
     FocusScope.of(context).unfocus();
     final password = _passwordController.text;
     if (password.isEmpty) return;
+
+    if (!await ensureOnlineForAuth(context)) return;
+    if (!mounted) return;
 
     setState(() {
       _busy = true;

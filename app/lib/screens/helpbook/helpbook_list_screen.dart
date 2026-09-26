@@ -255,10 +255,10 @@ class _CategoryIconRow extends StatelessWidget {
     if (categories.length < 2) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 128,
+      height: 112,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
         itemCount: categories.length,
         separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
@@ -318,7 +318,7 @@ class _CategoryIconTileState extends State<_CategoryIconTile> {
           // was overflowing the row by a few pixels even with headroom in
           // the parent — pinning every piece of this tile's size removes
           // the guesswork entirely instead of padding around it.
-          height: 108,
+          height: 96,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -348,21 +348,30 @@ class _CategoryIconTileState extends State<_CategoryIconTile> {
               const SizedBox(height: 6),
               // Two lines, not an ellipsis: Tamil category names are longer
               // than their English ones and must still be readable in full.
+              //
+              // The app-wide Tamil text bump (see T1dpeApp's MaterialApp
+              // builder) is meant for reading text, not a two-line caption
+              // this tight — left in effect here it inflated the Tamil label
+              // past this fixed box and forced extra padding below the whole
+              // row just to keep it from clipping. Pinned to the unscaled
+              // size so both languages sit at the same visual size here.
               SizedBox(
-                height: 34,
-                child: Text(
-                  widget.label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.visible,
-                  softWrap: true,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    height: 1.2,
-                    fontWeight: FontWeight.w600,
-                    color: widget.selected
-                        ? AppTheme.deep
-                        : AppTheme.inkSoft,
+                height: 28,
+                child: MediaQuery.withNoTextScaling(
+                  child: Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.visible,
+                    softWrap: true,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      height: 1.2,
+                      fontWeight: FontWeight.w600,
+                      color: widget.selected
+                          ? AppTheme.deep
+                          : AppTheme.inkSoft,
+                    ),
                   ),
                 ),
               ),
