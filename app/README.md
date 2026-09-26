@@ -6,7 +6,7 @@ PRAJANA YANDRA Paediatric Enhancement mHealth App on Physical Well-being of
 Children and Parental Satisfaction among children with type 1 diabetes
 mellitus in selected Diabetic clinics at Coimbatore."
 
-- **Package / bundle ID:** `com.mistaketech.t1dpe` (Android `applicationId` /
+- **Package / bundle ID:** `com.teammistake.t1dpe` (Android `applicationId` /
   iOS `PRODUCT_BUNDLE_IDENTIFIER` — identical on both platforms)
 - **Display name:** T1D Prajana Yandra
 - **Screens:** `lib/screens/` — `auth` (sign-in), `home` (4-tab shell: Home,

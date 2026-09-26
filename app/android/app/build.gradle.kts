@@ -20,7 +20,7 @@ if (hasReleaseSigning) {
 }
 
 android {
-    namespace = "com.mistaketech.t1dpe"
+    namespace = "com.teammistake.t1dpe"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -36,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.mistaketech.t1dpe"
+        applicationId = "com.teammistake.t1dpe"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -40,13 +40,20 @@ dependencies:
   uuid: ^4.5.1
   google_fonts: ^6.2.1
   flutter_svg: ^2.3.0
-  video_player: ^2.14.0
+  video_player: ^2.11.1
   showcaseview: ^5.1.0
   permission_handler: ^13.0.2
   flutter_local_notifications: ^22.3.1
   timezone: ^0.11.1
   flutter_timezone: ^5.1.0
   flutter_dotenv: ^5.2.1
+dependency_overrides:
+  # permission_handler_android 14.x ships a build.gradle.kts using a newer
+  # Kotlin Gradle Plugin DSL (`kotlin { compilerOptions { ... } }`) that this
+  # project's Kotlin/AGP toolchain can't resolve, breaking `bundleRelease`.
+  # 13.0.1 uses the older Groovy build script and builds cleanly.
+  permission_handler_android: 13.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

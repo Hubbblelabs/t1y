@@ -27,15 +27,15 @@ In Xcode: select the **Runner** project in the navigator → **Runner** target
 → **Signing & Capabilities** tab → set **Team** to your Apple Developer
 account. Xcode will offer to fix signing automatically — let it.
 
-The bundle identifier is already set to `com.mistaketech.t1dpe` (matching
+The bundle identifier is already set to `com.teammistake.t1dpe` (matching
 Android's `applicationId`, so both platforms share one App Store Connect app
 record).
 
 ## 3. Register the bundle ID (first time only)
 
-If `com.mistaketech.t1dpe` isn't already registered to your account:
+If `com.teammistake.t1dpe` isn't already registered to your account:
 [developer.apple.com/account/resources/identifiers](https://developer.apple.com/account/resources/identifiers/list)
-→ **+** → App IDs → App → enter `com.mistaketech.t1dpe`. Usually Xcode does
+→ **+** → App IDs → App → enter `com.teammistake.t1dpe`. Usually Xcode does
 this automatically the first time you build with a Team selected — check
 here only if Xcode reports a provisioning error.
 
@@ -45,7 +45,7 @@ here only if Xcode reports a provisioning error.
 → **+** → **New App**:
 - Platform: iOS
 - Name: `T1D Prajana Yandra`
-- Bundle ID: select `com.mistaketech.t1dpe`
+- Bundle ID: select `com.teammistake.t1dpe`
 - SKU: anything unique, e.g. `t1dpe-001`
 
 ## 5. Build the release archive
