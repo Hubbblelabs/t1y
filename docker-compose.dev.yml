@@ -1,6 +1,8 @@
-# Local development Postgres — used only until a hosted DATABASE_URL
-# (Neon/Supabase) is supplied for the real environment. Data volume lives on
-# the Crucial SSD, not the internal disk.
+# Local development Postgres. `api/.env`'s DATABASE_URL/DIRECT_DATABASE_URL
+# now point at Neon (see api/docs/CLOUD-SETUP.md) — this container is kept
+# running only as the LOCAL_DATABASE_URL source for
+# api/scripts/verify-cloud-migration.ts and for offline local development.
+# Data volume lives on the Crucial SSD, not the internal disk.
 services:
   postgres:
     image: postgres:16-alpine

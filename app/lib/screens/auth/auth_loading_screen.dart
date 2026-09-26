@@ -82,7 +82,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
       if (mounted) setState(() => _error = e.bothMessage);
     } catch (_) {
       if (mounted) {
-        setState(() => _error = S.bothText(() => S.couldNotReach));
+        setState(() => _error = S.couldNotReach);
       }
     }
   }
@@ -171,7 +171,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(_error),
           child: Text(
-            S.bothText(() => S.tryAgainLabel).replaceAll('\n', ' / '),
+            S.tryAgainLabel.replaceAll('\n', ' / '),
           ),
         ),
       ],

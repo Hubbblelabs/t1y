@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import 'alternating_text.dart';
 
 /// Shared blue header band with a wavy bottom edge and soft decorative
 /// circles, used across the auth screens (email entry, login, signup).
@@ -13,7 +14,7 @@ class WaveHeader extends StatefulWidget {
   final String title;
   final String? subtitle;
 
-  /// The Tamil translation, shown in a smaller size beneath each English line.
+  /// The Tamil translation; the heading and description take turns with it.
   final String? titleTa;
   final String? subtitleTa;
   final bool showBack;
@@ -116,46 +117,27 @@ class _WaveHeaderState extends State<WaveHeader>
                   else
                     const SizedBox(height: 8),
                   const Spacer(),
-                  Text(
+                  AlternatingText(
                     widget.title,
+                    widget.titleTa,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 30,
+                      fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      height: 1.1,
+                      height: 1.15,
                     ),
                   ),
-                  if (widget.titleTa != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.titleTa!,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
-                        fontSize: 19,
-                        fontWeight: FontWeight.w600,
-                        height: 1.15,
-                      ),
-                    ),
-                  ],
                   if (widget.subtitle != null) ...[
-                    const SizedBox(height: 15),
-                    Text(
+                    const SizedBox(height: 12),
+                    AlternatingText(
                       widget.subtitle!,
+                      widget.subtitleTa,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
+                        height: 1.35,
                       ),
                     ),
-                    if (widget.subtitleTa != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        widget.subtitleTa!,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
                   ],
                   const SizedBox(height: 48),
                 ],

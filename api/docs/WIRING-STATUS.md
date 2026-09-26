@@ -84,8 +84,8 @@ Block editor, drag-to-reorder, EN+TA grouped as one topic, `kind`/`heading`/
 `video_player`, and older importer-written blocks still parse unchanged.
 
 **Left:** picture and video **upload is inert until object storage is
-configured.** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-`R2_BUCKET_NAME` and `R2_PUBLIC_BASE_URL` are all unset in `api/.env`.
+configured.** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and
+`CLOUDINARY_API_SECRET` are all unset in `api/.env`.
 
 ---
 

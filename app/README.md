@@ -59,6 +59,31 @@ flutter build apk --debug
 Always open `ios/Runner.xcworkspace`, never `Runner.xcodeproj` — CocoaPods
 integration depends on the workspace.
 
+## Configuration (backend URL)
+
+The app reads config from a `.env` file (via `flutter_dotenv`), bundled into
+the build as an asset and loaded at startup — same `KEY=VALUE` shape as the
+backend's `api/.env`. Copy the template once:
+
+```bash
+cp .env.example .env
+# edit .env with the deployed API's HTTPS URL once one exists
+```
+
+`.env` (the real file) is git-ignored; only `.env.example` is committed. It's
+read at app startup, so just editing it and hot-restarting (not hot-reloading)
+picks up a change — no special build flag needed:
+
+```bash
+flutter run
+flutter build apk --release
+```
+
+If `.env` is missing or doesn't set `API_BASE_URL`, the app falls back to the
+development machine's LAN address (see
+[`lib/config/api_config.dart`](lib/config/api_config.dart)). A release build
+for Google Play must point at an HTTPS address.
+
 ## Architecture
 
 No state-management or routing package (riverpod/go_router) — the app is

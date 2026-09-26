@@ -33,20 +33,20 @@ class LoginLoadingScreen extends StatelessWidget {
 
   static List<({String title, String subtitle})> get _steps => [
     (
-      title: S.bothText(() => S.signingYouIn),
-      subtitle: S.bothText(() => S.welcomeBackApp),
+      title: S.signingYouIn,
+      subtitle: S.welcomeBackApp,
     ),
     (
-      title: S.bothText(() => S.loadingHelpBook),
-      subtitle: S.bothText(() => S.topicsBothLanguages),
+      title: S.loadingHelpBook,
+      subtitle: S.topicsBothLanguages,
     ),
     (
-      title: S.bothText(() => S.quizzesGettingReady),
-      subtitle: S.bothText(() => S.checkAsYouLearn),
+      title: S.quizzesGettingReady,
+      subtitle: S.checkAsYouLearn,
     ),
     (
-      title: S.bothText(() => S.almostDone),
-      subtitle: S.bothText(() => S.momentMore),
+      title: S.almostDone,
+      subtitle: S.momentMore,
     ),
   ];
 

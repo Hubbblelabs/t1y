@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { NextResponse } from "next/server";
 
-import { LOCAL_KEY_PATTERN } from "@/lib/storage/r2";
+import { LOCAL_KEY_PATTERN } from "@/lib/storage/cloudinary";
 
 const TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",

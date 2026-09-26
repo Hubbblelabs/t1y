@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/alternating_text.dart';
 import '../../widgets/bilingual.dart';
 import '../../widgets/app_logo.dart';
 import '../../widgets/orbiting_icons.dart';
@@ -157,10 +158,9 @@ class _BilingualTagline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Bilingual(
+    return AlternatingText(
       _en,
       _ta,
-      alignment: CrossAxisAlignment.center,
       textAlign: TextAlign.center,
       style: TextStyle(
         color: AppTheme.deep.withValues(alpha: 0.75),

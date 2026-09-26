@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'providers/app_state.dart';
 import 'screens/auth/get_started_screen.dart';
 import 'screens/home/home_shell.dart';
 import 'services/auth_service.dart';
 import 'services/content_service.dart';
+import 'services/profile_service.dart';
 import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/strings.dart';
@@ -13,6 +15,11 @@ import 'widgets/locale_transition.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Loads .env (bundled as an asset — see pubspec.yaml). Missing in a
+  // checkout that hasn't copied .env.example to .env yet; ApiConfig falls
+  // back to a default in that case rather than crashing.
+  await dotenv.load(fileName: '.env').catchError((_) {});
   // The Android system navigation bar defaults to an opaque white strip
   // that isn't part of any screen's own background — left unstyled it
   // shows as a plain white bar at the bottom regardless of what the app
@@ -102,6 +109,9 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
   /// nothing to do, so running this on every resume is cheap.
   Future<void> _backgroundSync() async {
     if (!await AuthService.instance.isSignedIn) return;
+    // Every time the app opens it starts in the language saved on this
+    // family's account; the switch in the header changes (and saves) it.
+    await ProfileService.instance.adoptServerLocale().catchError((_) {});
     await ProgressService.instance.flush();
     await ContentService.instance.syncIfStale();
   }

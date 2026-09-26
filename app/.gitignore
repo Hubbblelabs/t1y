@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Build-time config, bundled as an asset (see lib/config/api_config.dart).
+# Copy .env.example to .env and fill in real values; only the template is
+# committed.
+/.env
+!/.env.example

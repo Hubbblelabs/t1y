@@ -28,20 +28,20 @@ class SignupLoadingScreen extends StatelessWidget {
 
   static List<({String title, String subtitle})> get _steps => [
     (
-      title: S.bothText(() => S.creatingAccount),
-      subtitle: S.bothText(() => S.forTheStudy),
+      title: S.creatingAccount,
+      subtitle: S.forTheStudy,
     ),
     (
-      title: S.bothText(() => S.preparingHelpBook),
-      subtitle: S.bothText(() => S.topicsBothLanguages),
+      title: S.preparingHelpBook,
+      subtitle: S.topicsBothLanguages,
     ),
     (
-      title: S.bothText(() => S.quizzesGettingReady),
-      subtitle: S.bothText(() => S.checkAsYouLearn),
+      title: S.quizzesGettingReady,
+      subtitle: S.checkAsYouLearn,
     ),
     (
-      title: S.bothText(() => S.almostDone),
-      subtitle: S.bothText(() => S.momentMore),
+      title: S.almostDone,
+      subtitle: S.momentMore,
     ),
   ];
 

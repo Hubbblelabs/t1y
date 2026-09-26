@@ -1,6 +1,6 @@
 /**
- * Uploads the locally-extracted content figures to Cloudflare R2 and
- * repoints every article at the CDN.
+ * Uploads the locally-extracted content figures to Cloudinary and repoints
+ * every article at the CDN.
  *
  * The content importer writes figures to `public/content/<slug>-<locale>/`
  * and references them as site-relative `/content/...` paths. That works for
@@ -8,22 +8,20 @@
  * images inside the app's API host and gives no CDN, no caching headers and
  * no edge locations for participants on 3G in Coimbatore.
  *
- * This script is the migration to R2. It is safe to run repeatedly:
+ * This script is the migration to Cloudinary. It is safe to run repeatedly:
  *
  *   - The object key is the image's own sha256 (already the filename), so an
  *     unchanged image maps to the same key and re-uploading is a no-op write.
  *   - A `MediaAsset` row is recorded per object; `key` is unique, so the
  *     second run skips anything already uploaded rather than re-sending it.
- *   - Body/thumbnail rewriting is idempotent: URLs already pointing at the
- *     public base are left alone.
+ *   - Body/thumbnail rewriting is idempotent: URLs already pointing at
+ *     Cloudinary are left alone.
  *
- * Requires the R2 credentials in `.env`:
+ * Requires the Cloudinary credentials in `.env`:
  *
- *   R2_ACCOUNT_ID=…
- *   R2_ACCESS_KEY_ID=…
- *   R2_SECRET_ACCESS_KEY=…
- *   R2_BUCKET_NAME=…
- *   R2_PUBLIC_BASE_URL=https://cdn.example.com   ← the public/CDN origin
+ *   CLOUDINARY_CLOUD_NAME=…
+ *   CLOUDINARY_API_KEY=…
+ *   CLOUDINARY_API_SECRET=…
  *
  * Run with:  npx tsx scripts/upload-content-images.ts [--dry-run]
  *
@@ -38,70 +36,61 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { v2 as cloudinary } from "cloudinary";
 
 import { PrismaClient } from "../generated/prisma/client";
 
-// `lib/env.ts` and `lib/storage/r2.ts` both import "server-only", which
-// throws outside Next's react-server condition — so this script reads the
-// same environment variables and builds its own S3 client rather than
-// reusing them. Same pattern as scripts/import-content.ts.
+// `lib/env.ts` and `lib/storage/cloudinary.ts` both import "server-only",
+// which throws outside Next's react-server condition — so this script reads
+// the same environment variables and configures its own Cloudinary client
+// rather than reusing them. Same pattern as scripts/import-content.ts.
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 const isDryRun = process.argv.includes("--dry-run");
 
-const R2 = {
-  accountId: process.env.R2_ACCOUNT_ID,
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  bucket: process.env.R2_BUCKET_NAME,
-  publicBaseUrl: process.env.R2_PUBLIC_BASE_URL,
+const CLOUDINARY = {
+  cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+  apiKey: process.env.CLOUDINARY_API_KEY,
+  apiSecret: process.env.CLOUDINARY_API_SECRET,
 };
 
 function isStorageConfigured(): boolean {
-  return Boolean(R2.accountId && R2.accessKeyId && R2.secretAccessKey && R2.bucket);
+  return Boolean(CLOUDINARY.cloudName && CLOUDINARY.apiKey && CLOUDINARY.apiSecret);
 }
 
-let _s3: S3Client | null = null;
-function s3(): S3Client {
-  _s3 ??= new S3Client({
-    region: "auto",
-    endpoint: `https://${R2.accountId}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: R2.accessKeyId!,
-      secretAccessKey: R2.secretAccessKey!,
-    },
+let configured = false;
+function client() {
+  if (!configured) {
+    cloudinary.config({
+      cloud_name: CLOUDINARY.cloudName,
+      api_key: CLOUDINARY.apiKey,
+      api_secret: CLOUDINARY.apiSecret,
+      secure: true,
+    });
+    configured = true;
+  }
+  return cloudinary;
+}
+
+async function putObject(params: { key: string; body: Buffer }): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const stream = client().uploader.upload_stream(
+      { public_id: params.key, resource_type: "image", overwrite: true },
+      (error) => (error ? reject(error) : resolve()),
+    );
+    stream.end(params.body);
   });
-  return _s3;
 }
 
-async function putObject(params: {
-  key: string;
-  body: Uint8Array;
-  contentType: string;
-}): Promise<void> {
-  await s3().send(
-    new PutObjectCommand({
-      Bucket: R2.bucket,
-      Key: params.key,
-      Body: params.body,
-      ContentType: params.contentType,
-      // Content is hash-addressed, so it can be cached indefinitely.
-      CacheControl: "public, max-age=31536000, immutable",
-    }),
-  );
-}
-
-function publicUrlFor(key: string): string {
-  const base = R2.publicBaseUrl?.replace(/\/+$/, "");
-  return base ? `${base}/${key}` : key;
+function publicUrlFor(key: string, extension: string): string {
+  return `https://res.cloudinary.com/${CLOUDINARY.cloudName}/image/upload/${key}${extension}`;
 }
 
 const CONTENT_ROOT = path.join(process.cwd(), "public", "content");
-/** Key prefix inside the bucket; keeps study assets separate from uploads. */
-const KEY_PREFIX = "content";
+/** Key prefix inside Cloudinary; keeps study assets separate from admin uploads. */
+const KEY_PREFIX = "t1dpe/content";
 
 const CONTENT_TYPES: Record<string, string> = {
   ".webp": "image/webp",
@@ -188,8 +177,9 @@ async function uploadAll(uploaderId: string): Promise<UploadedImage[]> {
     // keeps the key correct even if a file was replaced by hand.
     const sha = createHash("sha256").update(bytes).digest("hex");
     const dir = path.basename(path.dirname(image.absPath));
-    const key = `${KEY_PREFIX}/${dir}/${sha}${path.extname(image.absPath)}`;
-    const publicUrl = publicUrlFor(key);
+    const extension = path.extname(image.absPath);
+    const key = `${KEY_PREFIX}/${dir}/${sha}`;
+    const publicUrl = publicUrlFor(key, extension);
 
     const existing = await prisma.mediaAsset.findUnique({ where: { key } });
     if (existing) {
@@ -216,11 +206,11 @@ async function uploadAll(uploaderId: string): Promise<UploadedImage[]> {
       continue;
     }
 
-    await putObject({ key, body: bytes, contentType: image.contentType });
+    await putObject({ key, body: bytes });
     await prisma.mediaAsset.create({
       data: {
         key,
-        bucket: R2.bucket!,
+        bucket: CLOUDINARY.cloudName!,
         url: publicUrl,
         kind: "IMAGE",
         purpose: "education-media",
@@ -270,19 +260,19 @@ async function rewriteReferences(uploaded: UploadedImage[]): Promise<void> {
       where: { id: article.id },
       data: { body, thumbnailUrl },
     });
-    console.log(`  ✓ ${article.slug}.${article.locale}: image URLs repointed to R2`);
+    console.log(`  ✓ ${article.slug}.${article.locale}: image URLs repointed to Cloudinary`);
   }
 
   if (changed === 0) console.log("  = no article needed rewriting");
 }
 
 async function main() {
-  console.log(`Uploading content images to R2${isDryRun ? " (dry run)" : ""}…\n`);
+  console.log(`Uploading content images to Cloudinary${isDryRun ? " (dry run)" : ""}…\n`);
 
   if (!isStorageConfigured()) {
     console.error(
-      "R2 is not configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,\n" +
-        "R2_BUCKET_NAME and R2_PUBLIC_BASE_URL in api/.env, then re-run.\n\n" +
+      "Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and\n" +
+        "CLOUDINARY_API_SECRET in api/.env, then re-run.\n\n" +
         "Until then the app serves these images from the API host at /content/... ,\n" +
         "which works but has no CDN in front of it.",
     );

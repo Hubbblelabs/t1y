@@ -299,7 +299,9 @@ export async function addChild(input: AddChildInput): Promise<AddChildResult> {
         email,
         name: input.name,
         role: "PATIENT",
-        status: "PENDING",
+        // Usable at once, like a self-registered account — the study team
+        // decided a child a parent adds needs no coordinator approval.
+        status: "ACTIVE",
         householdId: household.id,
         // The parent's address was already verified when the household was
         // created; this alias delivers to that same inbox, so re-verifying it

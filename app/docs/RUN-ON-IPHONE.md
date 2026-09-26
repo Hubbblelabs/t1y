@@ -56,6 +56,9 @@ cd /Volumes/Crucial/diabetics/app
 flutter build ipa
 ```
 
+`.env` (see the README's "Configuration" section) points at the deployed
+backend — make sure it's filled in before building the release archive.
+
 This produces `build/ios/ipa/t1dpe.ipa`. If it fails on a signing step,
 open the workspace (step 1) and do **Product → Archive** from Xcode instead
 — the Organizer window that opens afterward has a **Distribute App** button

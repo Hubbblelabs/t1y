@@ -2,12 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/strings.dart';
 
-/// English, with the Tamil translation beneath it in a smaller size.
-///
-/// Used on the sign-in and sign-up screens, which do not follow the language
-/// switch: they always show both, so nobody has to find a toggle before they can
-/// read what they are being asked. English is the main line; the Tamil is a
-/// quieter line underneath.
+/// A label on the screens before sign-in: shown in English.
 class Bilingual extends StatelessWidget {
   final String en;
   final String ta;
@@ -51,27 +46,10 @@ class Bilingual extends StatelessWidget {
     );
   }
 
+  /// Before sign-in, labels and buttons are English only (the headings take
+  /// turns with Tamil instead — see AlternatingText). The Tamil is kept here
+  /// so a screen can go back to showing it without rewriting every call.
   @override
-  Widget build(BuildContext context) {
-    final base = style.fontSize ?? 14;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: alignment,
-      children: [
-        Text(en, style: style, textAlign: textAlign),
-        if (ta.isNotEmpty && ta != en) ...[
-          const SizedBox(height: 2),
-          Text(
-            ta,
-            textAlign: textAlign,
-            style: style.copyWith(
-              fontSize: base * tamilScale,
-              fontWeight: FontWeight.w500,
-              color: (style.color ?? Colors.black).withValues(alpha: 0.78),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
+  Widget build(BuildContext context) =>
+      Text(en, style: style, textAlign: textAlign);
 }

@@ -31,7 +31,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   String? _error;
   bool _submitting = false;
 
-  static const _minLength = 12;
+  static const _minLength = 8;
   static const _maxLength = 128;
 
   Future<void> _submit() async {
@@ -39,8 +39,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     final newPassword = _newController.text;
     final confirm = _confirmController.text;
 
-    if (newPassword.length < _minLength) {
-      setState(() => _error = S.bothText(() => S.passwordTooShort(_minLength)));
+    if (newPassword.length < _minLength ||
+        !RegExp(r'[A-Za-z]').hasMatch(newPassword) ||
+        !RegExp(r'[0-9]').hasMatch(newPassword)) {
+      setState(() => _error = S.passwordRule);
       return;
     }
     if (newPassword.length > _maxLength) {

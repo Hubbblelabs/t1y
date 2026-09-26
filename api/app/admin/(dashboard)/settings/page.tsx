@@ -143,7 +143,7 @@ export default async function SettingsPage() {
               }
             />
             <DataPoint
-              label="Object storage (Cloudflare R2)"
+              label="Object storage (Cloudinary)"
               value={
                 isStorageConfigured() ? (
                   <Badge tone="success">Configured</Badge>

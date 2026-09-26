@@ -3,16 +3,15 @@ import 'package:flutter/material.dart';
 import '../../l10n/strings.dart';
 import '../../models/terms_content.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/bilingual.dart';
+import '../../providers/app_state.dart';
+import '../../widgets/language_toggle.dart';
 
 /// Full terms text behind the sign-up chat's "Read Terms & Conditions"
 /// button. Tapping "I Agree" pops back with `true`, which
 /// [SignupChatScreen._openTerms] treats as consent and continues sign-up.
 ///
-/// Shows the full English terms with the full Tamil translation beneath them,
-/// in a smaller size, rather than behind a language switch. A parent cannot
-/// meaningfully consent to terms they cannot read, so the Tamil is on the page
-/// at the moment of consent — nothing has to be found or toggled first.
+/// Shown in the language the family picked at the start of sign-up, with an
+/// English / Tamil switch in the header so either can be read before agreeing.
 class TermsScreen extends StatefulWidget {
   const TermsScreen({super.key});
 
@@ -28,14 +27,15 @@ class _TermsScreenState extends State<TermsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Bilingual.s(
-          () => S.termsTitle,
+        title: Text(
+          S.termsTitle,
           style: const TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             color: AppTheme.deep,
           ),
         ),
+        actions: const [LanguageToggle(), SizedBox(width: 12)],
         toolbarHeight: 64,
         backgroundColor: Colors.white,
         foregroundColor: AppTheme.deep,
@@ -49,25 +49,15 @@ class _TermsScreenState extends State<TermsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      termsFullTextEn.trim(),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        height: 1.6,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    // The same terms in Tamil, a step smaller so the English
-                    // reads as the main text and this as its translation.
-                    Text(
-                      termsFullTextTa.trim(),
-                      style: TextStyle(
-                        color: Colors.black.withValues(alpha: 0.82),
-                        fontSize: 12.5,
-                        height: 1.6,
+                    AnimatedBuilder(
+                      animation: AppState.instance,
+                      builder: (context, _) => Text(
+                        termsFullText.trim(),
+                        style: const TextStyle(
+                          color: AppTheme.ink,
+                          fontSize: 14.5,
+                          height: 1.6,
+                        ),
                       ),
                     ),
                   ],
@@ -95,8 +85,8 @@ class _TermsScreenState extends State<TermsScreen> {
                                 setState(() => _agreed = v ?? false),
                           ),
                           Expanded(
-                            child: Bilingual.s(
-                              () => S.agreeToTermsCheckbox,
+                            child: Text(
+                              S.agreeToTermsCheckbox,
                               style: const TextStyle(
                                 fontSize: 13.5,
                                 height: 1.4,
@@ -113,9 +103,8 @@ class _TermsScreenState extends State<TermsScreen> {
                     onPressed: _agreed
                         ? () => Navigator.of(context).pop(true)
                         : null,
-                    child: Bilingual.s(
-                      () => S.continueLabel,
-                      alignment: CrossAxisAlignment.center,
+                    child: Text(
+                      S.continueLabel,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         fontSize: 15,

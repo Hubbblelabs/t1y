@@ -28,7 +28,7 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
   final _confirmController = TextEditingController();
   String? _error;
 
-  static const _minLength = 12;
+  static const _minLength = 8;
   static const _maxLength = 128;
 
   void _continue() {
@@ -36,8 +36,10 @@ class _SignupPasswordScreenState extends State<SignupPasswordScreen> {
     final password = _passwordController.text;
     final confirm = _confirmController.text;
 
-    if (password.length < _minLength) {
-      setState(() => _error = S.bothText(() => S.passwordTooShort(_minLength)));
+    if (password.length < _minLength ||
+        !RegExp(r'[A-Za-z]').hasMatch(password) ||
+        !RegExp(r'[0-9]').hasMatch(password)) {
+      setState(() => _error = S.passwordRule);
       return;
     }
     if (password.length > _maxLength) {

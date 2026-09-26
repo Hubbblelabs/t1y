@@ -216,7 +216,7 @@ function Cover({ topic }: { topic: TopicRow }) {
 
   return (
     // eslint-disable-next-line @next/next/no-img-element -- content images are
-    // author-uploaded to R2 at arbitrary sizes; the optimiser adds nothing to
+    // author-uploaded to Cloudinary at arbitrary sizes; the optimiser adds nothing to
     // a 72px admin thumbnail.
     <img
       src={url}

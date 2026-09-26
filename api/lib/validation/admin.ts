@@ -151,7 +151,7 @@ export const bulkParticipantRowSchema = z
 /** A 500-row cap keeps one import inside a single request's timeout budget. */
 export const bulkImportParticipantsSchema = z.object({
   fileBase64: z.string().min(1),
-  dummyPassword: z.string().min(12).max(128),
+  dummyPassword: z.string().min(8).max(128),
 });
 
 export const updateParticipantSchema = z.object({
@@ -793,5 +793,5 @@ export const supportStatusSchema = z.object({
 
 export const changeOwnPasswordSchema = z.object({
   currentPassword: z.string().min(1).max(128),
-  newPassword: z.string().min(12, "Use at least 12 characters.").max(128),
+  newPassword: z.string().min(8, "Use at least 8 characters.").max(128),
 });

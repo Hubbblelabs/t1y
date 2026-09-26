@@ -12,6 +12,9 @@ cd /Volumes/Crucial/diabetics/app
 flutter build apk --release
 ```
 
+`.env` (see the README's "Configuration" section) points at the deployed
+backend — make sure it's filled in before building the release APK.
+
 Output: `build/app/outputs/flutter-apk/app-release.apk`.
 
 This is signed with a real release keystore

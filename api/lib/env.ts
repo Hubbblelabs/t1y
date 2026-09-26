@@ -5,7 +5,7 @@ import { z } from "zod";
 /**
  * Server-side environment configuration.
  *
- * Optional integrations (R2, Resend, Sentry) are validated but not required, so
+ * Optional integrations (Cloudinary, Resend, Sentry) are validated but not required, so
  * the application still boots in environments where they are not configured.
  * Call the `isXConfigured` helpers before using them.
  *
@@ -33,11 +33,9 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("Diabetes Platform <no-reply@example.com>"),
 
-  R2_ACCOUNT_ID: z.string().optional(),
-  R2_ACCESS_KEY_ID: z.string().optional(),
-  R2_SECRET_ACCESS_KEY: z.string().optional(),
-  R2_BUCKET_NAME: z.string().optional(),
-  R2_PUBLIC_BASE_URL: z.string().optional(),
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 
   SENTRY_DSN: z.string().optional(),
 
@@ -93,10 +91,7 @@ export function isEmailConfigured(): boolean {
 
 export function isStorageConfigured(): boolean {
   return Boolean(
-    env.R2_ACCOUNT_ID &&
-      env.R2_ACCESS_KEY_ID &&
-      env.R2_SECRET_ACCESS_KEY &&
-      env.R2_BUCKET_NAME,
+    env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
   );
 }
 

@@ -210,28 +210,6 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                   icon: const Icon(Icons.edit_note_rounded),
                   label: Text(S.enterRecentReading),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.lock_outline_rounded,
-                      size: 16,
-                      color: AppTheme.inkSoft,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        S.healthGlanceHint,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 12.5,
-                          color: AppTheme.inkSoft,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             );
           },

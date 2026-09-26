@@ -7,7 +7,7 @@ import { RateLimits } from "@/lib/api/rate-limit";
 import { noContent } from "@/lib/api/response";
 import { Capability } from "@/lib/permissions/roles";
 import { isStorageConfigured } from "@/lib/env";
-import { LOCAL_KEY_PATTERN } from "@/lib/storage/r2";
+import { LOCAL_KEY_PATTERN } from "@/lib/storage/cloudinary";
 
 const MAX_BYTES = 500 * 1024 * 1024;
 

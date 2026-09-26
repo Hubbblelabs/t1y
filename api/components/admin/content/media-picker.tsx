@@ -23,9 +23,23 @@ interface UploadResult {
   key: string;
 }
 
+interface UploadTicket {
+  uploadUrl: string;
+  method: "PUT" | "POST";
+  key: string;
+  publicUrl: string;
+  requiredHeaders?: Record<string, string>;
+  formFields?: Record<string, string>;
+  fileField?: string;
+}
+
 /**
- * Uploads a file straight to object storage using a short-lived signed URL
+ * Uploads a file straight to object storage using a short-lived signed ticket
  * from the server, so the bytes never pass through the application.
+ *
+ * The local development fallback (no cloud storage configured) sends the raw
+ * bytes as a PUT; Cloudinary is a signed POST with the file and a handful of
+ * form fields alongside it — the ticket says which.
  */
 async function uploadFile(
   file: File,
@@ -42,24 +56,46 @@ async function uploadFile(
     }),
   });
 
-  const ticket = await ticketResponse.json();
+  const ticketBody = await ticketResponse.json();
   if (!ticketResponse.ok) {
-    throw new Error(ticket?.error?.message ?? "This file could not be uploaded.");
+    throw new Error(ticketBody?.error?.message ?? "This file could not be uploaded.");
   }
+  const ticket = ticketBody.data as UploadTicket;
 
-  const put = await fetch(ticket.data.uploadUrl, {
-    method: "PUT",
-    headers: ticket.data.requiredHeaders,
-    body: file,
-  });
+  const sent =
+    ticket.method === "POST"
+      ? await fetch(ticket.uploadUrl, { method: "POST", body: formDataFor(ticket, file) })
+      : await fetch(ticket.uploadUrl, {
+          method: "PUT",
+          headers: ticket.requiredHeaders,
+          body: file,
+        });
 
-  if (!put.ok) {
+  if (!sent.ok) {
     throw new Error(
       "The file could not be sent to storage. Picture storage may not be set up yet — ask whoever set up this system.",
     );
   }
 
-  return { url: ticket.data.publicUrl, key: ticket.data.key };
+  // Cloudinary's own response is the source of truth for the final URL —
+  // the ticket's `publicUrl` is only a best guess made before the upload.
+  if (ticket.method === "POST") {
+    const uploaded = await sent.json().catch(() => null);
+    if (uploaded?.secure_url) {
+      return { url: uploaded.secure_url as string, key: ticket.key };
+    }
+  }
+
+  return { url: ticket.publicUrl, key: ticket.key };
+}
+
+function formDataFor(ticket: UploadTicket, file: File): FormData {
+  const data = new FormData();
+  for (const [name, value] of Object.entries(ticket.formFields ?? {})) {
+    data.append(name, value);
+  }
+  data.append(ticket.fileField ?? "file", file);
+  return data;
 }
 
 /** Reads a picture's own proportions, so a badly-shaped one can be flagged. */

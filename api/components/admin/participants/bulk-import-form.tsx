@@ -66,8 +66,8 @@ export function BulkImportForm() {
       setError("Choose a filled-in .xlsx file first.");
       return;
     }
-    if (dummyPassword.length < 12) {
-      setError("The shared password must be at least 12 characters.");
+    if (dummyPassword.length < 8) {
+      setError("The shared password must be at least 8 characters.");
       return;
     }
 

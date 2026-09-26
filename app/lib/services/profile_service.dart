@@ -143,7 +143,12 @@ class ProfileService {
   Future<void> saveLocale(String locale) async {
     try {
       await ApiClient.instance.patch('/api/users/me', body: {'locale': locale});
-    } catch (_) {}
+    } catch (_) {
+      // No account yet (switched on the terms screen during sign-up), or no
+      // signal: kept, and sent with the rest of the sign-up answers.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingLocaleKey, locale);
+    }
   }
 
   /// Saves any subset of the extended profile fields (phone, address,

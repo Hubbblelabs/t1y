@@ -45,6 +45,7 @@
     "@radix-ui/react-tooltip": "^1.2.16",
     "better-auth": "^1.6.26",
     "class-variance-authority": "^0.7.1",
+    "cloudinary": "^2.11.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",

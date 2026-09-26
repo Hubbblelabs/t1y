@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '../../models/question.dart';
+import '../../providers/app_state.dart';
 import '../../models/signup_question.dart';
 import '../../services/profile_service.dart';
 import '../../services/question_service.dart';
 import '../../l10n/strings.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/bilingual.dart';
 import '../../widgets/error_banner.dart';
 import 'signup_loading_screen.dart';
 import 'terms_screen.dart';
@@ -85,14 +85,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   @override
   void initState() {
     super.initState();
-    _messages.add(
-      _ChatMessage(
-        "A few details about the child will help us better understand their needs. Your information will remain private.",
-        secondary:
-            'குழந்தையைப் பற்றிய சில விவரங்கள் அவர்களின் தேவைகளை நன்கு புரிந்துகொள்ள எங்களுக்கு உதவும். உங்கள் தகவல் தனிப்பட்டதாகவே இருக்கும்.',
-        isUser: false,
-      ),
-    );
+    // The one message shown in both languages: nothing is chosen yet.
     final question = S.both(() => S.preferredLanguageQuestion);
     _messages.add(
       _ChatMessage(question.en, secondary: question.ta, isUser: false),
@@ -100,20 +93,20 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     _loadQuestions();
   }
 
+  /// From here on the whole chat — questions, hints, answers, the terms —
+  /// is in the chosen language only.
   Future<void> _chooseLanguage(String locale) async {
+    await ProfileService.instance.stashPreferredLocale(locale);
+    if (!mounted) return;
     setState(() {
       _languageChosen = true;
       _messages.add(
-        _ChatMessage(
-          locale == 'ta' ? 'தமிழ்' : 'English',
-          secondary: locale == 'ta' ? 'Tamil' : 'ஆங்கிலம்',
-          isUser: true,
-        ),
+        _ChatMessage(locale == 'ta' ? 'தமிழ்' : 'English', isUser: true),
       );
+      _messages.add(_ChatMessage(S.signupIntro, isUser: false));
       if (_questions != null) _askCurrentQuestion();
     });
     _scrollToEnd();
-    await ProfileService.instance.stashPreferredLocale(locale);
   }
 
   Future<void> _loadQuestions() async {
@@ -133,12 +126,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
 
   void _askTerms() {
     _messages.add(
-      _ChatMessage(
-        'One last thing — please read our Terms & Conditions and tap "I Agree" to create the account.',
-        secondary:
-            'கடைசியாக ஒன்று — எங்கள் விதிமுறைகள் மற்றும் நிபந்தனைகளைப் படித்து, கணக்கை உருவாக்க "நான் ஏற்கிறேன்" என்பதைத் தட்டவும்.',
-        isUser: false,
-      ),
+      _ChatMessage(S.signupTermsPrompt, isUser: false),
     );
   }
 
@@ -152,7 +140,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   Future<void> _respondToTerms() async {
     setState(() {
       _messages.add(
-        _ChatMessage('I Agree', secondary: 'நான் ஏற்கிறேன்', isUser: true),
+        _ChatMessage(S.iAgree, isUser: true),
       );
     });
     _scrollToEnd();
@@ -184,8 +172,9 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   void _askCurrentQuestion() {
     _messages.add(
       _ChatMessage(
-        _current.promptEnglish,
-        secondary: _current.promptTamil,
+        AppState.instance.locale == 'ta'
+            ? (_current.promptTamil ?? _current.promptEnglish)
+            : _current.promptEnglish,
         isUser: false,
       ),
     );
@@ -222,8 +211,9 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
       if (!skipped) _answers[_current.key] = stored;
       _messages.add(
         _ChatMessage(
-          skipped ? 'Skip' : displayAnswer(_current, stored, 'en'),
-          secondary: skipped ? null : displayAnswerTa(_current, stored),
+          skipped
+              ? S.skipLabel
+              : displayAnswer(_current, stored, AppState.instance.locale),
           isUser: true,
           questionKey: _current.key,
         ),
@@ -281,8 +271,8 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 64,
-        title: Bilingual.s(
-          () => S.beforeWeBegin,
+        title: Text(
+          S.beforeWeBegin,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
       ),
@@ -397,14 +387,14 @@ class _ChatBubbleState extends State<_ChatBubble>
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
                 title: Text(
-                  S.bothText(() => S.editLabel).replaceAll('\n', ' / '),
+                  S.editLabel,
                 ),
                 onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.edit),
               ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
               title: Text(
-                S.bothText(() => S.copyLabel).replaceAll('\n', ' / '),
+                S.copyLabel,
               ),
               onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.copy),
             ),
@@ -422,7 +412,7 @@ class _ChatBubbleState extends State<_ChatBubble>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                S.bothText(() => S.copiedLabel).replaceAll('\n', ' / '),
+                S.copiedLabel,
               ),
               behavior: SnackBarBehavior.floating,
               duration: Duration(seconds: 1),
@@ -535,7 +525,7 @@ class _AnswerInput extends StatelessWidget {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: () => onSubmit(''),
-            child: Text(S.bothText(() => S.skipLabel).replaceAll('\n', ' / ')),
+            child: Text(S.skipLabel),
           ),
         ),
       ],
@@ -553,22 +543,9 @@ class _AnswerInput extends StatelessWidget {
           children: question.options
               .map(
                 (option) => ActionChip(
-                  label: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        option.labelEn,
-                        style: const TextStyle(color: Colors.black),
-                      ),
-                      if (option.labelTa != null)
-                        Text(
-                          option.labelTa!,
-                          style: TextStyle(
-                            color: AppTheme.inkSoft,
-                            fontSize: 10.5,
-                          ),
-                        ),
-                    ],
+                  label: Text(
+                    option.label(AppState.instance.locale),
+                    style: const TextStyle(color: Colors.black),
                   ),
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: AppTheme.accent),
@@ -592,7 +569,7 @@ class _AnswerInput extends StatelessWidget {
                 readOnly: true,
                 style: const TextStyle(color: Colors.black, fontSize: 16),
                 decoration: _answerBoxDecoration(
-                  S.bothText(() => S.tapToChooseDate).replaceAll('\n', ' / '),
+                  S.tapToChooseDate,
                 ),
                 onTap: () async {
                   final now = DateTime.now();
@@ -640,8 +617,8 @@ class _AnswerInput extends StatelessWidget {
               style: const TextStyle(color: Colors.black, fontSize: 16),
               decoration: _answerBoxDecoration(
                 question.unit == null
-                    ? S.bothText(() => S.typeYourAnswer).replaceAll('\n', ' / ')
-                    : '${S.bothText(() => S.typeYourAnswer).replaceAll('\n', ' / ')} (${question.unit})',
+                    ? S.typeYourAnswer
+                    : '${S.typeYourAnswer} (${question.unit})',
               ),
               onSubmitted: onSubmit,
             ),
@@ -715,9 +692,8 @@ class _TermsPromptInput extends StatelessWidget {
     return FilledButton.icon(
       onPressed: onOpenTerms,
       icon: const Icon(Icons.menu_book_outlined, size: 18),
-      label: Bilingual.s(
-        () => S.readTerms,
-        alignment: CrossAxisAlignment.center,
+      label: Text(
+        S.readTerms,
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 14,

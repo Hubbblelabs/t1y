@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 
-const MIN = 12;
+const MIN = 8;
 
 /** A signed-in staff member choosing a new password. */
 export function ChangePasswordForm({ redirectTo = "/admin/dashboard" }: { redirectTo?: string }) {

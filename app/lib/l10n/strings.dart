@@ -118,10 +118,7 @@ class S {
   // ── Messages that used to be English only ────────────────────────────────
   /// One string as "English\nTamil", for the sign-in and sign-up screens,
   /// which always show both.
-  static String bothText(String Function() read) {
-    final b = both(read);
-    return b.en == b.ta ? b.en : '${b.en}\n${b.ta}';
-  }
+  static String bothText(String Function() read) => both(read).en;
 
   static String get screenFailed => _t(
     'Something went wrong showing this part of the screen. Please go back and try again.',
@@ -135,6 +132,10 @@ class S {
   static String passwordTooShort(int n) => _t(
     'Password must be at least $n characters.',
     'கடவுச்சொல் குறைந்தது $n எழுத்துகள் இருக்க வேண்டும்.',
+  );
+  static String get passwordRule => _t(
+    'Use at least 8 characters, with both letters and numbers.',
+    'குறைந்தது 8 எழுத்துகள் பயன்படுத்தவும்; எழுத்துகளும் எண்களும் இரண்டும் இருக்க வேண்டும்.',
   );
   static String passwordTooLong(int n) => _t(
     'Password must be at most $n characters.',
@@ -716,10 +717,6 @@ class S {
     'இதுவரை அளவீடு எதுவும் பதிவு செய்யப்படவில்லை',
   );
   static String get recordTitle => _t('Record', 'பதிவு செய்');
-  static String get healthGlanceHint => _t(
-    'Your parent PIN is asked before anything can be recorded.',
-    'எதையும் பதிவு செய்வதற்கு முன் உங்கள் பெற்றோர் பின் கேட்கப்படும்.',
-  );
   static String get glucoseReadingLabel =>
       _t('Glucose reading (mg/dL)', 'குளுக்கோஸ் அளவு (mg/dL)');
   static String get unitsGiven => _t('Units given', 'கொடுத்த யூனிட்கள்');
@@ -847,6 +844,15 @@ class S {
       _t('Your account has been deleted.', 'உங்கள் கணக்கு நீக்கப்பட்டது.');
 
   // ── Language preference at sign-up ──────────────────────────────────────
+  static String get signupIntro => _t(
+    'A few details about the child will help us better understand their needs. Your information will remain private.',
+    'குழந்தையைப் பற்றிய சில விவரங்கள் அவர்களின் தேவைகளை நன்கு புரிந்துகொள்ள எங்களுக்கு உதவும். உங்கள் தகவல் தனிப்பட்டதாகவே இருக்கும்.',
+  );
+  static String get signupTermsPrompt => _t(
+    'One last thing — please read our Terms & Conditions and tap "I Agree" to create the account.',
+    'கடைசியாக ஒன்று — எங்கள் விதிமுறைகள் மற்றும் நிபந்தனைகளைப் படித்து, கணக்கை உருவாக்க "நான் ஏற்கிறேன்" என்பதைத் தட்டவும்.',
+  );
+  static String get iAgree => _t('I Agree', 'நான் ஏற்கிறேன்');
   static String get preferredLanguageQuestion => _t(
     'Which language would you like the app in? You can switch any time.',
     'செயலி எந்த மொழியில் வேண்டும்? எப்போது வேண்டுமானாலும் மாற்றலாம்.',

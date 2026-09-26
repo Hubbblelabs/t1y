@@ -147,7 +147,11 @@ export function defineRoute<
       }
 
       if (principal) {
-        const needsVerification = config.requireVerifiedEmail ?? true;
+        // Families never have to verify an email address: an account made in
+        // the app works immediately for everything (quizzes, profile, health
+        // records). Only staff accounts are held to a verified address.
+        const needsVerification =
+          (config.requireVerifiedEmail ?? true) && principal.role !== "PATIENT";
         if (needsVerification && !principal.emailVerified) {
           throw new ForbiddenError(
             "Verify your email address before continuing.",

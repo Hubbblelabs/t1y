@@ -1,6 +1,7 @@
 import "server-only";
 
 import { betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { bearer } from "better-auth/plugins/bearer";
@@ -26,7 +27,35 @@ import { logger } from "@/lib/utils/logger";
 
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+/**
+ * The password rule, decided by the study team: at least 8 characters, with
+ * both letters and numbers. No capitals or symbols are demanded. Checked on
+ * every path that sets a password; the app checks the same thing first so a
+ * family sees the reason before sending.
+ */
+export const PASSWORD_RULE_MESSAGE =
+  "Use at least 8 characters, with both letters and numbers.";
+
+export function passwordProblem(password: unknown): string | null {
+  if (typeof password !== "string") return null;
+  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+    return PASSWORD_RULE_MESSAGE;
+  }
+  return null;
+}
+
+const PASSWORD_PATHS = new Set(["/sign-up/email", "/change-password", "/reset-password"]);
+
 export const auth = betterAuth({
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (!PASSWORD_PATHS.has(ctx.path)) return;
+      const body = (ctx.body ?? {}) as { password?: unknown; newPassword?: unknown };
+      const problem = passwordProblem(ctx.path === "/sign-up/email" ? body.password : body.newPassword);
+      if (problem) throw new APIError("BAD_REQUEST", { message: problem });
+    }),
+  },
+
   appName: "Digital Diabetes Management Platform",
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
@@ -45,7 +74,7 @@ export const auth = betterAuth({
     // this path for email verification to stand in for, so it no longer
     // blocks sign-in either.
     requireEmailVerification: false,
-    minPasswordLength: 12,
+    minPasswordLength: 8,
     maxPasswordLength: 128,
     autoSignIn: true,
     resetPasswordTokenExpiresIn: 60 * 60, // 1 hour

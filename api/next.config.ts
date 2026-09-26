@@ -31,9 +31,8 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
-      // Media served from the Cloudflare R2 public base URL.
-      { protocol: "https", hostname: "**.r2.dev" },
-      { protocol: "https", hostname: "**.r2.cloudflarestorage.com" },
+      // Media served from Cloudinary.
+      { protocol: "https", hostname: "res.cloudinary.com" },
     ],
   },
 

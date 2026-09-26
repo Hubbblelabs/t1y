@@ -1,25 +1,25 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where the backend lives.
 ///
-/// Set at build time, not typed into the app:
-///
-///   flutter build appbundle --release \
-///     --dart-define=API_BASE_URL=https://your-api-domain
+/// Set via `.env` (copy `.env.example`, see the app's README "Configuration"
+/// section), bundled into the app at build time as an asset and read at
+/// startup — not typed into the app, and not fetched over the network.
 ///
 /// A release build for Google Play must point at an HTTPS address — release
 /// builds do not allow plain HTTP (see android/app/src/debug/AndroidManifest.xml
-/// for the development-only exception). Without the define, a debug build
-/// falls back to the development machine's address on the local network.
+/// for the development-only exception). If `.env` is missing or doesn't set
+/// API_BASE_URL, this falls back to the development machine's address on the
+/// local network.
 class ApiConfig {
   ApiConfig._();
 
   static const _prefsKey = 'api_base_url';
+  static const _fallbackBaseUrl = 'http://192.168.29.87:3000';
 
-  static const defaultBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://192.168.29.87:3000',
-  );
+  static String get defaultBaseUrl =>
+      dotenv.maybeGet('API_BASE_URL') ?? _fallbackBaseUrl;
 
   static String? _cached;
 

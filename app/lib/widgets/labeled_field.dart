@@ -112,19 +112,6 @@ class _LabeledFieldState extends State<LabeledField> {
                 color: AppTheme.deep.withValues(alpha: 0.85),
               ),
             ),
-            if (widget.labelTa != null) ...[
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  widget.labelTa!,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.deep.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
         const SizedBox(height: 8),
