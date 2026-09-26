@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
+import { TransliterateInput, TransliterateTextarea } from "@/components/admin/content/transliterate-field";
 import {
   Select,
   SelectContent,
@@ -289,16 +290,33 @@ export function QuizForm({
 
       <Card className="space-y-4 p-5">
         <Field label="Title" htmlFor="quiz-title" required>
-          <Input id="quiz-title" value={value.title} onChange={(e) => set("title", e.target.value)} />
+          {value.locale === "TA" ? (
+            <TransliterateInput
+              id="quiz-title"
+              value={value.title}
+              onChangeText={(text) => set("title", text)}
+            />
+          ) : (
+            <Input id="quiz-title" value={value.title} onChange={(e) => set("title", e.target.value)} />
+          )}
         </Field>
 
         <Field label="Description" htmlFor="quiz-description">
-          <Textarea
-            id="quiz-description"
-            rows={2}
-            value={value.description}
-            onChange={(e) => set("description", e.target.value)}
-          />
+          {value.locale === "TA" ? (
+            <TransliterateTextarea
+              id="quiz-description"
+              rows={2}
+              value={value.description}
+              onChangeText={(text) => set("description", text)}
+            />
+          ) : (
+            <Textarea
+              id="quiz-description"
+              rows={2}
+              value={value.description}
+              onChange={(e) => set("description", e.target.value)}
+            />
+          )}
         </Field>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -361,6 +379,7 @@ export function QuizForm({
             key={q.key}
             index={qIndex}
             question={q}
+            tamil={value.locale === "TA"}
             error={questionErrors[q.key]}
             onUpdate={(patch) => updateQuestion(q.key, patch)}
             onTypeChange={(type) => setQuestionType(q.key, type)}
@@ -393,6 +412,7 @@ export function QuizForm({
 function QuestionEditor({
   index,
   question,
+  tamil,
   error,
   onUpdate,
   onTypeChange,
@@ -404,6 +424,7 @@ function QuestionEditor({
 }: {
   index: number;
   question: QuestionValue;
+  tamil: boolean;
   error?: string;
   onUpdate: (patch: Partial<QuestionValue>) => void;
   onTypeChange: (type: QuestionType) => void;
@@ -472,21 +493,39 @@ function QuestionEditor({
       </div>
 
       <Field label="Prompt" htmlFor={`${question.key}-prompt`} required>
-        <Textarea
-          id={`${question.key}-prompt`}
-          rows={2}
-          value={question.prompt}
-          onChange={(e) => onUpdate({ prompt: e.target.value })}
-        />
+        {tamil ? (
+          <TransliterateTextarea
+            id={`${question.key}-prompt`}
+            rows={2}
+            value={question.prompt}
+            onChangeText={(text) => onUpdate({ prompt: text })}
+          />
+        ) : (
+          <Textarea
+            id={`${question.key}-prompt`}
+            rows={2}
+            value={question.prompt}
+            onChange={(e) => onUpdate({ prompt: e.target.value })}
+          />
+        )}
       </Field>
 
       <Field label="Explanation" htmlFor={`${question.key}-explanation`} hint="Shown after answering — optional">
-        <Textarea
-          id={`${question.key}-explanation`}
-          rows={2}
-          value={question.explanation}
-          onChange={(e) => onUpdate({ explanation: e.target.value })}
-        />
+        {tamil ? (
+          <TransliterateTextarea
+            id={`${question.key}-explanation`}
+            rows={2}
+            value={question.explanation}
+            onChangeText={(text) => onUpdate({ explanation: text })}
+          />
+        ) : (
+          <Textarea
+            id={`${question.key}-explanation`}
+            rows={2}
+            value={question.explanation}
+            onChange={(e) => onUpdate({ explanation: e.target.value })}
+          />
+        )}
       </Field>
 
       <div className="space-y-2">
@@ -522,21 +561,39 @@ function QuestionEditor({
               />
             ) : null}
 
-            <Input
-              value={option.text}
-              onChange={(e) => onUpdateOption(i, { text: e.target.value })}
-              placeholder={isOrdering ? `Step ${i + 1}` : "Option text"}
-              disabled={fixedOptions}
-              className="flex-1"
-            />
-
-            {isMatching ? (
-              <Input
-                value={option.matchText}
-                onChange={(e) => onUpdateOption(i, { matchText: e.target.value })}
-                placeholder="Matches with…"
+            {tamil && !fixedOptions ? (
+              <TransliterateInput
+                value={option.text}
+                onChangeText={(text) => onUpdateOption(i, { text })}
+                placeholder={isOrdering ? `Step ${i + 1}` : "Option text"}
                 className="flex-1"
               />
+            ) : (
+              <Input
+                value={option.text}
+                onChange={(e) => onUpdateOption(i, { text: e.target.value })}
+                placeholder={isOrdering ? `Step ${i + 1}` : "Option text"}
+                disabled={fixedOptions}
+                className="flex-1"
+              />
+            )}
+
+            {isMatching ? (
+              tamil ? (
+                <TransliterateInput
+                  value={option.matchText}
+                  onChangeText={(text) => onUpdateOption(i, { matchText: text })}
+                  placeholder="Matches with…"
+                  className="flex-1"
+                />
+              ) : (
+                <Input
+                  value={option.matchText}
+                  onChange={(e) => onUpdateOption(i, { matchText: e.target.value })}
+                  placeholder="Matches with…"
+                  className="flex-1"
+                />
+              )
             ) : null}
 
             {!fixedOptions ? (

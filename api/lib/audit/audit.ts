@@ -33,6 +33,7 @@ export const AuditAction = {
   PARTICIPANT_STATUS_CHANGED: "participant.status_changed",
   PARTICIPANT_ACTIVATED: "participant.activated",
   PARTICIPANT_BULK_IMPORTED: "participant.bulk_imported",
+  PARTICIPANT_DELETED: "participant.deleted",
 
   // Health data
   HEALTH_DATA_VIEWED: "health_data.viewed",
@@ -79,6 +80,7 @@ export const AuditAction = {
 
   // Administration
   ADMIN_CREATED: "admin.created",
+  ADMIN_PROMOTED: "admin.promoted",
   ADMIN_UPDATED: "admin.updated",
   ADMIN_ROLE_CHANGED: "admin.role_changed",
   ADMIN_DEACTIVATED: "admin.deactivated",

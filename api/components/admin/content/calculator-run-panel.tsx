@@ -50,10 +50,17 @@ export function CalculatorRunPanel({
   const [searching, setSearching] = React.useState(false);
   const [selected, setSelected] = React.useState<Participant | null>(null);
   const [asOf, setAsOf] = React.useState(nowLocal());
-  const [overrides, setOverrides] = React.useState<Record<string, string>>({});
+  // Only ASK-type inputs live here — they have no participant record to draw
+  // on at all, so typing one in is the only way they ever get a value (see
+  // lib/services/calculator-run.ts). A DATA-type input (glucose, insulin) is
+  // never editable here: what's shown for it is always this participant's
+  // own recorded data, or nothing.
+  const [askValues, setAskValues] = React.useState<Record<string, string>>({});
   const [result, setResult] = React.useState<RunResult | null>(null);
   const [running, setRunning] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  const askInputs = inputs.filter((input) => input.source !== "DATA");
 
   React.useEffect(() => {
     if (selected) return; // Don't re-search once someone is picked.
@@ -80,9 +87,10 @@ export function CalculatorRunPanel({
     setError(null);
     setResult(null);
     try {
-      const numericOverrides: Record<string, number> = {};
-      for (const [key, value] of Object.entries(overrides)) {
-        if (value.trim() !== "") numericOverrides[key] = Number(value);
+      const overrides: Record<string, number> = {};
+      for (const input of askInputs) {
+        const raw = askValues[input.key];
+        if (raw !== undefined && raw.trim() !== "") overrides[input.key] = Number(raw);
       }
 
       const response = await fetch(`/api/admin/calculators/${calculatorId}/run`, {
@@ -91,7 +99,7 @@ export function CalculatorRunPanel({
         body: JSON.stringify({
           userId: selected.id,
           asOf: new Date(asOf).toISOString(),
-          overrides: numericOverrides,
+          overrides,
         }),
       });
       const json = await response.json();
@@ -178,7 +186,7 @@ export function CalculatorRunPanel({
           <Field
             label="As of"
             htmlFor="calc-as-of"
-            hint="Values are filled in from this child's own records at this moment — pick an earlier date to see what it would have shown then."
+            hint="Any value pulled from this child's own records reflects this moment — pick an earlier date to see what it would have shown then."
           >
             <Input
               id="calc-as-of"
@@ -189,28 +197,26 @@ export function CalculatorRunPanel({
           </Field>
         </div>
 
-        <div className="mt-4">
-          <p className="text-ink-muted mb-2 text-xs">
-            Leave a number blank to use the value from their records; type one in to use that
-            instead.
-          </p>
-          <div className="space-y-3">
-            {inputs.map((input) => (
-              <Field key={input.key} label={`${input.labelEn} (${input.unit})`} htmlFor={`ov-${input.key}`}>
+        {askInputs.length > 0 ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-ink-muted text-xs">
+              These aren't recorded anywhere — type them in each time.
+            </p>
+            {askInputs.map((input) => (
+              <Field key={input.key} label={`${input.labelEn} (${input.unit})`} htmlFor={`ask-${input.key}`}>
                 <Input
-                  id={`ov-${input.key}`}
+                  id={`ask-${input.key}`}
                   type="number"
                   inputMode="decimal"
-                  placeholder={input.source === "DATA" ? "From records" : "Required"}
-                  value={overrides[input.key] ?? ""}
+                  value={askValues[input.key] ?? ""}
                   onChange={(event) =>
-                    setOverrides((current) => ({ ...current, [input.key]: event.target.value }))
+                    setAskValues((current) => ({ ...current, [input.key]: event.target.value }))
                   }
                 />
               </Field>
             ))}
           </div>
-        </div>
+        ) : null}
 
         <Button
           className="mt-4 w-full"

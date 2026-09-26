@@ -43,6 +43,7 @@ function principalFor(user: {
     emailVerified: true,
     timezone: "UTC",
     sessionId: "test-session",
+    capabilityRestriction: [],
   };
 }
 

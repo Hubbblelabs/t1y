@@ -18,6 +18,7 @@ export const Capability = {
   PARTICIPANTS_CREATE: "participants:create",
   PARTICIPANTS_EDIT: "participants:edit",
   PARTICIPANTS_DEACTIVATE: "participants:deactivate",
+  PARTICIPANTS_DELETE: "participants:delete",
 
   HEALTH_DATA_VIEW: "health-data:view",
 
@@ -72,6 +73,7 @@ const MATRIX: Record<UserRole, readonly CapabilityValue[]> = {
     Capability.PARTICIPANTS_CREATE,
     Capability.PARTICIPANTS_EDIT,
     Capability.PARTICIPANTS_DEACTIVATE,
+    Capability.PARTICIPANTS_DELETE,
     Capability.HEALTH_DATA_VIEW,
     Capability.RESEARCH_VIEW,
     Capability.RESEARCH_MANAGE_STUDIES,
@@ -103,6 +105,25 @@ export function roleHas(role: UserRole, capability: CapabilityValue): boolean {
 
 export function capabilitiesFor(role: UserRole): CapabilityValue[] {
   return [...(MATRIX[role] ?? [])];
+}
+
+/**
+ * A staff account's actual capabilities, once its own restriction (see
+ * `AdminUser.capabilities`) is applied on top of its role's ceiling.
+ *
+ * An empty `restriction` means "no restriction" — the account holds
+ * everything its role does, same as before this existed. A non-empty one
+ * narrows to exactly that list, intersected with the role's own ceiling so a
+ * stray or stale entry can never grant more than ADMIN itself would.
+ */
+export function effectiveCapabilities(
+  role: UserRole,
+  restriction: readonly string[],
+): CapabilityValue[] {
+  const ceiling = MATRIX[role] ?? [];
+  if (restriction.length === 0) return [...ceiling];
+  const allowed = new Set(restriction);
+  return ceiling.filter((capability) => allowed.has(capability));
 }
 
 export const STAFF_ROLES: readonly UserRole[] = ["ADMIN"];

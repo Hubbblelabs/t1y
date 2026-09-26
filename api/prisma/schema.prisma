@@ -708,6 +708,15 @@ model AdminUser {
   invitedById  String?
   invitedAt    DateTime?
 
+  /// Restricts this staff account to exactly these capabilities (see
+  /// lib/permissions/roles.ts's Capability catalogue) — never more than
+  /// ADMIN's own ceiling, even if this list somehow drifted to include
+  /// something else. Empty (the default for every account created before
+  /// this existed, and for a super-admin) means full ADMIN access — Prisma
+  /// has no nullable list type, so empty is the "unrestricted" sentinel
+  /// rather than `null`.
+  capabilities String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

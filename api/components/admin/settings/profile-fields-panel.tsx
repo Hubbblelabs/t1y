@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TransliterateInput } from "@/components/admin/content/transliterate-field";
 import {
   describeRules,
   type ProfileFieldRules,
@@ -118,9 +119,9 @@ export function ProfileFieldsPanel({ initial }: { initial: ProfileFieldRow[] }) 
     <div className="flex flex-col gap-4">
       <div className="bg-info-soft text-ink rounded-md p-3 text-sm">
         <strong>The questions built into the app are listed here too</strong>, so everything a
-        parent is asked can be seen in one place. You can change their wording and mark them as
-        medical now. Anything else you change about them is saved, but families will keep seeing the
-        app&apos;s own version until the app is updated to follow this list.
+        parent is asked can be seen in one place. You can change their wording here. Anything else
+        you change about them is saved, but families will keep seeing the app&apos;s own version
+        until the app is updated to follow this list.
       </div>
 
       {error ? (
@@ -201,8 +202,7 @@ function QuestionRow({
             <Badge tone={field.showOnSignup ? "success" : "neutral"}>
               {field.showOnSignup ? "Asked when signing up" : "Asked on the profile"}
             </Badge>
-            {field.required ? <Badge tone="warning">Must be answered</Badge> : null}
-            {field.isMedical ? <Badge tone="info">Medical</Badge> : null}
+            {field.required ? <Badge tone="warning">Mandatory</Badge> : null}
             {!field.active ? <Badge tone="neutral">Not being asked</Badge> : null}
           </div>
 
@@ -233,7 +233,7 @@ function QuestionRow({
           {pending ? <Loader2 className="text-ink-subtle size-4 animate-spin" aria-hidden="true" /> : null}
 
           <Toggle
-            label="Must be answered"
+            label="Mandatory"
             checked={field.required}
             disabled={pending || !field.active || core}
             locked={core}
@@ -245,20 +245,6 @@ function QuestionRow({
             disabled={pending || core}
             locked={core}
             onChange={(checked) => onPatch({ showOnSignup: checked })}
-          />
-          <Toggle
-            label="Medical"
-            hint="Medical information can be used by calculators. Everything else never is."
-            checked={field.isMedical}
-            disabled={pending}
-            onChange={(checked) => onPatch({ isMedical: checked })}
-          />
-          <Toggle
-            label="Being asked"
-            checked={field.active}
-            disabled={pending || core}
-            locked={core}
-            onChange={(checked) => onPatch({ active: checked })}
           />
           <Button
             variant="ghost"
@@ -312,7 +298,7 @@ function Toggle({
   return (
     <label
       className="flex items-center gap-2 text-sm"
-      title={locked ? "Fixed — sign-up cannot work without it." : hint}
+      title={locked ? "Fixed — required for sign-up." : hint}
     >
       <span className="text-ink-muted">{label}</span>
       <Switch
@@ -351,10 +337,10 @@ function WordingForm({
           />
         </Field>
         <Field label="Name, in Tamil" htmlFor={`wl-ta-${field.id}`}>
-          <Input
+          <TransliterateInput
             id={`wl-ta-${field.id}`}
             value={labelTa}
-            onChange={(event) => setLabelTa(event.target.value)}
+            onChangeText={setLabelTa}
           />
         </Field>
         {field.showOnSignup ? (
@@ -371,10 +357,10 @@ function WordingForm({
               />
             </Field>
             <Field label="Sign-up question, in Tamil" htmlFor={`wp-ta-${field.id}`}>
-              <Input
+              <TransliterateInput
                 id={`wp-ta-${field.id}`}
                 value={promptTa}
-                onChange={(event) => setPromptTa(event.target.value)}
+                onChangeText={setPromptTa}
               />
             </Field>
           </>
@@ -440,7 +426,6 @@ function AddQuestionForm({
   const [fieldType, setFieldType] = React.useState<ProfileFieldType>("TEXT");
   const [section, setSection] = React.useState("Additional details");
   const [required, setRequired] = React.useState(false);
-  const [isMedical, setIsMedical] = React.useState(false);
   const [unit, setUnit] = React.useState("");
 
   const [showOnSignup, setShowOnSignup] = React.useState(false);
@@ -496,7 +481,6 @@ function AddQuestionForm({
           labelTa: labelTa.trim() || undefined,
           required,
           sortOrder,
-          isMedical,
           unit: fieldType === "NUMBER" ? unit.trim() || undefined : undefined,
           showOnSignup,
           promptEn: showOnSignup ? promptEn.trim() || undefined : undefined,
@@ -510,10 +494,6 @@ function AddQuestionForm({
                     value: o.value.trim(),
                     labelEn: o.labelEn.trim(),
                     labelTa: o.labelTa?.trim() || undefined,
-                    numericValue:
-                      isMedical && o.numericValue != null && Number.isFinite(o.numericValue)
-                        ? o.numericValue
-                        : undefined,
                   }))
               : undefined,
         }),
@@ -555,7 +535,7 @@ function AddQuestionForm({
           />
         </Field>
         <Field label="The question, in Tamil (optional)" htmlFor="aq-label-ta">
-          <Input id="aq-label-ta" value={labelTa} onChange={(e) => setLabelTa(e.target.value)} />
+          <TransliterateInput id="aq-label-ta" value={labelTa} onChangeText={setLabelTa} />
         </Field>
 
         <Field label="What kind of answer" htmlFor="aq-type">
@@ -630,13 +610,6 @@ function AddQuestionForm({
       ) : (
         <fieldset className="border-line flex flex-col gap-2 rounded-md border p-3">
           <legend className="text-ink px-1 text-sm font-medium">The choices</legend>
-          {isMedical ? (
-            <p className="text-ink-muted text-sm">
-              Because this is medical information, give each choice the number it should count as in
-              a calculator — a sum cannot be done on a word. Leave them blank and this question
-              simply will not appear in the calculator list.
-            </p>
-          ) : null}
           {options.map((option, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
               <Input
@@ -657,33 +630,15 @@ function AddQuestionForm({
                   setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, labelEn: e.target.value } : o)))
                 }
               />
-              <Input
+              <TransliterateInput
                 placeholder="Tamil (optional)"
-                aria-label={`Choice ${i + 1}, Tamil`}
+                ariaLabel={`Choice ${i + 1}, Tamil`}
                 value={option.labelTa ?? ""}
                 className="min-w-40 flex-1"
-                onChange={(e) =>
-                  setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, labelTa: e.target.value } : o)))
+                onChangeText={(text) =>
+                  setOptions((prev) => prev.map((o, idx) => (idx === i ? { ...o, labelTa: text } : o)))
                 }
               />
-              {isMedical ? (
-                <Input
-                  placeholder="counts as"
-                  aria-label={`Choice ${i + 1}, counts as`}
-                  inputMode="decimal"
-                  value={option.numericValue ?? ""}
-                  className="w-28"
-                  onChange={(e) =>
-                    setOptions((prev) =>
-                      prev.map((o, idx) =>
-                        idx === i
-                          ? { ...o, numericValue: e.target.value.trim() === "" ? null : Number(e.target.value) }
-                          : o,
-                      ),
-                    )
-                  }
-                />
-              ) : null}
               <Button
                 variant="ghost"
                 size="sm"
@@ -716,10 +671,6 @@ function AddQuestionForm({
           <Switch checked={showOnSignup} onCheckedChange={setShowOnSignup} />
           <span className="text-ink-muted">Ask this when a parent signs up</span>
         </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Switch checked={isMedical} onCheckedChange={setIsMedical} />
-          <span className="text-ink-muted">This is medical information about the child</span>
-        </label>
       </div>
 
       {showOnSignup ? (
@@ -732,7 +683,7 @@ function AddQuestionForm({
             <Input id="aq-prompt-en" value={promptEn} onChange={(e) => setPromptEn(e.target.value)} />
           </Field>
           <Field label="Sign-up question, in Tamil (optional)" htmlFor="aq-prompt-ta">
-            <Input id="aq-prompt-ta" value={promptTa} onChange={(e) => setPromptTa(e.target.value)} />
+            <TransliterateInput id="aq-prompt-ta" value={promptTa} onChangeText={setPromptTa} />
           </Field>
         </div>
       ) : null}

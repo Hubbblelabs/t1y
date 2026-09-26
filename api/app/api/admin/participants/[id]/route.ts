@@ -8,6 +8,7 @@ import {
 } from "@/lib/permissions/policies";
 import { Capability } from "@/lib/permissions/roles";
 import { getParticipantProfile, updateParticipant } from "@/lib/services/participants";
+import { deleteOwnAccount } from "@/lib/services/users";
 import { idParamSchema } from "@/lib/validation/common";
 import { updateParticipantSchema } from "@/lib/validation/admin";
 
@@ -73,5 +74,39 @@ export const PATCH = defineRoute({
     );
 
     return ok(result);
+  },
+});
+
+/**
+ * Permanently removes a participant. Anonymises the account and profile
+ * rather than a hard row delete — see `deleteOwnAccount`, the same routine a
+ * family's own "Correct or delete your data" uses — so quiz/health history
+ * tied to the participant code survives for the study record while every
+ * personally-identifying field is scrubbed.
+ */
+export const DELETE = defineRoute({
+  capability: Capability.PARTICIPANTS_DELETE,
+  rateLimit: RateLimits.adminWrite,
+  params: idParamSchema,
+  handler: async ({ principal, params, audit }) => {
+    assertCanEditParticipant(principal);
+    await assertCanViewParticipant(principal, params.id);
+    const participant = await getParticipantProfile(params.id);
+
+    await deleteOwnAccount(params.id);
+
+    await recordAudit(
+      actorFromPrincipal(principal),
+      {
+        action: AuditAction.PARTICIPANT_DELETED,
+        resourceType: "participant",
+        resourceId: params.id,
+        participantId: params.id,
+        description: `Deleted participant ${participant.profile?.participantCode ?? params.id}`,
+      },
+      audit,
+    );
+
+    return ok({ deleted: true });
   },
 });

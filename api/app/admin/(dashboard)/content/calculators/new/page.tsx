@@ -27,7 +27,6 @@ export default async function NewCalculatorPage(
         title={replaced ? "Replace a calculator" : "New calculator"}
         description="Set out the numbers to ask for, and the sums that turn them into answers"
         breadcrumbs={[
-          { label: "What families see" },
           { label: "Calculators", href: "/admin/content/calculators" },
           { label: replaced ? "Replace" : "New" },
         ]}

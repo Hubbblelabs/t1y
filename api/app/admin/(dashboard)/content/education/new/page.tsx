@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { HelpBookTopicForm } from "@/components/admin/content/help-book-topic-form";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
+import { isStorageConfigured } from "@/lib/env";
 
 export const metadata: Metadata = { title: "New topic" };
 
@@ -38,7 +39,11 @@ export default async function NewHelpBookTopicPage(
           { label: addingLanguageTo ? "Add a language" : "New topic" },
         ]}
       />
-      <HelpBookTopicForm mode="create" addingLanguageTo={addingLanguageTo} />
+      <HelpBookTopicForm
+        mode="create"
+        addingLanguageTo={addingLanguageTo}
+        storageConfigured={isStorageConfigured()}
+      />
     </PageContainer>
   );
 }

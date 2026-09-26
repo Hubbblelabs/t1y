@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DeleteButton } from "@/components/admin/delete-button";
 import { HelpBookTopicForm, type TopicBlock } from "@/components/admin/content/help-book-topic-form";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
+import { isStorageConfigured } from "@/lib/env";
 import { getEducationById } from "@/lib/services/education";
 
 export const metadata: Metadata = { title: "Edit topic" };
@@ -47,6 +48,7 @@ export default async function EditHelpBookTopicPage(
           thumbnailUrl: topic.thumbnailUrl,
           blocks: toEditableBlocks(topic.contentBlocks),
         }}
+        storageConfigured={isStorageConfigured()}
       />
     </PageContainer>
   );

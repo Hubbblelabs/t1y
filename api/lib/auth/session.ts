@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth/auth";
 import { UnauthenticatedError } from "@/lib/api/errors";
+import { prisma } from "@/lib/db/prisma";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 
 /**
@@ -20,6 +21,24 @@ export interface Principal {
   emailVerified: boolean;
   timezone: string;
   sessionId: string;
+  /**
+   * This staff account's own capability restriction (see
+   * `AdminUser.capabilities`) — empty for a PATIENT (irrelevant; they hold no
+   * capabilities regardless) and for a full-access staff account. Never read
+   * directly for an authorisation decision: use `can()`, which applies this
+   * on top of the role's own ceiling.
+   */
+  capabilityRestriction: string[];
+}
+
+/** One extra lookup, only for a staff session — everything else needs no join. */
+async function capabilityRestrictionFor(userId: string, role: string): Promise<string[]> {
+  if (role !== "ADMIN") return [];
+  const adminUser = await prisma.adminUser.findUnique({
+    where: { userId },
+    select: { capabilities: true },
+  });
+  return adminUser?.capabilities ?? [];
 }
 
 /**
@@ -44,15 +63,17 @@ export const getPrincipal = cache(async (): Promise<Principal | null> => {
   const status = (user.status ?? "PENDING") as UserStatus;
   if (status === "SUSPENDED" || status === "INACTIVE") return null;
 
+  const role = (user.role ?? "PATIENT") as UserRole;
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
-    role: (user.role ?? "PATIENT") as UserRole,
+    role,
     status,
     emailVerified: user.emailVerified,
     timezone: user.timezone ?? "UTC",
     sessionId: session.session.id,
+    capabilityRestriction: await capabilityRestrictionFor(user.id, role),
   };
 });
 
@@ -79,14 +100,16 @@ export async function getPrincipalFromRequest(
   const status = (user.status ?? "PENDING") as UserStatus;
   if (status === "SUSPENDED" || status === "INACTIVE") return null;
 
+  const role = (user.role ?? "PATIENT") as UserRole;
   return {
     userId: user.id,
     email: user.email,
     name: user.name,
-    role: (user.role ?? "PATIENT") as UserRole,
+    role,
     status,
     emailVerified: user.emailVerified,
     timezone: user.timezone ?? "UTC",
     sessionId: session.session.id,
+    capabilityRestriction: await capabilityRestrictionFor(user.id, role),
   };
 }

@@ -26,12 +26,14 @@ export function TransliterateInput({
   placeholder,
   className,
   id,
+  ariaLabel,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
   className?: string;
   id?: string;
+  ariaLabel?: string;
 }) {
   return (
     <ReactTransliterate
@@ -42,6 +44,7 @@ export function TransliterateInput({
         <input
           id={id}
           placeholder={placeholder}
+          aria-label={ariaLabel}
           className={cn(fieldStyles, "h-9", className)}
           {...props}
         />

@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { DateRangePicker } from "@/components/admin/date-range-picker";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
+import { ParticipantDeleteControl } from "@/components/admin/participants/participant-delete-control";
 import { ParticipantEngagement } from "@/components/admin/participants/participant-engagement";
 import { ParticipantProfileCard } from "@/components/admin/participants/participant-profile";
 import { ParticipantStatusControl } from "@/components/admin/participants/participant-status-control";
-import { IcIsfUnlockControl } from "@/components/admin/participants/ic-isf-unlock-control";
 import { ParticipantFeaturesControl } from "@/components/admin/participants/participant-features-control";
 import { ParticipantTimeline } from "@/components/admin/participants/participant-timeline";
 import { StatusBadge } from "@/components/admin/participants/participant-table";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChartSkeleton, StatSkeleton, UnauthorizedState } from "@/components/ui/states";
 import {
@@ -91,6 +93,9 @@ export default async function ParticipantDetailPage(
         actions={
           <>
             <StatusBadge status={participant.status} />
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/admin/reports?userId=${id}`}>View report</Link>
+            </Button>
             <DateRangePicker />
           </>
         }
@@ -112,14 +117,11 @@ export default async function ParticipantDetailPage(
             />
           ) : null}
 
-          {can(principal, Capability.PARTICIPANTS_EDIT) ? (
-            <IcIsfUnlockControl
-              participantId={id}
-              unlocked={participant.profile?.icIsfUnlocked ?? false}
-            />
-          ) : null}
-
           <ParticipantProfileCard participant={participant} />
+
+          {can(principal, Capability.PARTICIPANTS_DELETE) ? (
+            <ParticipantDeleteControl participantId={id} />
+          ) : null}
 
           <Card className="p-5">
             <h2 className="text-ink mb-3 text-sm font-semibold">Activity</h2>

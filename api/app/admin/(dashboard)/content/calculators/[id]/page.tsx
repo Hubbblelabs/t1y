@@ -51,7 +51,6 @@ export default async function CalculatorDetailPage(
         title={calculator.nameEn}
         description={calculator.descriptionEn ?? undefined}
         breadcrumbs={[
-          { label: "What families see" },
           { label: "Calculators", href: "/admin/content/calculators" },
           { label: calculator.nameEn },
         ]}

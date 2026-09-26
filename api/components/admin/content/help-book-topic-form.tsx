@@ -101,11 +101,19 @@ export function HelpBookTopicForm({
   initial,
   mode,
   addingLanguageTo,
+  storageConfigured = true,
 }: {
   initial?: TopicFormValue;
   mode: "create" | "edit";
   /** Set when this is the second language of an existing topic. */
   addingLanguageTo?: { slug: string; language: "EN" | "TA" };
+  /**
+   * Whether Cloudinary is configured (see lib/env.ts's isStorageConfigured).
+   * When it isn't, an uploaded picture or video is only ever saved for local
+   * development — it will not appear for a real family — so this is shown
+   * before publishing, not discovered after.
+   */
+  storageConfigured?: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = React.useState<TopicFormValue>(
@@ -232,6 +240,14 @@ export function HelpBookTopicForm({
           <AlertCircle className="mt-px size-5 shrink-0" aria-hidden="true" />
           <span>{error}</span>
         </div>
+      ) : null}
+
+      {!storageConfigured ? (
+        <p className="bg-warning-soft text-warning rounded-md px-3 py-2 text-sm">
+          Picture and video uploads are not connected yet — anything you add here is only visible
+          on this computer, not to families. Set up Cloudinary before publishing a topic with
+          media (see the technical setup notes).
+        </p>
       ) : null}
 
       {addingLanguageTo ? (

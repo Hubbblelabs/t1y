@@ -7,6 +7,8 @@ import { CheckCircle2, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
+import { CapabilityGroupPicker } from "./capability-group-picker";
+import type { CapabilityValue } from "@/lib/permissions/roles";
 
 /** A readable temporary password: no look-alike characters, 14 long. */
 function generatePassword(): string {
@@ -26,6 +28,7 @@ export function AddStaffForm() {
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [jobTitle, setJobTitle] = React.useState("");
+  const [capabilities, setCapabilities] = React.useState<CapabilityValue[]>([]);
   const [password, setPassword] = React.useState(generatePassword);
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -45,6 +48,7 @@ export function AddStaffForm() {
           role: "ADMIN",
           password,
           jobTitle: jobTitle.trim() || undefined,
+          capabilities,
         }),
       });
       const result = await response.json();
@@ -57,6 +61,7 @@ export function AddStaffForm() {
       setName("");
       setEmail("");
       setJobTitle("");
+      setCapabilities([]);
       setPassword(generatePassword());
       router.refresh();
     } catch {
@@ -129,6 +134,14 @@ export function AddStaffForm() {
             </Button>
           </div>
         </Field>
+
+        <div className="sm:col-span-2">
+          <CapabilityGroupPicker
+            capabilities={capabilities}
+            onChange={setCapabilities}
+            disabled={pending}
+          />
+        </div>
 
         {error ? (
           <p role="alert" className="text-danger text-sm sm:col-span-2">

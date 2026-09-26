@@ -32,6 +32,7 @@ const STAFF_SELECT = {
       organization: true,
       phone: true,
       invitedAt: true,
+      capabilities: true,
     },
   },
   _count: { select: { studyAccess: true } },
@@ -102,6 +103,8 @@ export interface CreateStaffInput {
   department?: string;
   organization?: string;
   phone?: string;
+  /** Empty/omitted = full access to everything the role allows. */
+  capabilities?: string[];
 }
 
 export async function createStaffMember(
@@ -138,6 +141,7 @@ export async function createStaffMember(
             department: input.department,
             organization: input.organization,
             phone: input.phone,
+            capabilities: input.capabilities ?? [],
             invitedById,
             invitedAt: new Date(),
           },
@@ -159,6 +163,77 @@ export async function createStaffMember(
   });
 }
 
+/**
+ * Looks up an existing family account by email, for "give an existing
+ * account admin access too" — creating a new staff account rejects an email
+ * already in use (see `createStaffMember`), which is exactly the case where
+ * one person is both a parent in the study and a member of staff.
+ */
+export async function findPromotablePatient(email: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: email.toLowerCase() },
+    select: { id: true, name: true, email: true, role: true },
+  });
+  if (!user) throw new NotFoundError("Account");
+  if (user.role !== "PATIENT") {
+    throw new ConflictError("This is already a staff account.");
+  }
+  return user;
+}
+
+export interface PromoteToAdminInput {
+  jobTitle?: string;
+  department?: string;
+  organization?: string;
+  phone?: string;
+  /** Empty/omitted = full access to everything ADMIN allows. */
+  capabilities?: string[];
+}
+
+/**
+ * Converts an existing family account to a staff account, in place — same
+ * id, same email and password, `role` switched from PATIENT to ADMIN.
+ *
+ * There is no dual role in this schema (`UserRole` is PATIENT or ADMIN, never
+ * both), so this is a genuine conversion, not an addition: the account signs
+ * in to the dashboard from now on and can no longer be used to sign in to
+ * the app as that child. The caller is expected to have warned for this
+ * before calling it — see the confirmation step in the promote form.
+ */
+export async function promoteToAdmin(
+  userId: string,
+  invitedById: string,
+  input: PromoteToAdminInput,
+): Promise<{ id: string; email: string; role: UserRole }> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user) throw new NotFoundError("Account");
+  if (user.role !== "PATIENT") {
+    throw new ConflictError("This is already a staff account.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: {
+        role: "ADMIN",
+        adminUser: {
+          create: {
+            jobTitle: input.jobTitle,
+            department: input.department,
+            organization: input.organization,
+            phone: input.phone,
+            capabilities: input.capabilities ?? [],
+            invitedById,
+            invitedAt: new Date(),
+          },
+        },
+      },
+      select: { id: true, email: true, role: true },
+    });
+    return updated;
+  });
+}
+
 export async function updateStaffMember(
   id: string,
   input: {
@@ -169,6 +244,8 @@ export async function updateStaffMember(
     department?: string | null;
     organization?: string | null;
     phone?: string | null;
+    /** Empty array = full access; omitted = leave unchanged. */
+    capabilities?: string[];
   },
 ) {
   if (input.role === "PATIENT") {
@@ -186,6 +263,7 @@ export async function updateStaffMember(
     department: input.department,
     organization: input.organization,
     phone: input.phone,
+    ...(input.capabilities !== undefined ? { capabilities: input.capabilities } : {}),
   };
   const hasProfileChange = Object.values(profileFields).some(
     (value) => value !== undefined,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ShieldCheck } from "lucide-react";
 
 import { AddStaffForm } from "@/components/admin/administrators/add-staff-form";
+import { PromoteFamilyForm } from "@/components/admin/administrators/promote-family-form";
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
 import { Pagination } from "@/components/admin/pagination";
 import { SearchBox } from "@/components/admin/search-box";
@@ -19,7 +20,10 @@ import {
   TableScroll,
 } from "@/components/ui/table";
 import { buildPagination } from "@/lib/api/response";
+import { requirePrincipal } from "@/lib/auth/session";
 import { listStaff } from "@/lib/services/admins";
+import { StaffAccessControl } from "@/components/admin/administrators/staff-access-control";
+import { StaffRowActions } from "@/components/admin/administrators/staff-row-actions";
 import { ROLE_LABELS } from "@/lib/permissions/roles";
 import { formatDate, formatNumber, formatRelative } from "@/lib/utils/format";
 import { staffListQuerySchema } from "@/lib/validation/admin";
@@ -36,6 +40,7 @@ export default async function AdministratorsPage(
   const searchParams = await props.searchParams;
   const parsed = staffListQuerySchema.safeParse(searchParams);
   const query = parsed.success ? parsed.data : staffListQuerySchema.parse({});
+  const principal = await requirePrincipal();
 
   const { items, total } = await listStaff({
     role: query.role,
@@ -55,7 +60,10 @@ export default async function AdministratorsPage(
       />
 
       <div className="mb-6">
-        <AddStaffForm />
+        <div className="flex flex-wrap gap-2">
+          <AddStaffForm />
+          <PromoteFamilyForm />
+        </div>
         <p className="text-ink-muted mt-3 text-xs leading-relaxed">
           A new staff account starts with a temporary password you hand over. They
           choose their own the first time they sign in and can change it any time
@@ -89,10 +97,12 @@ export default async function AdministratorsPage(
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Access</TableHead>
                     <TableHead>Department</TableHead>
                     <TableHead className="text-right">Study access</TableHead>
                     <TableHead>Last sign-in</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -114,6 +124,12 @@ export default async function AdministratorsPage(
                       <TableCell>
                         <StatusBadge status={staff.status} />
                       </TableCell>
+                      <TableCell>
+                        <StaffAccessControl
+                          staffId={staff.id}
+                          capabilities={staff.adminUser?.capabilities ?? []}
+                        />
+                      </TableCell>
                       <TableCell className="text-ink-muted max-w-40 truncate">
                         {staff.adminUser?.department ?? "—"}
                       </TableCell>
@@ -125,6 +141,13 @@ export default async function AdministratorsPage(
                       </TableCell>
                       <TableCell className="text-ink-muted whitespace-nowrap">
                         {formatDate(staff.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <StaffRowActions
+                          staffId={staff.id}
+                          status={staff.status}
+                          isSelf={staff.id === principal.userId}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

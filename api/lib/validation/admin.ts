@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PARTICIPANT_FEATURE_KEYS } from "@/lib/services/participant-features";
+import { Capability } from "@/lib/permissions/roles";
 
 import {
   dateRangeSchema,
@@ -576,6 +577,13 @@ export const staffListQuerySchema = z
   })
   .and(paginationSchema);
 
+/**
+ * A staff account's capability restriction — empty means full access (see
+ * AdminUser.capabilities). Validated against the live Capability catalogue
+ * so a request can never store an unknown or stale value.
+ */
+export const capabilitiesSchema = z.array(z.enum(Object.values(Capability))).max(64);
+
 export const createStaffSchema = z.object({
   email: z.email().max(254),
   name: shortTextSchema(120),
@@ -587,6 +595,8 @@ export const createStaffSchema = z.object({
   department: z.string().trim().max(120).optional(),
   organization: z.string().trim().max(160).optional(),
   phone: z.string().trim().max(32).optional(),
+  /** Empty/omitted = full access. */
+  capabilities: capabilitiesSchema.optional(),
 });
 
 export const updateStaffSchema = z.object({
@@ -597,6 +607,7 @@ export const updateStaffSchema = z.object({
   department: z.string().trim().max(120).nullish(),
   organization: z.string().trim().max(160).nullish(),
   phone: z.string().trim().max(32).nullish(),
+  capabilities: capabilitiesSchema.optional(),
 });
 
 // ---------------------------------------------------------------------------

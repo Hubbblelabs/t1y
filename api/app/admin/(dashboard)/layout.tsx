@@ -5,7 +5,7 @@ import { getPrincipal } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { visibleNavigation } from "@/lib/navigation";
 import { canAccessAdminArea } from "@/lib/permissions/policies";
-import { capabilitiesFor, ROLE_LABELS } from "@/lib/permissions/roles";
+import { effectiveCapabilities, ROLE_LABELS } from "@/lib/permissions/roles";
 
 /**
  * Authorisation boundary for the authenticated admin area.
@@ -43,7 +43,9 @@ export default async function DashboardLayout({
     redirect("/admin/change-password");
   }
 
-  const sections = visibleNavigation(new Set(capabilitiesFor(principal.role)));
+  const sections = visibleNavigation(
+    new Set(effectiveCapabilities(principal.role, principal.capabilityRestriction)),
+  );
 
   return (
     <AdminShell

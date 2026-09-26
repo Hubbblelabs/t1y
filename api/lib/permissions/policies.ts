@@ -6,7 +6,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { ForbiddenError } from "@/lib/api/errors";
 import type { Principal } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { Capability, type CapabilityValue, roleHas } from "@/lib/permissions/roles";
+import { Capability, type CapabilityValue, effectiveCapabilities, roleHas } from "@/lib/permissions/roles";
 
 /**
  * Resource-scoped authorisation.
@@ -25,7 +25,11 @@ import { Capability, type CapabilityValue, roleHas } from "@/lib/permissions/rol
 // ---------------------------------------------------------------------------
 
 export function can(principal: Principal, capability: CapabilityValue): boolean {
-  return roleHas(principal.role, capability);
+  if (!roleHas(principal.role, capability)) return false;
+  if (principal.capabilityRestriction.length === 0) return true;
+  return effectiveCapabilities(principal.role, principal.capabilityRestriction).includes(
+    capability,
+  );
 }
 
 export function assertCan(principal: Principal, capability: CapabilityValue): void {

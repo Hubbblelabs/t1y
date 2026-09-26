@@ -43,6 +43,7 @@ function principal(overrides: Partial<Principal> & { userId: string; role: UserR
     emailVerified: true,
     timezone: "UTC",
     sessionId: "test-session",
+    capabilityRestriction: [],
     ...overrides,
   };
 }

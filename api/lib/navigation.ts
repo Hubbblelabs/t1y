@@ -97,16 +97,15 @@ export const NAVIGATION: NavSection[] = [
       },
     ],
   },
-  // "Health data" (Glucose/Medications/Insulin/Meals/Exercise/HbA1c/Health
-  // metrics) and "Research" (Studies/Data export) are deliberately not
-  // listed here. Both are pre-existing platform surface from the original
-  // generic multi-condition, multi-study "Digital Diabetes Management
-  // Platform" this deployment was built from — see
-  // docs/UNUSED-BACKEND.md. This study's Flutter app has no logging screens
-  // at all (v1 is curriculum + calculators + quizzes only) and is one
-  // single Coimbatore cohort, not a multi-study research programme, so
-  // every one of those pages would only ever show empty tables to a
-  // coordinator wondering why. The routes and admin pages still exist
+  // Medications/Exercise/HbA1c/Health metrics and "Research" (Studies/Data
+  // export) are deliberately not listed here. Both are pre-existing platform
+  // surface from the original generic multi-condition, multi-study "Digital
+  // Diabetes Management Platform" this deployment was built from — see
+  // docs/UNUSED-BACKEND.md. This study tracks glucose, insulin and
+  // carbohydrates only (health_logging_enabled, off by default, gates all
+  // three) and is one single Coimbatore cohort, not a multi-study research
+  // programme, so every one of the others would only ever show empty tables
+  // to a coordinator wondering why. The routes and admin pages still exist
   // (nothing was deleted) — they're just not surfaced in this nav.
   {
     label: "What families see",
@@ -126,12 +125,34 @@ export const NAVIGATION: NavSection[] = [
         matchPrefix: true,
       },
       {
-        label: "Calculators",
-        href: "/admin/content/calculators",
-        capability: Capability.CALCULATORS_MANAGE,
+        label: "Glucose",
+        href: "/admin/health/glucose",
+        capability: Capability.HEALTH_DATA_VIEW,
+        matchPrefix: true,
+      },
+      {
+        label: "Insulin",
+        href: "/admin/health/insulin",
+        capability: Capability.HEALTH_DATA_VIEW,
+        matchPrefix: true,
+      },
+      {
+        label: "Carbs",
+        href: "/admin/health/meals",
+        capability: Capability.HEALTH_DATA_VIEW,
         matchPrefix: true,
       },
     ],
+  },
+  // Calculators are never shown to a family — staff run one for a
+  // participant from here, one at a time (see the calculators run page).
+  // Kept out of "What families see" so that label stays literally true.
+  {
+    label: "Calculators",
+    icon: "FlaskConical",
+    href: "/admin/content/calculators",
+    capability: Capability.CALCULATORS_MANAGE,
+    matchPrefix: true,
   },
   {
     label: "Help requests",

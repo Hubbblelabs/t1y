@@ -15,15 +15,38 @@ import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Calculators" };
 
+/**
+ * This app tracks glucose, insulin and carbohydrates only — no medications,
+ * exercise, weight or HbA1c logging exists here (see docs/UNUSED-BACKEND.md).
+ * A calculator that draws on anything else would only ever show "missing a
+ * value" for every participant, so it's kept out of the list entirely rather
+ * than left there to look broken. Only a DATA-sourced input has a definite
+ * domain to check (see lib/services/health-data-catalogue.ts); an ASK input
+ * is always fine here; it's just a number staff type in.
+ */
+function isInsulinGlucoseOrCarbCalculator(inputs: CalculatorInput[]): boolean {
+  return inputs.every(
+    (input) =>
+      input.source !== "DATA" ||
+      !input.sourceKey ||
+      input.sourceKey.startsWith("glucose_") ||
+      input.sourceKey.startsWith("insulin_") ||
+      input.sourceKey.startsWith("carb"),
+  );
+}
+
 export default async function CalculatorsPage() {
-  const calculators = await listCalculatorsForAdmin();
+  const allCalculators = await listCalculatorsForAdmin();
+  const calculators = allCalculators.filter((calculator) =>
+    isInsulinGlucoseOrCarbCalculator((calculator.inputs ?? []) as unknown as CalculatorInput[]),
+  );
 
   return (
     <PageContainer>
       <PageHeader
         title="Calculators"
         description="Staff-only working-out tools — run one for a participant to see what it gives them"
-        breadcrumbs={[{ label: "What families see" }, { label: "Calculators" }]}
+        breadcrumbs={[{ label: "Calculators" }]}
         actions={
           <Button asChild variant="primary">
             <Link href="/admin/content/calculators/new">
