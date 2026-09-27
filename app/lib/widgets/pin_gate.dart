@@ -5,6 +5,7 @@ import '../screens/profile/mpin_screen.dart';
 import '../services/api_client.dart';
 import '../services/mpin_service.dart';
 import '../theme/app_theme.dart';
+import 'app_loader.dart';
 import 'error_banner.dart';
 import 'pin_field.dart';
 
@@ -178,7 +179,7 @@ class _PinGateState extends State<PinGate> {
         future: _status,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoader());
           }
           if (snapshot.hasError) {
             final e = snapshot.error;

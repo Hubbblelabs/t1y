@@ -21,6 +21,7 @@ import '../../services/reminder_service.dart';
 import '../../services/rewards_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
 import '../../widgets/tour_step.dart';
@@ -330,7 +331,7 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
       backgroundColor: const Color(0xFFF7F8FA),
       appBar: AppHeader(title: S.home, showBadges: true, tour: true),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : RefreshIndicator(
               onRefresh: () =>
                   Future.wait([_load(), _loadDay(_selectedDay), _loadExtras()]),

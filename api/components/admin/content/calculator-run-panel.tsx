@@ -60,7 +60,12 @@ export function CalculatorRunPanel({
   const [running, setRunning] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const askInputs = inputs.filter((input) => input.source !== "DATA");
+  const askInputs = inputs.filter(
+    (input) =>
+      input.source !== "DATA" &&
+      input.key !== "tdd" &&
+      input.labelEn.trim().toLowerCase() !== "total daily insulin dose",
+  );
 
   React.useEffect(() => {
     if (selected) return; // Don't re-search once someone is picked.
@@ -243,6 +248,8 @@ export function CalculatorRunPanel({
           </p>
         ) : result.error ? (
           <div className="bg-danger-soft text-danger rounded-md p-3 text-sm">{result.error}</div>
+        ) : result.inputs.some((row) => row.value === null) ? (
+          <div className="bg-surface-hover text-ink-muted rounded-md p-3 text-sm">No data</div>
         ) : (
           <>
             <dl className="divide-line mb-4 divide-y">

@@ -9,6 +9,7 @@ import '../../services/profile_service.dart';
 import '../../services/question_service.dart';
 import '../../services/question_values.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
 
@@ -225,7 +226,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
         backgroundColor: Colors.white,
       ),
       body: questions == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               child: _editing

@@ -9,6 +9,7 @@ import '../../services/question_service.dart';
 import '../../l10n/strings.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_banner.dart';
+import '../../widgets/offline_auth_dialog.dart';
 import 'signup_loading_screen.dart';
 import 'terms_screen.dart';
 
@@ -138,6 +139,12 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   }
 
   Future<void> _respondToTerms() async {
+    // Account creation is next — same offline gate as the sign-in path,
+    // shown before the "I Agree" bubble commits rather than after a
+    // creation attempt that can only fail without a connection.
+    if (!await ensureOnlineForAuth(context)) return;
+    if (!mounted) return;
+
     setState(() {
       _messages.add(
         _ChatMessage(S.iAgree, isUser: true),

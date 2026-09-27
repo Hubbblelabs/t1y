@@ -23,18 +23,11 @@ class ApiException implements Exception {
   /// is translated, never shown untranslated.
   String get message => S.apiMessage(statusCode, code, rawMessage);
 
-  /// English with the Tamil beneath, for the sign-in and sign-up screens.
-  String get bothMessage {
-    final en = S.inLocale(
-      'en',
-      () => S.apiMessage(statusCode, code, rawMessage),
-    );
-    final ta = S.inLocale(
-      'ta',
-      () => S.apiMessage(statusCode, code, rawMessage),
-    );
-    return en == ta ? en : '$en\n$ta';
-  }
+  /// English only, for the sign-in and sign-up screens — unlike their static
+  /// copy (headings, field labels), an error here is server-driven and read
+  /// once in the moment, so the Tamil line added under it read as clutter
+  /// rather than help.
+  String get bothMessage => S.inLocale('en', () => S.apiMessage(statusCode, code, rawMessage));
 
   @override
   String toString() => message;

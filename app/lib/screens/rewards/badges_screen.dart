@@ -4,6 +4,7 @@ import '../../l10n/strings.dart';
 import '../../models/badge.dart';
 import '../../services/rewards_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/badge_glow_view.dart';
 import '../../widgets/glow_badge.dart';
 import '../../widgets/hex_badge.dart';
@@ -61,7 +62,7 @@ class _BadgesScreenState extends State<BadgesScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoader());
           }
           if (snapshot.hasError) {
             return _ErrorState(onRetry: _refresh, message: '${snapshot.error}');

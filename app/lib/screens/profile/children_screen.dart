@@ -7,6 +7,7 @@ import '../../services/api_client.dart';
 import '../../services/household_service.dart';
 import '../../services/session_actions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/error_banner.dart';
 import '../auth/add_child_screen.dart';
 
@@ -77,7 +78,7 @@ class _ChildrenScreenState extends State<ChildrenScreen> {
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoader());
           }
           final children = snapshot.data ?? const <Child>[];
 

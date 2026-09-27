@@ -4,6 +4,7 @@ import '../../l10n/strings.dart';
 import '../../services/profile_service.dart';
 import '../../services/session_actions.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/participant_id_card.dart';
 import 'profile_details_screen.dart';
@@ -100,7 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : _me == null
           ? _LoadFailedNotice(onRetry: _load)
           : SafeArea(

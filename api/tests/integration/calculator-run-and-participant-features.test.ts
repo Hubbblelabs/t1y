@@ -143,7 +143,7 @@ describe("running a calculator for a participant", () => {
     await prisma.insulinLog.createMany({ data: rows });
 
     const today = await runCalculatorForParticipant({ calculatorId: calculator.id, userId });
-    expect(today.inputs[0].value).toBe(40);
+    expect(today.inputs[0].value).toBe(25);
 
     const aWeekAgo = await runCalculatorForParticipant({
       calculatorId: calculator.id,
@@ -153,14 +153,39 @@ describe("running a calculator for a participant", () => {
     expect(aWeekAgo.inputs[0].value).toBe(10);
   });
 
-  it("reports a missing value plainly rather than calculating with nothing", async () => {
+  it("reports no data rather than requiring an insulin value", async () => {
     const userId = await aParticipant();
     const calculator = await aRatioCalculator();
 
     const result = await runCalculatorForParticipant({ calculatorId: calculator.id, userId });
 
     expect(result.results).toHaveLength(0);
-    expect(result.error).toMatch(/Total daily dose/);
+    expect(result.error).toBeNull();
+    expect(result.inputs[0].value).toBeNull();
+    expect(result.inputs[0].missingReason).toMatch(/No insulin recorded/);
+  });
+
+  it("treats legacy TDD inputs without source metadata as participant data", async () => {
+    const userId = await aParticipant();
+    const calculator = await createCalculator(await anAdminId(), {
+      nameEn: `Legacy TDD ${Date.now()}`,
+      inputs: [
+        {
+          key: "tdd",
+          labelEn: "Total daily insulin dose",
+          unit: "units",
+        },
+      ],
+      outputs: [{ key: "total", labelEn: "Total", unit: "units", expression: "tdd" }],
+    });
+    createdCalculatorIds.push(calculator.id);
+
+    const result = await runCalculatorForParticipant({ calculatorId: calculator.id, userId });
+
+    expect(result.error).toBeNull();
+    expect(result.results).toHaveLength(0);
+    expect(result.inputs[0].source).toBe("MISSING");
+    expect(result.inputs[0].missingReason).toMatch(/No insulin recorded/);
   });
 
   it("does not run a hidden calculator any differently — hidden only means the app never showed it", async () => {

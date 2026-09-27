@@ -234,12 +234,14 @@ void main() {
       }
     });
 
-    test('the sign-in screens show both', () async {
-      await _setLocale('en');
+    test('the sign-in screens show English only, regardless of app locale', () async {
       final e = errors[3];
-      expect(e.bothMessage, contains('\n'));
-      expect(_tamil.hasMatch(e.bothMessage), isTrue);
-      expect(e.bothMessage, startsWith("Those sign-in details didn't match."));
+      for (final locale in ['en', 'ta']) {
+        await _setLocale(locale);
+        expect(e.bothMessage, isNot(contains('\n')));
+        expect(_tamil.hasMatch(e.bothMessage), isFalse);
+        expect(e.bothMessage, "Those sign-in details didn't match.");
+      }
     });
   });
 

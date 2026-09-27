@@ -6,6 +6,7 @@ import '../../services/household_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
+import '../../widgets/offline_auth_dialog.dart';
 
 /// Enrols another child under the signed-in parent's household.
 ///
@@ -56,6 +57,9 @@ class _AddChildScreenState extends State<AddChildScreen> {
       setState(() => _error = S.bothText(() => S.fillAllFields));
       return;
     }
+
+    if (!await ensureOnlineForAuth(context)) return;
+    if (!mounted) return;
 
     setState(() {
       _saving = true;

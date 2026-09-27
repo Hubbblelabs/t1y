@@ -8,6 +8,7 @@ import '../../models/topic.dart';
 import '../../services/content_service.dart';
 import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/locale_aware.dart';
 import '../../widgets/topic_card.dart' show categoryIcons, categoryName;
@@ -73,6 +74,13 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
   /// text-only topic, not as a topic missing something.
   late final ValueNotifier<bool> _headerImageFailed = ValueNotifier(false);
 
+  /// Set once the current header image has actually finished decoding a
+  /// frame. Until then the whole framed row — border, shadow, rounded
+  /// corners — stays off screen too, not just the picture inside it: an
+  /// empty frame while a real photo is still downloading read as a bare
+  /// coloured box floating above the text, not as "loading".
+  late final ValueNotifier<bool> _headerImageReady = ValueNotifier(false);
+
   /// The full topic list in the current locale, used only to work out what
   /// "previous"/"next" mean from here — fetched once and cache-first (the
   /// reader always arrived from this same list, so it's already on disk).
@@ -109,6 +117,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
     _progress.dispose();
     _headerImage.dispose();
     _headerImageFailed.dispose();
+    _headerImageReady.dispose();
     super.dispose();
   }
 
@@ -117,23 +126,30 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
   /// A section authored as words-only carries no picture of its own, so the
   /// nearest earlier one stays on screen — the header is meant to illustrate
   /// where the reader is, and blanking it mid-topic reads as a loading
-  /// failure. Falls back to the topic's own main picture, then to nothing.
+  /// failure. A topic with no real block pictures at all shows no header
+  /// image rather than the topic's own listing thumbnail — that thumbnail
+  /// is a generic stand-in for the Help Book list, not a picture of this
+  /// section, and reusing it here read as a random image popping in while
+  /// scrolling through a topic that has none of its own.
   String? _imageForBlock(int index) {
     for (var i = index; i >= 0; i--) {
       final block = _topic.contentBlocks[i];
       if (block.hasImage) return _absolute(block.imageUrl);
     }
-    return _topic.thumbnailUrl != null ? _absolute(_topic.thumbnailUrl!) : null;
+    return null;
   }
 
   Future<void> _init() async {
     _baseUrl = await ApiConfig.getBaseUrl();
+    // A topic not yet migrated to contentBlocks has no per-section picture
+    // of its own to show here — only the Help Book list's generic listing
+    // thumbnail, which used to appear as a fixed header floating above the
+    // text for the whole read. Only a real contentBlocks picture is shown.
     if (_topic.contentBlocks.isNotEmpty) {
       _headerImage.value = _imageForBlock(0);
-    } else if (_topic.thumbnailUrl != null) {
-      _headerImage.value = _absolute(_topic.thumbnailUrl!);
     }
     _headerImageFailed.value = false;
+    _headerImageReady.value = false;
     if (mounted) setState(() => _loaded = true);
     ProgressService.instance.recordTopicOpened(_topic.slug, _topic.locale);
     final read = await ProgressService.instance.readTopicSlugs();
@@ -233,6 +249,7 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
       _currentBlockIndex = bestIndex!;
       _headerImage.value = _imageForBlock(bestIndex!);
       _headerImageFailed.value = false;
+      _headerImageReady.value = false;
     }
   }
 
@@ -257,10 +274,9 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
         _progress.value = 0;
         _headerImage.value = _topic.contentBlocks.isNotEmpty
             ? _imageForBlock(0)
-            : (_topic.thumbnailUrl != null
-                  ? _absolute(_topic.thumbnailUrl!)
-                  : null);
+            : null;
         _headerImageFailed.value = false;
+        _headerImageReady.value = false;
         if (_scrollController.hasClients) _scrollController.jumpTo(0);
       }
       if (mounted) setState(() => _siblings = topics);
@@ -321,32 +337,40 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
         bottom: false,
         child: Stack(
           children: [
-            if (!_loaded)
-              const Center(child: CircularProgressIndicator())
-            else if (!hasContent)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.menu_book_outlined,
-                      size: 44,
-                      color: AppTheme.deep.withValues(alpha: 0.35),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      S.noContentYet,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.inkSoft,
+            // A topic with no picture jumps straight from the spinner to
+            // plain text, with nothing large and slow-loading (like a
+            // header photo) to soften the swap — that instant one-frame
+            // change read as a white flash. A short crossfade between
+            // loading/empty/content smooths every case, not just this one.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              child: !_loaded
+                  ? const Center(key: ValueKey('loading'), child: AppLoader())
+                  : !hasContent
+                  ? Center(
+                      key: const ValueKey('empty'),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.menu_book_outlined,
+                            size: 44,
+                            color: AppTheme.deep.withValues(alpha: 0.35),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            S.noContentYet,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.inkSoft,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              Column(
-                children: [
+                    )
+                  : Column(
+                      key: const ValueKey('content'),
+                      children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                     child: Align(
@@ -386,51 +410,94 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                           // either way the whole row goes away rather than
                           // leaving a broken-picture placeholder in its place.
                           if (failed) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(
-                                  color: AppTheme.deep.withValues(alpha: 0.08),
+                          // Image.network itself must stay mounted the whole
+                          // time there's a URL to try — it's the only thing
+                          // that can ever report "a frame is ready". Gating
+                          // its existence on `ready` (an earlier version of
+                          // this) meant it could never become ready, and no
+                          // header image — real or not — ever showed again.
+                          // Only the frame's opacity reacts to load state.
+                          return ValueListenableBuilder<bool>(
+                            valueListenable: _headerImageReady,
+                            builder: (context, ready, _) {
+                              return Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  10,
+                                  16,
+                                  0,
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.deep.withValues(
-                                      alpha: 0.08,
+                                child: AnimatedOpacity(
+                                  opacity: ready ? 1 : 0,
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(18),
+                                      border: Border.all(
+                                        color: AppTheme.deep.withValues(
+                                          alpha: 0.08,
+                                        ),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.deep.withValues(
+                                            alpha: 0.08,
+                                          ),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
                                     ),
-                                    blurRadius: 16,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: AspectRatio(
-                                // 3:2 — the fixed image ratio used across the Help Book.
-                                aspectRatio: 3 / 2,
-                                child: AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 320),
-                                  child: Image.network(
-                                    headerImage,
-                                    key: ValueKey(headerImage),
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      // Reporting the failure belongs to the
-                                      // next frame, not to this build.
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (mounted &&
-                                                _headerImage.value ==
-                                                    headerImage) {
-                                              _headerImageFailed.value = true;
-                                            }
-                                          });
-                                      return const SizedBox.shrink();
-                                    },
+                                    clipBehavior: Clip.antiAlias,
+                                    child: AspectRatio(
+                                      // 3:2 — the fixed image ratio used across the Help Book.
+                                      aspectRatio: 3 / 2,
+                                      child: Image.network(
+                                        headerImage,
+                                        key: ValueKey(headerImage),
+                                        fit: BoxFit.cover,
+                                        frameBuilder:
+                                            (
+                                              context,
+                                              child,
+                                              frame,
+                                              wasSynchronouslyLoaded,
+                                            ) {
+                                              if (frame != null) {
+                                                WidgetsBinding.instance
+                                                    .addPostFrameCallback((_) {
+                                                      if (mounted &&
+                                                          _headerImage
+                                                                  .value ==
+                                                              headerImage) {
+                                                        _headerImageReady
+                                                                .value =
+                                                            true;
+                                                      }
+                                                    });
+                                              }
+                                              return child;
+                                            },
+                                        errorBuilder: (context, error, stackTrace) {
+                                          // Reporting the failure belongs to
+                                          // the next frame, not to this build.
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                if (mounted &&
+                                                    _headerImage.value ==
+                                                        headerImage) {
+                                                  _headerImageFailed.value =
+                                                      true;
+                                                }
+                                              });
+                                          return const SizedBox.shrink();
+                                        },
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           );
                         },
                       );
@@ -546,11 +613,12 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                   ),
                 ],
               ),
+            ),
             if (_switching)
               Positioned.fill(
                 child: ColoredBox(
                   color: Colors.white.withValues(alpha: 0.7),
-                  child: const Center(child: CircularProgressIndicator()),
+                  child: const Center(child: AppLoader(size: 40)),
                 ),
               ),
           ],

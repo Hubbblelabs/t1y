@@ -7,6 +7,7 @@ import '../../services/support_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/relative_time.dart';
 import '../../providers/app_state.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/error_banner.dart';
 import 'new_question_screen.dart';
 import 'thread_screen.dart';
@@ -111,7 +112,7 @@ class _HelpScreenState extends State<HelpScreen> {
             ] else if (threads == null)
               const Padding(
                 padding: EdgeInsets.only(top: 60),
-                child: Center(child: CircularProgressIndicator()),
+                child: Center(child: AppLoader()),
               )
             else if (threads.isEmpty)
               Padding(

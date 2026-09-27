@@ -7,6 +7,7 @@ import '../../services/api_client.dart';
 import '../../services/support_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/relative_time.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/error_banner.dart';
 import 'help_screen.dart' show StateChip;
 
@@ -115,7 +116,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                     padding: const EdgeInsets.all(20),
                     child: ErrorBanner(message: _error!),
                   )
-                : const Center(child: CircularProgressIndicator()))
+                : const Center(child: AppLoader()))
           : Column(
               children: [
                 Expanded(

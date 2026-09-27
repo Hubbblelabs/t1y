@@ -314,20 +314,14 @@ export async function resolveCatalogueValues(
 }
 
 /**
- * The child's usual total daily insulin, averaged over the last seven
- * *complete* days.
- *
- * Today is excluded on purpose: a day still in progress would drag the
- * average down and make every ratio derived from it too generous. Days with
- * nothing recorded are skipped rather than counted as zero, for the same
- * reason — a family who forgot to log on Sunday did not take no insulin.
+ * The child's usual total daily insulin, averaged over every day with a
+ * recorded dose. There is no arbitrary seven-day window: ratio calculators
+ * should use the participant's available insulin data, while [asOf] still
+ * lets the workbench run a historical calculation.
  */
-async function resolveUsualDailyDose(userId: string, startOfToday: Date): Promise<ResolvedValue> {
-  const weekStart = new Date(startOfToday);
-  weekStart.setDate(weekStart.getDate() - 7);
-
+async function resolveUsualDailyDose(userId: string, asOf: Date): Promise<ResolvedValue> {
   const logs = await prisma.insulinLog.findMany({
-    where: { userId, administeredAt: { gte: weekStart, lt: startOfToday } },
+    where: { userId, administeredAt: { lte: asOf } },
     select: { doseUnits: true, administeredAt: true },
   });
 
@@ -336,7 +330,7 @@ async function resolveUsualDailyDose(userId: string, startOfToday: Date): Promis
       key: "insulin_total_daily_dose",
       value: null,
       recordedAt: null,
-      missingReason: "No insulin recorded in the last seven days.",
+      missingReason: "No insulin has been recorded.",
     };
   }
 

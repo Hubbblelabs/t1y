@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/auth_background.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/labeled_field.dart';
+import '../../widgets/offline_auth_dialog.dart';
 import '../../widgets/wave_header.dart';
 import '../home/home_shell.dart';
 
@@ -57,6 +58,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       setState(() => _error = S.bothText(() => S.passwordSameAsOld));
       return;
     }
+
+    if (!await ensureOnlineForAuth(context)) return;
+    if (!mounted) return;
 
     setState(() {
       _error = null;

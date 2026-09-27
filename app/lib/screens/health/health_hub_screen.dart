@@ -13,6 +13,7 @@ import '../../services/local_reminders.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/relative_time.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/app_loader.dart';
 import 'record_screen.dart';
 
 /// The Health tab: a glance, then one way in.
@@ -127,7 +128,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
           future: _glance,
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
+              return const Center(child: AppLoader());
             }
             final data = snapshot.data!;
             final access = data.access;
@@ -262,13 +263,17 @@ class _AverageDial extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  S.todaysAverage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.inkSoft,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    S.todaysAverage,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.inkSoft,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -282,13 +287,17 @@ class _AverageDial extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  a == null ? S.noReadingsToday : 'mg/dL',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: a == null ? 11.5 : 13,
-                    fontWeight: FontWeight.w600,
-                    color: a == null ? AppTheme.inkSoft : color,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    a == null ? S.noReadingsToday : 'mg/dL',
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: a == null ? 11.5 : 13,
+                      fontWeight: FontWeight.w600,
+                      color: a == null ? AppTheme.inkSoft : color,
+                    ),
                   ),
                 ),
               ],

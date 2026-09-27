@@ -11,7 +11,10 @@ import { validateFormula } from "../lib/utils/formula";
  * Every formula here is taken from the curriculum documents (Nutrition;
  * Insulin Types & Storage; Hypoglycaemia; Insulin Pump):
  *
- *   TDD              = basal + every bolus over 24 hours
+ *   TDD              = the 7-day average of logged insulin (see TDD_FROM_RECORDS —
+ *                      the app has no way to ask a parent to split a logged dose
+ *                      into "basal" vs. "before breakfast" etc., so this is read
+ *                      from real records rather than typed in as five fields)
  *   IC ratio         = 500 / TDD                       (grams of carb per unit)
  *   ISF, rapid       = 1800 / TDD                      (mg/dL per unit)
  *   ISF, short/reg.  = 1500 / TDD
@@ -23,9 +26,18 @@ import { validateFormula } from "../lib/utils/formula";
  *   pump basal       = 80% of TDD; hourly = daily / 24; 12–4 am × 0.5; 4–10 am × 1.5;
  *                      10 am–midnight × 1
  *
- * Parents type what a calculator needs. Where the phone already holds a
- * number (the latest glucose reading, the usual daily insulin total) it is
- * filled in and stays editable, with the time it was recorded beside it.
+ * A parent only ever records three things in this app: a glucose reading, an
+ * insulin dose, a meal's carbohydrates (see record_screen.dart) — never a
+ * standing ratio like IC or ISF, and never a dose already split into
+ * "basal" vs. "before breakfast" vs. "before lunch". So every input below is
+ * either one of those three things typed fresh (carbs in *this* meal,
+ * glucose right now if the day's reading is stale, the target their team set)
+ * or filled in from what the app already has — the latest glucose reading,
+ * or IC/ISF/TDD computed from the last week of logged doses — always shown
+ * and always editable, with the time it was recorded beside it. Nothing here
+ * asks for a number that isn't either freshly known or already on file; see
+ * mealDose/correctionDose/totalMealtimeInsulin below for the formula chains
+ * that replaced the manual IC/ISF fields this file used to have.
  *
  * Usage:
  *   npx tsx scripts/seed-standard-calculators.ts             add any that are missing
@@ -71,18 +83,6 @@ type Output = {
   expression: string;
 };
 
-// A dose entered as 0 is allowed (a child may skip one), so these take a
-// minimum of 0. Everything else refuses zero and negatives by default.
-const dose = (key: string, en: string, ta: string): Input => ({
-  key,
-  labelEn: en,
-  labelTa: ta,
-  unit: "units",
-  min: 0,
-  max: 100,
-  decimals: 1,
-});
-
 const TDD_FROM_RECORDS: Input = {
   key: "tdd",
   labelEn: "Total daily insulin dose",
@@ -121,26 +121,6 @@ const TARGET: Input = {
   helpTa: "உணவுக்கு முன் உங்கள் நீரிழிவு குழு விரும்பும் எண், பொதுவாக 100–150.",
 };
 
-const IC_INPUT: Input = {
-  key: "ic",
-  labelEn: "Insulin-to-carb ratio (grams covered by 1 unit)",
-  labelTa: "இன்சுலின்-கார்ப் விகிதம் (1 யூனிட் ஈடுசெய்யும் கிராம்)",
-  unit: "g per unit",
-  min: 1,
-  max: 150,
-  decimals: 1,
-};
-
-const ISF_INPUT: Input = {
-  key: "isf",
-  labelEn: "Correction factor (mg/dL lowered by 1 unit)",
-  labelTa: "திருத்தக் காரணி (1 யூனிட் குறைக்கும் mg/dL)",
-  unit: "mg/dL per unit",
-  min: 1,
-  max: 600,
-  decimals: 0,
-};
-
 const CARBS: Input = {
   key: "carbs",
   labelEn: "Carbohydrates in this meal",
@@ -173,6 +153,105 @@ const ratios = (rule: 1800 | 1500) => ({
   ] as Output[],
 });
 
+/**
+ * The insulin-to-carb ratio, ISF and correction-factor formulas below all
+ * used to be separate manual fields (`IC_INPUT`, `ISF_INPUT`) — asking a
+ * parent to already know and re-type a precise ratio (e.g. "1 unit per
+ * 12.5 g") every single time they wanted a meal dose. That number isn't
+ * something the app has anywhere: a family only ever records three things —
+ * a glucose reading, an insulin dose, a meal's carbohydrates (see
+ * record_screen.dart) — never a standing ratio. The 500/1800/1500 rules
+ * above compute exactly that ratio from the same logged-insulin average
+ * (TDD_FROM_RECORDS) already used to seed it, so every calculator below
+ * derives it the same way instead of asking for it a second time. It is
+ * still shown as its own output line, not hidden, so a family can compare
+ * it with whatever fixed number their diabetes team has actually prescribed
+ * (see NOTE_EN).
+ */
+const insulinToCarb = {
+  key: "ic",
+  labelEn: "Insulin-to-carb ratio (500 rule)",
+  labelTa: "இன்சுலின்-கார்ப் விகிதம் (500 விதி)",
+  unit: "g per unit",
+  decimals: 1,
+  expression: "500 / tdd",
+} as const;
+
+const correctionFactor = (rule: 1800 | 1500) =>
+  ({
+    key: "isf",
+    labelEn: `Correction factor (${rule} rule)`,
+    labelTa: `திருத்தக் காரணி (${rule} விதி)`,
+    unit: "mg/dL per unit",
+    decimals: 0,
+    expression: `${rule} / tdd`,
+  }) as const;
+
+/** carbs ÷ insulin-to-carb ratio — needs [CARBS, TDD_FROM_RECORDS] as inputs. */
+const mealDose = () => ({
+  inputs: [CARBS, TDD_FROM_RECORDS],
+  outputs: [
+    insulinToCarb,
+    {
+      key: "meal",
+      labelEn: "Insulin for this meal",
+      labelTa: "இந்த உணவுக்கான இன்சுலின்",
+      unit: "units",
+      decimals: 1,
+      expression: "carbs / ic",
+    },
+  ] as Output[],
+});
+
+/** (glucose − target) ÷ correction factor — needs [GLUCOSE_NOW, TARGET, TDD_FROM_RECORDS]. */
+const correctionDose = (rule: 1800 | 1500) => ({
+  inputs: [GLUCOSE_NOW, TARGET, TDD_FROM_RECORDS],
+  outputs: [
+    correctionFactor(rule),
+    {
+      key: "correction",
+      labelEn: "Correction (minus means take less)",
+      labelTa: "திருத்தம் (கழித்தல் என்றால் குறைவாக எடுக்கவும்)",
+      unit: "units",
+      decimals: 1,
+      expression: "(glucose - target) / isf",
+    },
+  ] as Output[],
+});
+
+/** Meal dose plus correction dose together — needs [CARBS, GLUCOSE_NOW, TARGET, TDD_FROM_RECORDS]. */
+const totalMealtimeInsulin = (rule: 1800 | 1500) => ({
+  inputs: [CARBS, GLUCOSE_NOW, TARGET, TDD_FROM_RECORDS],
+  outputs: [
+    insulinToCarb,
+    correctionFactor(rule),
+    {
+      key: "meal",
+      labelEn: "For the food",
+      labelTa: "உணவுக்கு",
+      unit: "units",
+      decimals: 1,
+      expression: "carbs / ic",
+    },
+    {
+      key: "correction",
+      labelEn: "For the glucose (minus means less)",
+      labelTa: "குளுக்கோஸுக்கு (கழித்தல் என்றால் குறைவு)",
+      unit: "units",
+      decimals: 1,
+      expression: "(glucose - target) / isf",
+    },
+    {
+      key: "total",
+      labelEn: "Total to take",
+      labelTa: "மொத்தமாக எடுக்க வேண்டியது",
+      unit: "units",
+      decimals: 1,
+      expression: "meal + correction",
+    },
+  ] as Output[],
+});
+
 const CALCULATORS: Array<{
   nameEn: string;
   nameTa: string;
@@ -184,23 +263,28 @@ const CALCULATORS: Array<{
   {
     nameEn: "Total daily dose (TDD)",
     nameTa: "மொத்த தினசரி அளவு (TDD)",
-    descriptionEn: "Adds up all the insulin taken in 24 hours: the basal dose plus every mealtime dose.",
-    descriptionTa: "24 மணி நேரத்தில் எடுத்த அனைத்து இன்சுலினையும் கூட்டுகிறது: பேசல் அளவு மற்றும் ஒவ்வொரு உணவு நேர அளவு.",
-    inputs: [
-      dose("basal", "Basal (long-acting) insulin", "பேசல் (நீண்ட நேர) இன்சுலின்"),
-      dose("breakfast", "Before breakfast", "காலை உணவுக்கு முன்"),
-      dose("lunch", "Before lunch (or school break)", "மதிய உணவுக்கு முன் (அல்லது பள்ளி இடைவேளை)"),
-      dose("dinner", "Before dinner", "இரவு உணவுக்கு முன்"),
-      dose("other", "Any other dose (snack, correction)", "வேறு அளவு (சிற்றுண்டி, திருத்தம்)"),
-    ],
+    // Previously five manual fields — basal, before breakfast/lunch/dinner,
+    // "any other dose" — added together. The app has never asked a parent to
+    // categorise a logged dose that way (InsulinLog records what was taken
+    // and when, not which of these five buckets it belongs to), so every one
+    // of those fields showed up blank and had to be guessed or skipped every
+    // time. TDD_FROM_RECORDS is the real number: the same seven-day average
+    // of actually-logged insulin already powering the ratio and pump-basal
+    // calculators below, auto-filled and still editable if the family knows
+    // it should be different.
+    descriptionEn:
+      "Your child's usual total daily insulin, averaged from the last week of logged doses — the same number the ratio and pump calculators start from.",
+    descriptionTa:
+      "உங்கள் குழந்தையின் வழக்கமான மொத்த தினசரி இன்சுலின், கடந்த வார பதிவு செய்த அளவுகளின் சராசரி — விகித மற்றும் பம்ப் கால்குலேட்டர்கள் பயன்படுத்தும் அதே எண்.",
+    inputs: [TDD_FROM_RECORDS],
     outputs: [
       {
-        key: "tdd",
+        key: "total",
         labelEn: "Total daily dose",
         labelTa: "மொத்த தினசரி அளவு",
         unit: "units",
         decimals: 1,
-        expression: "basal + breakfast + lunch + dinner + other",
+        expression: "tdd",
       },
     ],
   },
@@ -225,71 +309,50 @@ const CALCULATORS: Array<{
   {
     nameEn: "Mealtime dose from carbohydrates",
     nameTa: "கார்போஹைட்ரேட்டிலிருந்து உணவு நேர அளவு",
-    descriptionEn: "How many units cover the carbohydrates in a meal: carbs ÷ insulin-to-carb ratio.",
-    descriptionTa: "ஒரு உணவில் உள்ள கார்போஹைட்ரேட்டை ஈடுசெய்ய எத்தனை யூனிட்: கார்ப் ÷ இன்சுலின்-கார்ப் விகிதம்.",
-    inputs: [CARBS, IC_INPUT],
-    outputs: [
-      {
-        key: "meal",
-        labelEn: "Insulin for this meal",
-        labelTa: "இந்த உணவுக்கான இன்சுலின்",
-        unit: "units",
-        decimals: 1,
-        expression: "carbs / ic",
-      },
-    ],
-  },
-  {
-    nameEn: "Correction dose for glucose before a meal",
-    nameTa: "உணவுக்கு முன் குளுக்கோஸுக்கான திருத்த அளவு",
+    // The insulin-to-carb ratio (the 500 rule) is the same formula for every
+    // insulin type, so unlike the correction-dose calculators below this one
+    // needs no rapid/regular split.
     descriptionEn:
-      "Extra insulin when glucose is above target, or less when it is below: (glucose now − target) ÷ correction factor. A minus answer means take that much less.",
+      "How many units cover the carbohydrates in a meal, from carbs and your child's usual total daily dose.",
     descriptionTa:
-      "குளுக்கோஸ் இலக்கை விட அதிகமாக இருந்தால் கூடுதல் இன்சுலின், குறைவாக இருந்தால் குறைவு: (தற்போதைய குளுக்கோஸ் − இலக்கு) ÷ திருத்தக் காரணி. கழித்தல் குறி இருந்தால் அவ்வளவு குறைவாக எடுக்கவும்.",
-    inputs: [GLUCOSE_NOW, TARGET, ISF_INPUT],
-    outputs: [
-      {
-        key: "correction",
-        labelEn: "Correction (minus means take less)",
-        labelTa: "திருத்தம் (கழித்தல் என்றால் குறைவாக எடுக்கவும்)",
-        unit: "units",
-        decimals: 1,
-        expression: "(glucose - target) / isf",
-      },
-    ],
+      "ஒரு உணவில் உள்ள கார்போஹைட்ரேட்டையும் உங்கள் குழந்தையின் வழக்கமான மொத்த தினசரி அளவையும் கொண்டு, எத்தனை யூனிட் தேவை.",
+    ...mealDose(),
   },
   {
-    nameEn: "Total mealtime insulin",
-    nameTa: "மொத்த உணவு நேர இன்சுலின்",
-    descriptionEn: "The meal dose plus the correction dose, worked out together.",
-    descriptionTa: "உணவு அளவு மற்றும் திருத்த அளவு, சேர்த்துக் கணக்கிடப்படுகிறது.",
-    inputs: [CARBS, IC_INPUT, GLUCOSE_NOW, TARGET, ISF_INPUT],
-    outputs: [
-      {
-        key: "meal",
-        labelEn: "For the food",
-        labelTa: "உணவுக்கு",
-        unit: "units",
-        decimals: 1,
-        expression: "carbs / ic",
-      },
-      {
-        key: "correction",
-        labelEn: "For the glucose (minus means less)",
-        labelTa: "குளுக்கோஸுக்கு (கழித்தல் என்றால் குறைவு)",
-        unit: "units",
-        decimals: 1,
-        expression: "(glucose - target) / isf",
-      },
-      {
-        key: "total",
-        labelEn: "Total to take",
-        labelTa: "மொத்தமாக எடுக்க வேண்டியது",
-        unit: "units",
-        decimals: 1,
-        expression: "meal + correction",
-      },
-    ],
+    nameEn: "Correction dose — rapid-acting insulin",
+    nameTa: "திருத்த அளவு — வேகமாகச் செயல்படும் இன்சுலின்",
+    descriptionEn:
+      "Extra insulin when glucose is above target, or less when it is below: (glucose now − target) ÷ correction factor (1800 rule). A minus answer means take that much less. For Humalog, Novorapid and Apidra.",
+    descriptionTa:
+      "குளுக்கோஸ் இலக்கை விட அதிகமாக இருந்தால் கூடுதல் இன்சுலின், குறைவாக இருந்தால் குறைவு: (தற்போதைய குளுக்கோஸ் − இலக்கு) ÷ திருத்தக் காரணி (1800 விதி). கழித்தல் குறி இருந்தால் அவ்வளவு குறைவாக எடுக்கவும். ஹுமலாக், நோவோராபிட், அபிட்ரா இன்சுலினுக்கு.",
+    ...correctionDose(1800),
+  },
+  {
+    nameEn: "Correction dose — short-acting (regular) insulin",
+    nameTa: "திருத்த அளவு — குறுகிய-செயல் (ரெகுலர்) இன்சுலின்",
+    descriptionEn:
+      "Extra insulin when glucose is above target, or less when it is below: (glucose now − target) ÷ correction factor (1500 rule). A minus answer means take that much less. For regular (yellow-label) insulin.",
+    descriptionTa:
+      "குளுக்கோஸ் இலக்கை விட அதிகமாக இருந்தால் கூடுதல் இன்சுலின், குறைவாக இருந்தால் குறைவு: (தற்போதைய குளுக்கோஸ் − இலக்கு) ÷ திருத்தக் காரணி (1500 விதி). கழித்தல் குறி இருந்தால் அவ்வளவு குறைவாக எடுக்கவும். ரெகுலர் (மஞ்சள் லேபிள்) இன்சுலினுக்கு.",
+    ...correctionDose(1500),
+  },
+  {
+    nameEn: "Total mealtime insulin — rapid-acting insulin",
+    nameTa: "மொத்த உணவு நேர இன்சுலின் — வேகமாகச் செயல்படும் இன்சுலின்",
+    descriptionEn:
+      "The meal dose plus the correction dose, worked out together (1800 rule). For Humalog, Novorapid and Apidra.",
+    descriptionTa:
+      "உணவு அளவு மற்றும் திருத்த அளவு, சேர்த்துக் கணக்கிடப்படுகிறது (1800 விதி). ஹுமலாக், நோவோராபிட், அபிட்ரா இன்சுலினுக்கு.",
+    ...totalMealtimeInsulin(1800),
+  },
+  {
+    nameEn: "Total mealtime insulin — short-acting (regular) insulin",
+    nameTa: "மொத்த உணவு நேர இன்சுலின் — குறுகிய-செயல் (ரெகுலர்) இன்சுலின்",
+    descriptionEn:
+      "The meal dose plus the correction dose, worked out together (1500 rule). For regular (yellow-label) insulin.",
+    descriptionTa:
+      "உணவு அளவு மற்றும் திருத்த அளவு, சேர்த்துக் கணக்கிடப்படுகிறது (1500 விதி). ரெகுலர் (மஞ்சள் லேபிள்) இன்சுலினுக்கு.",
+    ...totalMealtimeInsulin(1500),
   },
   {
     nameEn: "Sugar needed to treat a low",

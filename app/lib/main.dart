@@ -11,6 +11,7 @@ import 'services/profile_service.dart';
 import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
 import 'l10n/strings.dart';
+import 'widgets/app_loader.dart';
 import 'widgets/locale_transition.dart';
 import 'widgets/offline_banner.dart';
 
@@ -53,6 +54,37 @@ Future<void> main() async {
 /// The app's one navigator, reachable from places with no `BuildContext` of
 /// their own — switching child, for instance, replaces every route.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
+
+/// How many logical pixels Tamil text gets added to its font size, on top of
+/// the device's own accessibility text-scale setting.
+const double tamilBumpPx = 2.0;
+
+/// Adds a fixed number of pixels to whatever [base] would have produced,
+/// instead of multiplying by a factor — a flat addition reads the same at
+/// every font size, where a percentage bump makes big text much bigger and
+/// small text barely bigger at all.
+class _PixelBumpTextScaler extends TextScaler {
+  final TextScaler base;
+  final double amount;
+
+  const _PixelBumpTextScaler(this.base, this.amount);
+
+  @override
+  double scale(double fontSize) => base.scale(fontSize) + amount;
+
+  @override
+  // ignore: deprecated_member_use
+  double get textScaleFactor => base.textScaleFactor;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PixelBumpTextScaler &&
+      other.base == base &&
+      other.amount == amount;
+
+  @override
+  int get hashCode => Object.hash(base, amount);
+}
 
 /// What replaces a widget that failed to draw.
 class _DrawingFailed extends StatelessWidget {
@@ -136,16 +168,20 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
         // actually designed.
         themeMode: ThemeMode.light,
         builder: (context, child) {
-          // Tamil script reads smaller than Latin at the same point size —
-          // a small app-wide bump, on top of whatever text-scale the device
-          // accessibility settings already apply (never replacing it).
+          // Tamil script reads smaller than Latin at the same point size, so
+          // Tamil text gets a small bump on top of whatever the device's own
+          // accessibility text-scale setting already applies — a fixed
+          // number of logical pixels added to every font size, not a
+          // percentage, so it doesn't blow up large text or vanish on small
+          // text the way a multiplier did. Screens with a fixed-size layout
+          // (e.g. the help book's category tiles) opt out of all text
+          // scaling on their own via MediaQuery.withNoTextScaling.
           final media = MediaQuery.of(context);
-          const tamilBump = 1.08;
-          final scale = AppState.instance.isTamil
-              ? media.textScaler.scale(1.0) * tamilBump
-              : media.textScaler.scale(1.0);
+          final scaler = AppState.instance.isTamil
+              ? _PixelBumpTextScaler(media.textScaler, tamilBumpPx)
+              : media.textScaler;
           return MediaQuery(
-            data: media.copyWith(textScaler: TextScaler.linear(scale)),
+            data: media.copyWith(textScaler: scaler),
             child: Stack(
               children: [
                 LocaleTransition(child: child!),
@@ -172,7 +208,7 @@ class _StartupGate extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(child: AppLoader()),
           );
         }
         return snapshot.data == true

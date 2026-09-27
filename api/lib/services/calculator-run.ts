@@ -53,9 +53,20 @@ export async function runCalculatorForParticipant(params: {
   const inputs = calculator.inputs as unknown as CalculatorInput[];
   const outputs = calculator.outputs as unknown as CalculatorOutput[];
 
+  // Older calculator rows stored the TDD input before DATA/sourceKey became
+  // required. Treat that known input as the same participant record as the
+  // current definition, rather than asking staff for a value the panel does
+  // not expose.
+  const participantDataKey = (input: CalculatorInput) =>
+    input.source === "DATA" && input.sourceKey
+      ? input.sourceKey
+      : input.key === "tdd" || input.labelEn.trim().toLowerCase() === "total daily insulin dose"
+        ? "insulin_total_daily_dose"
+        : null;
+
   const dataKeys = inputs
-    .filter((input) => input.source === "DATA" && input.sourceKey && overrides[input.key] === undefined)
-    .map((input) => input.sourceKey as string);
+    .filter((input) => participantDataKey(input) && overrides[input.key] === undefined)
+    .map((input) => participantDataKey(input) as string);
   const resolved = dataKeys.length > 0 ? await resolveCatalogueValues(params.userId, dataKeys, asOf) : [];
   const byKey = new Map(resolved.map((value) => [value.key, value]));
 
@@ -76,8 +87,9 @@ export async function runCalculatorForParticipant(params: {
       continue;
     }
 
-    if (input.source === "DATA" && input.sourceKey) {
-      const found = byKey.get(input.sourceKey);
+    const dataKey = participantDataKey(input);
+    if (dataKey) {
+      const found = byKey.get(dataKey);
       if (found?.value != null) values[input.key] = found.value;
       inputReport.push({
         key: input.key,
@@ -102,13 +114,27 @@ export async function runCalculatorForParticipant(params: {
     });
   }
 
-  const missing = inputReport.filter((row) => row.value === null);
-  if (missing.length > 0) {
+  const missingManualInput = inputReport.find(
+    (row) => row.value === null && row.source === "MISSING",
+  );
+  if (missingManualInput) {
     return {
       calculator: pickCalculator(calculator),
       inputs: inputReport,
       results: [],
-      error: `Missing a value for "${missing[0].labelEn}". Type one in, or choose a different date.`,
+      error: `Missing a value for "${missingManualInput.labelEn}". Type one in, or choose a different date.`,
+    };
+  }
+
+  // A missing participant record is a valid outcome, not an invalid form.
+  // There is no safe number to substitute, so leave calculation empty and let
+  // the workbench explain that the participant has no data for this input.
+  if (inputReport.some((row) => row.value === null)) {
+    return {
+      calculator: pickCalculator(calculator),
+      inputs: inputReport,
+      results: [],
+      error: null,
     };
   }
 

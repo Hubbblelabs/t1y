@@ -7,6 +7,7 @@ import '../../providers/app_state.dart';
 import '../../services/quiz_service.dart';
 import '../../services/rewards_service.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
 import 'quiz_take_screen.dart';
@@ -101,7 +102,7 @@ class _QuizListScreenState extends State<QuizListScreen>
         future: _future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(child: AppLoader());
           }
           if (snapshot.hasError) {
             return Center(

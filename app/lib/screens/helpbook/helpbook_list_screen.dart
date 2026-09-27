@@ -8,6 +8,7 @@ import '../../services/content_service.dart';
 import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/locale_aware.dart';
 import '../../widgets/topic_card.dart'
     show TopicCard, categoryIcons, categoryName;
@@ -42,8 +43,13 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
 
   @override
   void onLocaleChanged(String locale) {
+    // Cache-first: the toggle already warms this locale's cache in the
+    // background (see LanguageToggle), so switching back and forth should
+    // read instantly from what's on disk instead of forcing a network round
+    // trip — and re-request-from-API on every switch, including switching
+    // back to a language just left.
     setState(() {
-      _future = ContentService.instance.getTopics(locale, forceRefresh: true);
+      _future = ContentService.instance.getTopics(locale);
     });
   }
 
@@ -116,7 +122,7 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
                 future: _future,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: AppLoader());
                   }
                   if (snapshot.hasError) {
                     return ListView(

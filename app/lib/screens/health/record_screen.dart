@@ -12,6 +12,7 @@ import '../../services/insulin_service.dart';
 import '../../services/local_reminders.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/relative_time.dart';
+import '../../widgets/app_loader.dart';
 import '../../widgets/error_banner.dart';
 import '../../widgets/pin_gate.dart';
 
@@ -73,7 +74,7 @@ class _RecordBodyState extends State<_RecordBody> {
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(title: Text(S.recordTitle)),
       body: access == null
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: AppLoader())
           : !access.anything
           ? _Empty(message: S.glucoseDisabled)
           : Column(
@@ -465,7 +466,7 @@ class _EntryFormState extends State<_EntryForm> {
         if (recent == null)
           const Padding(
             padding: EdgeInsets.all(20),
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: AppLoader(size: 32)),
           )
         else if (recent.isEmpty)
           Text(
