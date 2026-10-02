@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../l10n/strings.dart';
+import '../../services/app_tour.dart';
+import '../../widgets/tour_step.dart';
 import '../../models/glucose_reading.dart';
 import '../../providers/app_state.dart';
 import '../../services/carb_service.dart';
@@ -14,6 +16,9 @@ import '../../theme/app_theme.dart';
 import '../../utils/relative_time.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/app_loader.dart';
+import '../../widgets/peek_refresh.dart';
+import 'guardian_notice.dart';
+import 'guardian_share_screen.dart';
 import 'record_screen.dart';
 
 /// The Health tab: a glance, then one way in.
@@ -55,10 +60,10 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
   // unset.
   Future<_HealthGlance> _glance = _load();
 
-  static Future<T?> _quiet<T>(Future<T> call) =>
-      call.timeout(const Duration(seconds: 15)).then<T?>((v) => v).catchError(
-        (Object _) => null,
-      );
+  static Future<T?> _quiet<T>(Future<T> call) => call
+      .timeout(const Duration(seconds: 15))
+      .then<T?>((v) => v)
+      .catchError((Object _) => null);
 
   static Future<_HealthGlance> _load() async {
     final access = await HealthAccess.load();
@@ -103,6 +108,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
   }
 
   Future<void> _refresh() async {
+    announceGuardianEntries();
     final next = _load();
     setState(() {
       _glance = next;
@@ -122,18 +128,28 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppHeader(title: S.healthTools),
-      body: RefreshIndicator(
+      body: PeekRefresh(
         onRefresh: _refresh,
         child: FutureBuilder<_HealthGlance>(
           future: _glance,
           builder: (context, snapshot) {
+            const physics = AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            );
             if (!snapshot.hasData) {
-              return const Center(child: AppLoader());
+              return ListView(
+                physics: physics,
+                children: const [
+                  SizedBox(height: 160),
+                  Center(child: AppLoader()),
+                ],
+              );
             }
             final data = snapshot.data!;
             final access = data.access;
             if (!access.anything) {
               return ListView(
+                physics: physics,
                 padding: const EdgeInsets.all(28),
                 children: [
                   const SizedBox(height: 60),
@@ -158,6 +174,7 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                 DateTime.now().difference(last) > const Duration(hours: 6);
 
             return ListView(
+              physics: physics,
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               children: [
                 if (access.glucose) ...[
@@ -167,7 +184,9 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                     child: _SincePill(
                       text: last == null
                           ? S.noReadingEver
-                          : S.lastReadingAgo(relativeTime(last, locale: locale)),
+                          : S.lastReadingAgo(
+                              relativeTime(last, locale: locale),
+                            ),
                       warn: overdue,
                     ),
                   ),
@@ -210,6 +229,34 @@ class _HealthHubScreenState extends State<HealthHubScreen> {
                   ),
                   icon: const Icon(Icons.edit_note_rounded),
                   label: Text(S.enterRecentReading),
+                ),
+                const SizedBox(height: 12),
+                TourStep(
+                  tourKey: AppTour.shareGuardian,
+                  title: S.tourShareTitle,
+                  description: S.tourShareBody,
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const GuardianShareScreen(),
+                        ),
+                      );
+                      _refresh();
+                    },
+                    icon: const Icon(Icons.group_add_outlined),
+                    label: Text(S.shareWithGuardian),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  S.shareWithGuardianSubtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: AppTheme.inkSoft,
+                  ),
                 ),
               ],
             );

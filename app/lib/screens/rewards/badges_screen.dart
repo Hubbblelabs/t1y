@@ -416,11 +416,16 @@ class _TierGrid extends StatelessWidget {
           if (i > 0) const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _TierTile(tier: tiers[i], count: counts[tiers[i]] ?? 0)),
+              Expanded(
+                child: _TierTile(tier: tiers[i], count: counts[tiers[i]] ?? 0),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: i + 1 < tiers.length
-                    ? _TierTile(tier: tiers[i + 1], count: counts[tiers[i + 1]] ?? 0)
+                    ? _TierTile(
+                        tier: tiers[i + 1],
+                        count: counts[tiers[i + 1]] ?? 0,
+                      )
                     : const SizedBox(),
               ),
             ],

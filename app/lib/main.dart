@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,8 +7,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'providers/app_state.dart';
 import 'screens/auth/get_started_screen.dart';
 import 'screens/home/home_shell.dart';
+import 'screens/health/guardian_notice.dart';
 import 'services/auth_service.dart';
+import 'models/health_config.dart';
 import 'services/content_service.dart';
+import 'services/health_config_service.dart';
 import 'services/profile_service.dart';
 import 'services/progress_service.dart';
 import 'theme/app_theme.dart';
@@ -54,37 +59,6 @@ Future<void> main() async {
 /// The app's one navigator, reachable from places with no `BuildContext` of
 /// their own — switching child, for instance, replaces every route.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
-
-/// How many logical pixels Tamil text gets added to its font size, on top of
-/// the device's own accessibility text-scale setting.
-const double tamilBumpPx = 2.0;
-
-/// Adds a fixed number of pixels to whatever [base] would have produced,
-/// instead of multiplying by a factor — a flat addition reads the same at
-/// every font size, where a percentage bump makes big text much bigger and
-/// small text barely bigger at all.
-class _PixelBumpTextScaler extends TextScaler {
-  final TextScaler base;
-  final double amount;
-
-  const _PixelBumpTextScaler(this.base, this.amount);
-
-  @override
-  double scale(double fontSize) => base.scale(fontSize) + amount;
-
-  @override
-  // ignore: deprecated_member_use
-  double get textScaleFactor => base.textScaleFactor;
-
-  @override
-  bool operator ==(Object other) =>
-      other is _PixelBumpTextScaler &&
-      other.base == base &&
-      other.amount == amount;
-
-  @override
-  int get hashCode => Object.hash(base, amount);
-}
 
 /// What replaces a widget that failed to draw.
 class _DrawingFailed extends StatelessWidget {
@@ -147,6 +121,12 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
     await ProfileService.instance.adoptServerLocale().catchError((_) {});
     await ProgressService.instance.flush();
     await ContentService.instance.syncIfStale();
+    // Re-read the health-data configuration and re-set the insulin and
+    // exercise reminders from it, on every open.
+    unawaited(announceGuardianEntries());
+    await HealthConfigService.instance.syncReminders().catchError(
+      (_) => HealthConfig.defaults,
+    );
   }
 
   @override
@@ -168,20 +148,11 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
         // actually designed.
         themeMode: ThemeMode.light,
         builder: (context, child) {
-          // Tamil script reads smaller than Latin at the same point size, so
-          // Tamil text gets a small bump on top of whatever the device's own
-          // accessibility text-scale setting already applies — a fixed
-          // number of logical pixels added to every font size, not a
-          // percentage, so it doesn't blow up large text or vanish on small
-          // text the way a multiplier did. Screens with a fixed-size layout
-          // (e.g. the help book's category tiles) opt out of all text
-          // scaling on their own via MediaQuery.withNoTextScaling.
-          final media = MediaQuery.of(context);
-          final scaler = AppState.instance.isTamil
-              ? _PixelBumpTextScaler(media.textScaler, tamilBumpPx)
-              : media.textScaler;
+          // Text size is identical in English and Tamil: no per-language
+          // scaling, so Android matches iOS. Only the device's own
+          // accessibility setting applies.
           return MediaQuery(
-            data: media.copyWith(textScaler: scaler),
+            data: MediaQuery.of(context),
             child: Stack(
               children: [
                 LocaleTransition(child: child!),
@@ -198,18 +169,27 @@ class _T1dpeAppState extends State<T1dpeApp> with WidgetsBindingObserver {
 
 /// Routes to Home if a bearer token is already stored, otherwise the
 /// Get Started splash.
-class _StartupGate extends StatelessWidget {
+class _StartupGate extends StatefulWidget {
   const _StartupGate();
+
+  @override
+  State<_StartupGate> createState() => _StartupGateState();
+}
+
+class _StartupGateState extends State<_StartupGate> {
+  /// Asked once. It used to be asked again on every rebuild — and a language
+  /// switch rebuilds everything — which flashed the loader and threw the
+  /// Home shell away, so switching language on any other tab landed back on
+  /// Home.
+  late final Future<bool> _signedIn = AuthService.instance.isSignedIn;
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: AuthService.instance.isSignedIn,
+      future: _signedIn,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: AppLoader()),
-          );
+          return const Scaffold(body: Center(child: AppLoader()));
         }
         return snapshot.data == true
             ? const HomeShell()

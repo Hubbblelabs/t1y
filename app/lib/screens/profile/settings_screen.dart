@@ -162,9 +162,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openDetails() async {
     final me = await ProfileService.instance.me();
     if (me == null || !mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => ProfileDetailsScreen(me: me)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ProfileDetailsScreen(me: me)));
   }
 
   void _startTour() {
@@ -382,7 +382,11 @@ class _RefreshTile extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.2),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.sync, color: Colors.white, size: 19),
+                      child: const Icon(
+                        Icons.sync,
+                        color: Colors.white,
+                        size: 19,
+                      ),
                     ),
             ),
             const SizedBox(width: 14),

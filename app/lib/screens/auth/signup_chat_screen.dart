@@ -126,9 +126,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
   bool get _isLastQuestion => _index == _questions!.length - 1;
 
   void _askTerms() {
-    _messages.add(
-      _ChatMessage(S.signupTermsPrompt, isUser: false),
-    );
+    _messages.add(_ChatMessage(S.signupTermsPrompt, isUser: false));
   }
 
   Future<void> _openTerms() async {
@@ -146,9 +144,7 @@ class _SignupChatScreenState extends State<SignupChatScreen> {
     if (!mounted) return;
 
     setState(() {
-      _messages.add(
-        _ChatMessage(S.iAgree, isUser: true),
-      );
+      _messages.add(_ChatMessage(S.iAgree, isUser: true));
     });
     _scrollToEnd();
 
@@ -393,16 +389,12 @@ class _ChatBubbleState extends State<_ChatBubble>
             if (widget.onEdit != null)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
-                title: Text(
-                  S.editLabel,
-                ),
+                title: Text(S.editLabel),
                 onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.edit),
               ),
             ListTile(
               leading: const Icon(Icons.copy_outlined),
-              title: Text(
-                S.copyLabel,
-              ),
+              title: Text(S.copyLabel),
               onTap: () => Navigator.of(sheetContext).pop(_BubbleAction.copy),
             ),
           ],
@@ -418,9 +410,7 @@ class _ChatBubbleState extends State<_ChatBubble>
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                S.copiedLabel,
-              ),
+              content: Text(S.copiedLabel),
               behavior: SnackBarBehavior.floating,
               duration: Duration(seconds: 1),
             ),
@@ -575,9 +565,7 @@ class _AnswerInput extends StatelessWidget {
                 controller: controller,
                 readOnly: true,
                 style: const TextStyle(color: Colors.black, fontSize: 16),
-                decoration: _answerBoxDecoration(
-                  S.tapToChooseDate,
-                ),
+                decoration: _answerBoxDecoration(S.tapToChooseDate),
                 onTap: () async {
                   final now = DateTime.now();
                   // How far back the picker reaches follows the question's own

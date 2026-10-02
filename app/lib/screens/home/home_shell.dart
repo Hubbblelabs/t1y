@@ -49,6 +49,13 @@ class _HomeShellState extends State<HomeShell> {
       // say) is skipped rather than stopping the tour.
       skipIfTargetNotPresent: true,
       blurValue: 1,
+      // The guardian step lives on the Health tab, so the tab is opened as the
+      // step starts.
+      onStart: (_, key) {
+        if (key == AppTour.shareGuardian && mounted) {
+          _goTo(HomeShell.healthTabIndex);
+        }
+      },
       onFinish: AppTour.markSeen,
       onDismiss: (_) => AppTour.markSeen(),
     );
@@ -76,11 +83,13 @@ class _HomeShellState extends State<HomeShell> {
       ShowcaseView.get().startShowCase([
         AppTour.home,
         AppTour.readings,
+        AppTour.sos,
         AppTour.language,
         AppTour.profile,
         AppTour.helpBookTab,
         AppTour.quizzesTab,
         AppTour.healthTab,
+        AppTour.shareGuardian,
       ]);
     });
   }

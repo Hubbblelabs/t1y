@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class AppTour {
   AppTour._();
 
-  static const _seenKey = 'app_tour_seen_v1';
+  // v2: the tour gained the SOS and Share-with-a-guardian steps, so everyone
+  // sees it once more.
+  static const _seenKey = 'app_tour_seen_v2';
 
   static final home = GlobalKey();
   static final language = GlobalKey();
@@ -19,6 +21,10 @@ class AppTour {
   static final helpBookTab = GlobalKey();
   static final quizzesTab = GlobalKey();
   static final healthTab = GlobalKey();
+  static final sos = GlobalKey();
+
+  /// The "Share with a guardian" button on the Health tab.
+  static final shareGuardian = GlobalKey();
 
   /// Bumped when Settings asks for the tour; Home listens and starts it.
   static final requests = ValueNotifier<int>(0);

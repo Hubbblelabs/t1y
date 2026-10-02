@@ -38,6 +38,7 @@ export default async function InsulinPage(props: PageProps<"/admin/health/insuli
           { label: "Dose", align: "right" },
           { label: "Site" },
           { label: "Meal" },
+          { label: "Entered by" },
         ]}
         rows={items.map((item) => ({
           id: item.id,
@@ -53,6 +54,7 @@ export default async function InsulinPage(props: PageProps<"/admin/health/insuli
             },
             { label: "Site", value: humaniseEnum(item.injectionSite) },
             { label: "Meal", value: humaniseEnum(item.mealAssociation) },
+            { label: "Entered by", value: enteredByLabel(item.enteredBy) },
           ],
         }))}
         emptyTitle="No insulin records"
@@ -60,4 +62,9 @@ export default async function InsulinPage(props: PageProps<"/admin/health/insuli
       />
     </HealthPage>
   );
+}
+
+/** Who recorded a row: the parent in the app, or a guardian through a shared link. */
+function enteredByLabel(name: string | null): string {
+  return name ? `Guardian: ${name}` : "Parent";
 }

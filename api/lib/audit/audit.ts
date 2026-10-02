@@ -46,6 +46,7 @@ export const AuditAction = {
   STUDY_ACCESS_GRANTED: "study.access_granted",
   STUDY_ACCESS_REVOKED: "study.access_revoked",
   RESEARCH_DATA_EXPORTED: "research.data_exported",
+  PATIENT_DIARY_EXPORTED: "participants.diary_exported",
 
   // Content
   EDUCATION_CREATED: "education.created",
@@ -66,6 +67,12 @@ export const AuditAction = {
   CALCULATOR_RUN: "calculator.run",
   SUPPORT_REPLIED: "support.replied",
   SUPPORT_STATUS_CHANGED: "support.status_changed",
+  SOS_CONTACT_CREATED: "sos_contact.created",
+  SOS_CONTACT_UPDATED: "sos_contact.updated",
+  SOS_CONTACT_DELETED: "sos_contact.deleted",
+  GALLERY_CREATED: "gallery.created",
+  GALLERY_UPDATED: "gallery.updated",
+  GALLERY_DELETED: "gallery.deleted",
   QUIZ_CREATED: "quiz.created",
   QUIZ_UPDATED: "quiz.updated",
   QUIZ_DELETED: "quiz.deleted",

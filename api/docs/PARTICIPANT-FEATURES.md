@@ -44,3 +44,31 @@ health-data features are wired end to end.
 - Changed later: `components/admin/participants/participant-features-control.tsx`
 - Read on the phone: `app/lib/services/participant_features.dart`
 - Tests: `tests/integration/calculator-run-and-participant-features.test.ts`
+
+## Health data configuration
+
+Within glucose, insulin and exercise, a coordinator also chooses *what* each
+family is asked to record (**Participants → Health data configuration**, for
+one participant on their page or for many from the table checkboxes — the bulk
+editor shows a review step and overwrites each selected participant's earlier
+settings).
+
+| Setting (`Profile`) | Meaning |
+|---|---|
+| `glucoseSlots` | Which of pre/post breakfast, lunch, dinner the app asks for. Default: all six. Empty: no glucose entry. |
+| `insulinIntervalHours` | 24 = once a day, 12 = twice a day, 4 = every 4 hours. null = no reminder. |
+| `exerciseEnabled`, `exerciseReminderHours` | Whether exercise is asked for, and the reminder gap. |
+
+Enforcement: `POST /api/glucose` rejects a `slot` the child is not enrolled
+for (and applies the entry cooldown per slot); `POST /api/exercises` requires
+`exerciseEnabled`. Reminders are local to the phone: on every app open and
+refresh `HealthAccess.load` re-reads the numbers from `/api/users/me` and
+re-schedules the next 48 hours of insulin/exercise notifications, so a change
+in the dashboard takes effect the next time the app opens.
+
+The carbohydrate entry also takes an optional free-text description of the food
+(stored in `Meal.name`, at most 200 characters, validated by the API).
+
+Files: `lib/health-data-config.ts`, `app/api/admin/participants/health-config`,
+`components/admin/participants/{health-config-editor,participant-selection,participant-health-config-control}.tsx`,
+app `models/health_config.dart`, `services/{health_access,local_reminders}.dart`.

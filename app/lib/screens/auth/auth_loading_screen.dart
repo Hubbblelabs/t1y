@@ -170,9 +170,7 @@ class _AuthLoadingScreenState extends State<AuthLoadingScreen> {
         const SizedBox(height: 24),
         OutlinedButton(
           onPressed: () => Navigator.of(context).pop(_error),
-          child: Text(
-            S.tryAgainLabel.replaceAll('\n', ' / '),
-          ),
+          child: Text(S.tryAgainLabel.replaceAll('\n', ' / ')),
         ),
       ],
     );

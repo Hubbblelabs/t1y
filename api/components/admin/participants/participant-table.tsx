@@ -22,6 +22,11 @@ import { formatDate, formatRelative, humaniseEnum } from "@/lib/utils/format";
 import { buildPagination, type PaginationMeta } from "@/lib/api/response";
 import type { participantListQuerySchema } from "@/lib/validation/admin";
 import type { z } from "zod";
+import {
+  ParticipantSelectionProvider,
+  RowCheckbox,
+  SelectAllCheckbox,
+} from "@/components/admin/participants/participant-selection";
 import { ParticipantStatusSelect } from "@/components/admin/participants/participant-status-select";
 
 type Query = z.infer<typeof participantListQuerySchema>;
@@ -79,12 +84,17 @@ export async function ParticipantTable({
   }
 
   return (
-    <>
+    <ParticipantSelectionProvider pageIds={items.map((r) => r.id)} canEdit={canEditStatus}>
       {/* Desktop and tablet */}
       <TableScroll className="hidden md:block" label="Participants">
         <Table>
           <TableHeader>
             <TableRow>
+              {canEditStatus ? (
+                <TableHead className="w-8">
+                  <SelectAllCheckbox />
+                </TableHead>
+              ) : null}
               <SortableHeader field="participantCode" label="Participant" />
               <SortableHeader field="name" label="Name" />
               <SortableHeader field="diabetesType" label="Type" />
@@ -97,6 +107,11 @@ export async function ParticipantTable({
           <TableBody>
             {items.map((row) => (
               <TableRow key={row.id}>
+                {canEditStatus ? (
+                  <TableCell>
+                    <RowCheckbox id={row.id} label={row.participantCode} />
+                  </TableCell>
+                ) : null}
                 <TableCell className="font-medium">
                   <Link
                     href={`/admin/participants/${row.id}`}
@@ -174,7 +189,7 @@ export async function ParticipantTable({
       </ul>
 
       <PaginationFooter pagination={pagination} />
-    </>
+    </ParticipantSelectionProvider>
   );
 }
 

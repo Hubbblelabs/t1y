@@ -223,10 +223,7 @@ class _ChildRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onSwitch,
-      child: _rowBody(context),
-    );
+    return GestureDetector(onTap: onSwitch, child: _rowBody(context));
   }
 
   Widget _rowBody(BuildContext context) {
@@ -316,10 +313,7 @@ class _ChildRow extends StatelessWidget {
                     children: [
                       Text(
                         '${S.childId}: ',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.inkSoft,
-                        ),
+                        style: TextStyle(fontSize: 12, color: AppTheme.inkSoft),
                       ),
                       SelectableText(
                         child.childId,

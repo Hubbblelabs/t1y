@@ -102,7 +102,8 @@ void main() {
 
   testWidgets('refuses an impossible amount of carbohydrate', (tester) async {
     await open(tester, RecordKind.carbs);
-    await tester.enterText(find.byType(TextField), '900');
+    // The amount is the first field; the optional food note follows it.
+    await tester.enterText(find.byType(TextField).first, '900');
     await tester.tap(find.text('Save'));
     await tester.pump();
     expect(find.textContaining('no more than 500'), findsOneWidget);

@@ -249,6 +249,12 @@ class HomeTile extends StatelessWidget {
   final bool highlight;
   final VoidCallback onTap;
 
+  /// Tints the icon and its badge; the app's blue when not given.
+  final Color? accent;
+
+  /// A count shown on the icon's corner (unread answers) — nothing when 0.
+  final int badge;
+
   const HomeTile({
     super.key,
     required this.icon,
@@ -256,75 +262,134 @@ class HomeTile extends StatelessWidget {
     required this.line,
     required this.onTap,
     this.highlight = false,
+    this.accent,
+    this.badge = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: highlight
-                  ? AppTheme.primary.withValues(alpha: 0.55)
-                  : Colors.black.withValues(alpha: 0.06),
-              width: highlight ? 1.4 : 1,
-            ),
+    final tint = accent ?? AppTheme.primary;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.deep.withValues(alpha: 0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: AppTheme.lightest,
-                      borderRadius: BorderRadius.circular(12),
+        ],
+      ),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 112),
+            padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: highlight
+                    ? tint.withValues(alpha: 0.5)
+                    : Colors.black.withValues(alpha: 0.04),
+                width: highlight ? 1.4 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // The icon, with the unread count sitting on its corner.
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(15),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                tint.withValues(alpha: 0.10),
+                                tint.withValues(alpha: 0.24),
+                              ],
+                            ),
+                          ),
+                          child: Icon(icon, size: 23, color: tint),
+                        ),
+                        if (badge > 0)
+                          Positioned(
+                            top: -6,
+                            right: -6,
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minWidth: 20,
+                                minHeight: 20,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                              ),
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE53935),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
+                              ),
+                              child: Text(
+                                badge > 9 ? '9+' : '$badge',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                    child: Icon(icon, size: 19, color: AppTheme.primary),
+                    const Spacer(),
+                    Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 17,
+                      color: AppTheme.inkSoft.withValues(alpha: 0.45),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
                   ),
-                  const Spacer(),
-                  if (highlight)
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.deep,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                line,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.3,
-                  color: highlight ? AppTheme.primary : AppTheme.inkSoft,
-                  fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+                const SizedBox(height: 3),
+                Text(
+                  line,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.3,
+                    color: highlight ? tint : AppTheme.inkSoft,
+                    fontWeight: highlight ? FontWeight.w700 : FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

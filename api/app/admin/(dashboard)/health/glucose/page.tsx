@@ -47,6 +47,7 @@ async function GlucoseTable({
         { label: "Value", align: "right" },
         { label: "Context" },
         { label: "Source" },
+        { label: "Entered by" },
       ]}
       rows={items.map((item) => ({
         id: item.id,
@@ -60,10 +61,16 @@ async function GlucoseTable({
           },
           { label: "Context", value: humaniseEnum(item.context) },
           { label: "Source", value: humaniseEnum(item.source) },
+          { label: "Entered by", value: enteredByLabel(item.enteredBy) },
         ],
       }))}
       emptyTitle="No glucose readings"
       emptyDescription="No readings were recorded in the selected period. Try widening the date range."
     />
   );
+}
+
+/** Who recorded a row: the parent in the app, or a guardian through a shared link. */
+function enteredByLabel(name: string | null): string {
+  return name ? `Guardian: ${name}` : "Parent";
 }

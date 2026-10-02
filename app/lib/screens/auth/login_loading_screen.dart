@@ -32,22 +32,10 @@ class LoginLoadingScreen extends StatelessWidget {
   });
 
   static List<({String title, String subtitle})> get _steps => [
-    (
-      title: S.signingYouIn,
-      subtitle: S.welcomeBackApp,
-    ),
-    (
-      title: S.loadingHelpBook,
-      subtitle: S.topicsBothLanguages,
-    ),
-    (
-      title: S.quizzesGettingReady,
-      subtitle: S.checkAsYouLearn,
-    ),
-    (
-      title: S.almostDone,
-      subtitle: S.momentMore,
-    ),
+    (title: S.signingYouIn, subtitle: S.welcomeBackApp),
+    (title: S.loadingHelpBook, subtitle: S.topicsBothLanguages),
+    (title: S.quizzesGettingReady, subtitle: S.checkAsYouLearn),
+    (title: S.almostDone, subtitle: S.momentMore),
   ];
 
   @override

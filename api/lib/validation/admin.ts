@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PARTICIPANT_FEATURE_KEYS } from "@/lib/services/participant-features";
 import { Capability } from "@/lib/permissions/roles";
+import { GLUCOSE_SLOT_KEYS, MAX_REMINDER_HOURS } from "@/lib/health-data-config";
 
 import {
   dateRangeSchema,
@@ -155,6 +156,16 @@ export const bulkImportParticipantsSchema = z.object({
   dummyPassword: z.string().min(8).max(128),
 });
 
+/** One reminder gap, in whole hours between 1 and 24; null clears it. */
+const reminderHoursSchema = z.number().int().min(1).max(MAX_REMINDER_HOURS).nullable();
+
+export const healthConfigFields = {
+  glucoseSlots: z.array(z.enum(GLUCOSE_SLOT_KEYS)).max(GLUCOSE_SLOT_KEYS.length).optional(),
+  insulinIntervalHours: reminderHoursSchema.optional(),
+  exerciseEnabled: z.boolean().optional(),
+  exerciseReminderHours: reminderHoursSchema.optional(),
+};
+
 export const updateParticipantSchema = z.object({
   status: userStatusSchema.optional(),
   profile: z
@@ -173,8 +184,22 @@ export const updateParticipantSchema = z.object({
       emergencyContactPhone: z.string().trim().max(32).nullish(),
       icIsfUnlocked: z.boolean().optional(),
       enabledFeatures: z.array(z.enum(PARTICIPANT_FEATURE_KEYS)).optional(),
+      ...healthConfigFields,
     })
     .optional(),
+});
+
+/**
+ * Applies one health-data configuration to several participants at once,
+ * replacing what each had. Every field is required — a bulk edit overwrites
+ * the whole configuration, never part of it.
+ */
+export const bulkHealthConfigSchema = z.object({
+  participantIds: z.array(idSchema).min(1).max(500),
+  glucoseSlots: z.array(z.enum(GLUCOSE_SLOT_KEYS)).max(GLUCOSE_SLOT_KEYS.length),
+  insulinIntervalHours: reminderHoursSchema,
+  exerciseEnabled: z.boolean(),
+  exerciseReminderHours: reminderHoursSchema,
 });
 
 // ---------------------------------------------------------------------------

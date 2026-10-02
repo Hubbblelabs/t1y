@@ -50,10 +50,7 @@ class _OfflineAuthDialog extends StatelessWidget {
               color: AppTheme.deep,
               size: 32,
             ),
-            title: Text(
-              S.offlineAuthTitle,
-              textAlign: TextAlign.center,
-            ),
+            title: Text(S.offlineAuthTitle, textAlign: TextAlign.center),
             content: Text(
               S.offlineAuthBody,
               textAlign: TextAlign.center,

@@ -1,3 +1,5 @@
+import 'health_config.dart';
+
 /// When a reading was taken relative to eating — mirrors `GlucoseContext` in
 /// api/prisma/schema.prisma. The label is what the parent picks from; the
 /// [name] is what the API expects.
@@ -30,12 +32,21 @@ class GlucoseReading {
   final DateTime measuredAt;
   final String? notes;
 
+  /// Set when a guardian entered this through a shared link.
+  final String? enteredBy;
+
+  /// Which of the day's checks this was (pre-breakfast, post-lunch…), if the
+  /// reading was recorded for one.
+  final GlucoseSlot? slot;
+
   const GlucoseReading({
     required this.id,
     required this.value,
     required this.context,
     required this.measuredAt,
     this.notes,
+    this.enteredBy,
+    this.slot,
   });
 
   factory GlucoseReading.fromJson(Map<String, dynamic> json) => GlucoseReading(
@@ -46,6 +57,8 @@ class GlucoseReading {
         DateTime.tryParse(json['measuredAt'] as String? ?? '')?.toLocal() ??
         DateTime.now(),
     notes: json['notes'] as String?,
+    enteredBy: json['enteredBy'] as String?,
+    slot: GlucoseSlot.fromApi(json['slot'] as String?),
   );
 
   /// Plain-language band for the reading, used only to colour the entry and

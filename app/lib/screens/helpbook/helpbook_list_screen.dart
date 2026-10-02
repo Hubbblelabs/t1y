@@ -9,6 +9,7 @@ import '../../services/progress_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/app_loader.dart';
+import '../../widgets/peek_refresh.dart';
 import '../../widgets/locale_aware.dart';
 import '../../widgets/topic_card.dart'
     show TopicCard, categoryIcons, categoryName;
@@ -39,6 +40,22 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
       if (mounted) setState(() => _baseUrl = url);
     });
     _loadProgress();
+    ContentService.instance.updates.addListener(_onContentUpdated);
+  }
+
+  @override
+  void dispose() {
+    ContentService.instance.updates.removeListener(_onContentUpdated);
+    super.dispose();
+  }
+
+  /// Fresh content arrived behind the list the family is looking at.
+  void _onContentUpdated() {
+    if (!mounted) return;
+    final saved = ContentService.instance.cachedTopics(
+      AppState.instance.locale,
+    );
+    setState(() => _future = saved.then((t) => t ?? const <Topic>[]));
   }
 
   @override
@@ -87,108 +104,115 @@ class _HelpBookListScreenState extends State<HelpBookListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppHeader(title: S.helpBook),
-      body: Column(
-        children: [
-          // Pinned above the list, not scrolled away with it — a slim status
-          // strip rather than the tall card that used to open the list.
-          FutureBuilder<List<Topic>>(
-            future: _future,
-            builder: (context, snapshot) {
-              final topics = snapshot.data ?? [];
-              if (topics.isEmpty) return const SizedBox.shrink();
-              final readCount = topics
-                  .where((t) => _readSlugs.contains(t.slug))
-                  .length;
-              // Distinct categories actually published — not every
-              // `categoryIcons` entry, which would show an icon for a
-              // category with nothing in it yet.
-              final categories = {for (final t in topics) t.category}.toList();
-              return Column(
+      // One scrolling page: the progress banner and the category icons are part
+      // of it, so a pull moves the whole screen down — banner and all — not
+      // just the list under them.
+      body: PeekRefresh(
+        onRefresh: _refresh,
+        child: FutureBuilder<List<Topic>>(
+          future: _future,
+          builder: (context, snapshot) {
+            const physics = AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            );
+            final loaded = snapshot.data;
+
+            // The spinner is for the very first load only; a refresh keeps
+            // what is on screen until the new content arrives.
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                loaded == null) {
+              return ListView(
+                physics: physics,
+                children: const [
+                  SizedBox(height: 160),
+                  Center(child: AppLoader()),
+                ],
+              );
+            }
+            if (snapshot.hasError && loaded == null) {
+              return ListView(
+                physics: physics,
                 children: [
-                  _ProgressBanner(read: readCount, total: topics.length),
-                  _CategoryIconRow(
-                    categories: categories,
-                    selected: _selectedCategory,
-                    onSelect: _selectCategory,
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        Icon(
+                          Icons.cloud_off,
+                          size: 48,
+                          color: AppTheme.deep.withValues(alpha: 0.4),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          '${S.couldNotLoad}\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _refresh,
+                          child: Text(S.tryAgain),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               );
-            },
-          ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refresh,
-              child: FutureBuilder<List<Topic>>(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: AppLoader());
-                  }
-                  if (snapshot.hasError) {
-                    return ListView(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              const SizedBox(height: 40),
-                              Icon(
-                                Icons.cloud_off,
-                                size: 48,
-                                color: AppTheme.deep.withValues(alpha: 0.4),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                '${S.couldNotLoad}\n${snapshot.error}',
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton(
-                                onPressed: _refresh,
-                                child: Text(S.tryAgain),
-                              ),
-                            ],
-                          ),
+            }
+
+            final allTopics = loaded ?? [];
+            if (allTopics.isEmpty) {
+              return ListView(
+                physics: physics,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(child: Text(S.noTopicsYet)),
+                  ),
+                ],
+              );
+            }
+
+            final readCount = allTopics
+                .where((t) => _readSlugs.contains(t.slug))
+                .length;
+            // Distinct categories actually published — not every
+            // `categoryIcons` entry, which would show an icon for a category
+            // with nothing in it yet.
+            final categories = {for (final t in allTopics) t.category}.toList();
+            final category = _selectedCategory;
+            final topics = category == null
+                ? allTopics
+                : allTopics.where((t) => t.category == category).toList();
+
+            return ListView(
+              physics: physics,
+              padding: const EdgeInsets.only(bottom: 24),
+              children: [
+                _ProgressBanner(read: readCount, total: allTopics.length),
+                _CategoryIconRow(
+                  categories: categories,
+                  selected: _selectedCategory,
+                  onSelect: _selectCategory,
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Column(
+                    children: [
+                      for (final topic in topics)
+                        TopicCard(
+                          topic: topic,
+                          baseUrl: _baseUrl,
+                          isRead: _readSlugs.contains(topic.slug),
+                          onTap: () => _openTopic(topic),
                         ),
-                      ],
-                    );
-                  }
-
-                  final allTopics = snapshot.data ?? [];
-                  if (allTopics.isEmpty) {
-                    return ListView(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Center(child: Text(S.noTopicsYet)),
-                        ),
-                      ],
-                    );
-                  }
-
-                  final category = _selectedCategory;
-                  final topics = category == null
-                      ? allTopics
-                      : allTopics.where((t) => t.category == category).toList();
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                    itemCount: topics.length,
-                    itemBuilder: (context, index) {
-                      final topic = topics[index];
-                      return TopicCard(
-                        topic: topic,
-                        baseUrl: _baseUrl,
-                        isRead: _readSlugs.contains(topic.slug),
-                        onTap: () => _openTopic(topic),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -374,9 +398,7 @@ class _CategoryIconTileState extends State<_CategoryIconTile> {
                       fontSize: 10.5,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
-                      color: widget.selected
-                          ? AppTheme.deep
-                          : AppTheme.inkSoft,
+                      color: widget.selected ? AppTheme.deep : AppTheme.inkSoft,
                     ),
                   ),
                 ),

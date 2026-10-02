@@ -328,3 +328,20 @@ describe("export request validation", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("SOS contact validation", () => {
+  const base = { name: "Dr Meena", label: "Doctor", phone: "+91 98765 43210" };
+
+  it("accepts ordinary numbers, short emergency numbers and free-text tags", async () => {
+    const { sosContactSchema } = await import("@/lib/validation/sos");
+    expect(sosContactSchema.safeParse(base).success).toBe(true);
+    expect(sosContactSchema.safeParse({ ...base, phone: "108", label: "Ambulance on duty" }).success).toBe(true);
+  });
+
+  it("rejects letters in a phone number and empty names or tags", async () => {
+    const { sosContactSchema } = await import("@/lib/validation/sos");
+    expect(sosContactSchema.safeParse({ ...base, phone: "call me" }).success).toBe(false);
+    expect(sosContactSchema.safeParse({ ...base, name: " " }).success).toBe(false);
+    expect(sosContactSchema.safeParse({ ...base, label: "" }).success).toBe(false);
+  });
+});

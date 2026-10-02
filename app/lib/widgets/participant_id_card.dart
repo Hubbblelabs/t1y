@@ -18,16 +18,12 @@ class ParticipantIdCard extends StatelessWidget {
   final String? sex;
   final String? email;
 
-  /// Opens the Settings page (the gear in the card's corner).
-  final VoidCallback onSettings;
-
   /// Signs out — on the card itself, where a parent looks for it.
   final VoidCallback onSignOut;
 
   const ParticipantIdCard({
     super.key,
     required this.name,
-    required this.onSettings,
     required this.onSignOut,
     this.participantCode,
     this.dateOfBirth,
@@ -73,14 +69,6 @@ class ParticipantIdCard extends StatelessWidget {
                   child: ClipPath(
                     clipper: _SweepClipper(),
                     child: Container(height: 66, color: Colors.white),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _CornerButton(
-                    icon: Icons.settings_outlined,
-                    onTap: onSettings,
                   ),
                 ),
                 Align(

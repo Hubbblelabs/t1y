@@ -13,12 +13,20 @@ class CarbEntry {
   final DateTime consumedAt;
   final String? notes;
 
+  /// What was eaten, in the parent's own words.
+  final String? food;
+
+  /// Set when a guardian entered this through a shared link.
+  final String? enteredBy;
+
   const CarbEntry({
     required this.id,
     required this.mealType,
     required this.carbsGrams,
     required this.consumedAt,
     this.notes,
+    this.food,
+    this.enteredBy,
   });
 
   factory CarbEntry.fromJson(Map<String, dynamic> json) => CarbEntry(
@@ -27,6 +35,8 @@ class CarbEntry {
     carbsGrams: (json['totalCarbsGrams'] as num?)?.toDouble(),
     consumedAt: DateTime.parse(json['consumedAt'] as String).toLocal(),
     notes: json['notes'] as String?,
+    food: json['name'] as String?,
+    enteredBy: json['enteredBy'] as String?,
   );
 }
 
@@ -37,6 +47,9 @@ class CarbEntry {
 /// and by this child's own `CARB_LOGGING` eligibility.
 class CarbService {
   CarbService._();
+
+  /// The longest description of the food the server accepts.
+  static const maxFoodLength = 200;
   static final CarbService instance = CarbService._();
 
   /// The most recent entries, newest first.
@@ -58,6 +71,9 @@ class CarbService {
     required DateTime consumedAt,
     String mealType = 'OTHER',
     String? notes,
+
+    /// Free text on what was eaten ("2 dosa"), at most [maxFoodLength].
+    String? food,
   }) async {
     await ApiClient.instance.post(
       '/api/meals',
@@ -65,6 +81,13 @@ class CarbService {
         'mealType': mealType,
         'consumedAt': consumedAt.toUtc().toIso8601String(),
         'totalCarbsGrams': carbsGrams,
+        if (food != null && food.trim().isNotEmpty)
+          'name': food.trim().substring(
+            0,
+            food.trim().length > maxFoodLength
+                ? maxFoodLength
+                : food.trim().length,
+          ),
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
       },
     );

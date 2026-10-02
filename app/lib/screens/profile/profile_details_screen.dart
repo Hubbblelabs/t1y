@@ -229,9 +229,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen> {
           ? const Center(child: AppLoader())
           : AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
-              child: _editing
-                  ? _form(questions)
-                  : _view(questions),
+              child: _editing ? _form(questions) : _view(questions),
             ),
       bottomNavigationBar: questions == null
           ? null
@@ -553,9 +551,7 @@ class _TapField extends StatelessWidget {
                 value ?? label,
                 style: TextStyle(
                   fontSize: 14.5,
-                  color: value == null
-                      ? AppTheme.inkSoft
-                      : AppTheme.deep,
+                  color: value == null ? AppTheme.inkSoft : AppTheme.deep,
                 ),
               ),
             ),

@@ -10,6 +10,7 @@ import { ConflictError, NotFoundError } from "@/lib/api/errors";
 import type { Principal } from "@/lib/auth/session";
 import { STUDY_DIABETES_TYPE } from "@/lib/config/study-scope";
 import { ALL_PARTICIPANT_FEATURES, type ParticipantFeatureKey } from "@/lib/services/participant-features";
+import type { GlucoseSlotKey } from "@/lib/health-data-config";
 import { prisma } from "@/lib/db/prisma";
 import { participantScopeFilter } from "@/lib/permissions/policies";
 import { getLatestHbA1cForParticipants } from "@/lib/services/hba1c";
@@ -238,6 +239,10 @@ export async function getParticipantProfile(userId: string) {
           emergencyContactPhone: true,
           icIsfUnlocked: true,
           enabledFeatures: true,
+          glucoseSlots: true,
+          insulinIntervalHours: true,
+          exerciseEnabled: true,
+          exerciseReminderHours: true,
           onboardedAt: true,
           lastActivityAt: true,
         },
@@ -289,6 +294,10 @@ export interface UpdateParticipantInput {
     emergencyContactPhone?: string | null;
     icIsfUnlocked?: boolean;
     enabledFeatures?: string[];
+    glucoseSlots?: GlucoseSlotKey[];
+    insulinIntervalHours?: number | null;
+    exerciseEnabled?: boolean;
+    exerciseReminderHours?: number | null;
   };
 }
 
@@ -301,6 +310,48 @@ export async function updateParticipant(userId: string, input: UpdateParticipant
     },
     select: { id: true, status: true },
   });
+}
+
+export interface HealthConfigInput {
+  glucoseSlots: GlucoseSlotKey[];
+  insulinIntervalHours: number | null;
+  exerciseEnabled: boolean;
+  exerciseReminderHours: number | null;
+}
+
+/**
+ * Replaces the health-data configuration of every listed participant.
+ *
+ * Only accounts the caller may see are touched (`participantScopeFilter`),
+ * and only real participants — so an id that does not exist, or belongs to
+ * staff, is reported back rather than silently ignored. Returns the ids that
+ * were updated.
+ */
+export async function applyHealthConfig(
+  principal: Principal,
+  participantIds: string[],
+  config: HealthConfigInput,
+): Promise<{ updated: string[]; skipped: string[] }> {
+  const ids = [...new Set(participantIds)];
+  const found = await prisma.user.findMany({
+    where: { id: { in: ids }, role: "PATIENT", ...participantScopeFilter(principal) },
+    select: { id: true },
+  });
+  const updated = found.map((u) => u.id);
+
+  await prisma.profile.updateMany({
+    where: { userId: { in: updated } },
+    data: {
+      glucoseSlots: config.glucoseSlots,
+      insulinIntervalHours: config.insulinIntervalHours,
+      exerciseEnabled: config.exerciseEnabled,
+      exerciseReminderHours: config.exerciseReminderHours,
+      // Exercise reminders make no sense for a child who is not asked to record it.
+      ...(config.exerciseEnabled ? {} : { exerciseReminderHours: null }),
+    },
+  });
+
+  return { updated, skipped: ids.filter((id) => !updated.includes(id)) };
 }
 
 export interface CreateParticipantInput {

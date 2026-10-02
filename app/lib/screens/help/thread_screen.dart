@@ -305,9 +305,7 @@ class _Bubble extends StatelessWidget {
                   : relativeTime(message.createdAt, locale: locale),
               style: TextStyle(
                 fontSize: 10.5,
-                color: mine
-                    ? Colors.white70
-                    : AppTheme.inkSoft,
+                color: mine ? Colors.white70 : AppTheme.inkSoft,
               ),
             ),
           ],

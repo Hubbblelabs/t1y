@@ -251,10 +251,7 @@ class _ThreadTile extends StatelessWidget {
                 thread.lastMessageAt,
                 locale: AppState.instance.locale,
               ),
-              style: TextStyle(
-                fontSize: 11.5,
-                color: AppTheme.inkSoft,
-              ),
+              style: TextStyle(fontSize: 11.5, color: AppTheme.inkSoft),
             ),
           ],
         ),

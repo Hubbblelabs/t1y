@@ -32,6 +32,7 @@ export default async function ExercisePage(props: PageProps<"/admin/health/exerc
           { label: "Duration", align: "right" },
           { label: "Intensity" },
           { label: "Distance", align: "right" },
+          { label: "Entered by" },
         ]}
         rows={items.map((item) => ({
           id: item.id,
@@ -51,6 +52,7 @@ export default async function ExercisePage(props: PageProps<"/admin/health/exerc
               align: "right",
               value: formatNumber(item.distanceKm, { decimals: 2, unit: "km" }),
             },
+            { label: "Entered by", value: enteredByLabel(item.enteredBy) },
           ],
         }))}
         emptyTitle="No exercise sessions"
@@ -58,4 +60,9 @@ export default async function ExercisePage(props: PageProps<"/admin/health/exerc
       />
     </HealthPage>
   );
+}
+
+/** Who recorded a row: the parent in the app, or a guardian through a shared link. */
+function enteredByLabel(name: string | null): string {
+  return name ? `Guardian: ${name}` : "Parent";
 }
