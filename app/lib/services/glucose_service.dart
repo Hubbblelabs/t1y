@@ -1,4 +1,5 @@
 import '../models/glucose_reading.dart';
+import '../models/health_config.dart';
 import 'api_client.dart';
 
 /// Glucometer readings entered by the parent.
@@ -9,6 +10,14 @@ import 'api_client.dart';
 /// question for the ethics committee (see api/docs/UNUSED-BACKEND.md). Until
 /// a coordinator enables it, [create] returns 403 and the entry screen shows
 /// that plainly rather than failing in a way a parent would read as a bug.
+/// One day's average glucose, for the progress graph.
+class DailyGlucose {
+  final DateTime day;
+  final double average;
+  final int count;
+  const DailyGlucose(this.day, this.average, this.count);
+}
+
 class GlucoseService {
   GlucoseService._();
   static final GlucoseService instance = GlucoseService._();
@@ -42,18 +51,46 @@ class GlucoseService {
         .toList();
   }
 
-  /// Records a reading taken right now. No context tag and no backdating —
-  /// a parent reads the meter and enters the number, nothing else.
-  Future<GlucoseReading> create(double value) async {
+  /// Records a reading taken right now. No backdating — a parent reads the
+  /// meter and enters the number, and says which of the day's checks it is
+  /// ([slot]) when the child has scheduled ones.
+  Future<GlucoseReading> create(double value, {GlucoseSlot? slot}) async {
     final data = await ApiClient.instance.post(
       '/api/glucose',
       body: {
         'value': value,
         'unit': 'MG_DL',
         'context': GlucoseContext.random.apiValue,
+        if (slot != null) 'slot': slot.apiValue,
         'measuredAt': DateTime.now().toUtc().toIso8601String(),
       },
     );
     return GlucoseReading.fromJson(data['data'] as Map<String, dynamic>);
+  }
+
+  /// Every day with readings, oldest first, as daily averages — from the
+  /// first reading ever recorded to today. Computed by the server, so it is
+  /// always current.
+  Future<List<DailyGlucose>> dailyAverages() async {
+    final data = await ApiClient.instance.get(
+      '/api/glucose/trends',
+      query: {'interval': 'day', 'range': 'all', 'unit': 'MG_DL'},
+    );
+    final series = (data['data'] as Map<String, dynamic>)['series'] as List;
+    final days = <DailyGlucose>[];
+    for (final row in series) {
+      final map = row as Map<String, dynamic>;
+      final avg = (map['average'] as num?)?.toDouble();
+      if (avg == null) continue;
+      final at = DateTime.parse(map['bucket'] as String).toLocal();
+      days.add(
+        DailyGlucose(
+          DateTime(at.year, at.month, at.day),
+          avg,
+          (map['count'] as num?)?.toInt() ?? 1,
+        ),
+      );
+    }
+    return days;
   }
 }

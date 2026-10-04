@@ -121,10 +121,7 @@ class _NewQuestionScreenState extends State<NewQuestionScreen> {
               const SizedBox(height: 4),
               Text(
                 S.messagesLeftToday(widget.remainingToday!, 3),
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.inkSoft,
-                ),
+                style: TextStyle(fontSize: 12, color: AppTheme.inkSoft),
               ),
             ],
             const SizedBox(height: 20),

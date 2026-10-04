@@ -129,7 +129,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         diagnosisYear: profile?['diagnosisYear'] as int?,
                         sex: profile?['sex'] as String?,
                         email: _me?['email'] as String?,
-                        onSettings: _openSettings,
                         onSignOut: SessionActions.signOut,
                       ),
                     ),
@@ -152,31 +151,39 @@ class _CompleteProfileNudge extends StatelessWidget {
     required this.onTap,
   });
 
+  // A soft red, not the app's usual blue: this is something to do, and it
+  // should not read as just another piece of information.
+  static const _red = Color(0xFFC62828);
+
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppTheme.primary.withValues(alpha: 0.10),
+      color: const Color(0xFFFFEBEE),
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFEF9A9A)),
+          ),
           child: Row(
             children: [
-              const Icon(Icons.info_outline, size: 16, color: AppTheme.deep),
-              const SizedBox(width: 8),
+              const Icon(Icons.error_outline_rounded, size: 18, color: _red),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   S.completeProfileNudge(missingCount),
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.deep,
+                    fontWeight: FontWeight.w700,
+                    color: _red,
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 18, color: AppTheme.deep),
+              const Icon(Icons.chevron_right, size: 20, color: _red),
             ],
           ),
         ),

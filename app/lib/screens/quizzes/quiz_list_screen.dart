@@ -8,6 +8,7 @@ import '../../services/quiz_service.dart';
 import '../../services/rewards_service.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/app_loader.dart';
+import '../../widgets/peek_refresh.dart';
 import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
 import 'quiz_take_screen.dart';
@@ -98,96 +99,124 @@ class _QuizListScreenState extends State<QuizListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppHeader(title: S.quizzes, showBadges: true),
-      body: FutureBuilder<_QuizListData>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: AppLoader());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '${S.couldNotLoad}\n${snapshot.error}',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton(
-                      onPressed: _refresh,
-                      child: Text(S.tryAgain),
-                    ),
-                  ],
-                ),
-              ),
+      // Pull down to refresh, with the little robot; the whole list moves.
+      body: PeekRefresh(
+        onRefresh: _refresh,
+        child: FutureBuilder<_QuizListData>(
+          future: _future,
+          builder: (context, snapshot) {
+            const physics = AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             );
-          }
+            final loaded = snapshot.data;
+            // Spinner on the first load only — a refresh keeps the list on screen.
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                loaded == null) {
+              return ListView(
+                physics: physics,
+                children: const [
+                  SizedBox(height: 160),
+                  Center(child: AppLoader()),
+                ],
+              );
+            }
+            if (snapshot.hasError && loaded == null) {
+              return ListView(
+                physics: physics,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        Text(
+                          '${S.couldNotLoad}\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _refresh,
+                          child: Text(S.tryAgain),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
 
-          final quizzes = snapshot.data?.quizzes ?? [];
-          final badgeByQuizId = snapshot.data?.badgeByQuizId ?? const {};
-          if (quizzes.isEmpty) {
-            return Center(child: Text(S.noQuizzesYet));
-          }
+            final quizzes = loaded?.quizzes ?? [];
+            final badgeByQuizId = loaded?.badgeByQuizId ?? const {};
+            if (quizzes.isEmpty) {
+              return ListView(
+                physics: physics,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(child: Text(S.noQuizzesYet)),
+                  ),
+                ],
+              );
+            }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: quizzes.length,
-            separatorBuilder: (_, index) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final quiz = quizzes[index];
-              final badge = badgeByQuizId[quiz.id];
-              return Card(
-                child: ListTile(
-                  // The quiz's own earned badge (or the unearned/fallback
-                  // hamster when there isn't one yet) — a glance at the
-                  // list already shows what's been conquered.
-                  leading: HexBadge(tier: badge?.tier, size: 44),
-                  title: Text(quiz.title),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Text(
-                      //   quiz.description ?? '${quiz.questions.length} questions',
-                      // ),
-                      // The study's quizzes are English-only for now, so a
-                      // Tamil participant sees them flagged rather than
-                      // silently missing (see listPublishedQuizBundle).
-                      if (quiz.isFallback)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.translate,
-                                size: 12,
-                                color: Color(0xFFB26A00),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                S.englishOnly,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
+            return ListView.separated(
+              physics: physics,
+              padding: const EdgeInsets.all(16),
+              itemCount: quizzes.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                final quiz = quizzes[index];
+                final badge = badgeByQuizId[quiz.id];
+                return Card(
+                  child: ListTile(
+                    // The quiz's own earned badge (or the unearned/fallback
+                    // hamster when there isn't one yet) — a glance at the
+                    // list already shows what's been conquered.
+                    leading: HexBadge(tier: badge?.tier, size: 44),
+                    title: Text(quiz.title),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Text(
+                        //   quiz.description ?? '${quiz.questions.length} questions',
+                        // ),
+                        // The study's quizzes are English-only for now, so a
+                        // Tamil participant sees them flagged rather than
+                        // silently missing (see listPublishedQuizBundle).
+                        if (quiz.isFallback)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.translate,
+                                  size: 12,
                                   color: Color(0xFFB26A00),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 4),
+                                Text(
+                                  S.englishOnly,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFFB26A00),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
+                    isThreeLine: quiz.isFallback,
+                    onTap: () => _open(quiz),
                   ),
-                  isThreeLine: quiz.isFallback,
-                  onTap: () => _open(quiz),
-                ),
-              );
-            },
-          );
-        },
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

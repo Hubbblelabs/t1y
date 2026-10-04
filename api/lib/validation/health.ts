@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { GLUCOSE_SLOT_KEYS } from "@/lib/health-data-config";
 import {
   dateRangeSchema,
   idSchema,
@@ -51,6 +52,8 @@ export const createGlucoseSchema = z
     unit: glucoseUnitSchema.default("MG_DL"),
     context: glucoseContextSchema.default("RANDOM"),
     measuredAt: measuredAtSchema,
+    /** Which of the day's scheduled checks this is; enforced against the child's enabled slots. */
+    slot: z.enum(GLUCOSE_SLOT_KEYS).optional(),
     source: dataSourceSchema.default("MANUAL"),
     deviceId: z.string().trim().max(120).optional(),
     notes: notesSchema,
@@ -263,7 +266,8 @@ export const mealItemSchema = z.object({
 });
 
 export const createMealSchema = z.object({
-  name: z.string().trim().max(160).optional(),
+  /** Free text on what was eaten ("2 dosa") — at most 200 characters. */
+  name: z.string().trim().max(200, "Describe the food in 200 characters or fewer.").optional(),
   mealType: mealTypeSchema,
   consumedAt: measuredAtSchema,
   /**

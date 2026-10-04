@@ -27,22 +27,10 @@ class SignupLoadingScreen extends StatelessWidget {
   });
 
   static List<({String title, String subtitle})> get _steps => [
-    (
-      title: S.creatingAccount,
-      subtitle: S.forTheStudy,
-    ),
-    (
-      title: S.preparingHelpBook,
-      subtitle: S.topicsBothLanguages,
-    ),
-    (
-      title: S.quizzesGettingReady,
-      subtitle: S.checkAsYouLearn,
-    ),
-    (
-      title: S.almostDone,
-      subtitle: S.momentMore,
-    ),
+    (title: S.creatingAccount, subtitle: S.forTheStudy),
+    (title: S.preparingHelpBook, subtitle: S.topicsBothLanguages),
+    (title: S.quizzesGettingReady, subtitle: S.checkAsYouLearn),
+    (title: S.almostDone, subtitle: S.momentMore),
   ];
 
   @override

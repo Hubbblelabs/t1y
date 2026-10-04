@@ -4,6 +4,7 @@ import '../l10n/strings.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/rewards/badges_screen.dart';
 import '../services/app_tour.dart';
+import '../services/diary_details.dart';
 import 'language_toggle.dart';
 import 'tour_step.dart';
 
@@ -74,14 +75,49 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
           title: S.tourProfileTitle,
           description: S.tourProfileBody,
           circle: true,
-          child: IconButton(
-            icon: const Icon(Icons.person_outline),
-            tooltip: S.profile,
-            onPressed: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen()));
-            },
+          child: ValueListenableBuilder<bool>(
+            valueListenable: DiaryDetails.attention,
+            builder: (context, needsAttention, _) => Stack(
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.person_outline),
+                  tooltip: S.profile,
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                ),
+                // A "!" on the corner while the child's details are incomplete.
+                if (needsAttention)
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 16,
+                        height: 16,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE53935),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.6),
+                        ),
+                        child: const Text(
+                          '!',
+                          style: TextStyle(
+                            fontSize: 10,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 4),

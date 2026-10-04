@@ -1,36 +1,35 @@
-import 'package:flutter/material.dart';
-import '../../utils/tamil_name.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'dart:async';
 
-import '../../config/api_config.dart';
+import 'package:flutter/material.dart';
+import '../../widgets/peek_refresh.dart';
+import '../../widgets/progress_card.dart';
+import '../gallery/gallery_screen.dart';
+import '../health/guardian_share_screen.dart';
+import '../health/sos_screen.dart';
+import '../../utils/tamil_name.dart';
+
 import '../../l10n/strings.dart';
-import '../../models/badge.dart';
 import '../../models/glucose_reading.dart';
-import '../../models/topic.dart';
 import '../../providers/app_state.dart';
-import '../../services/content_service.dart';
+import '../../services/diary_details.dart';
+import '../../services/local_reminders.dart';
 import '../../services/glucose_service.dart';
 import '../../services/insulin_service.dart';
 import '../../services/app_tour.dart';
 import '../../services/health_access.dart';
-import '../../services/quiz_service.dart';
 import '../../services/support_service.dart';
 import '../../services/profile_service.dart';
-import '../../services/progress_service.dart';
 import '../../services/reminder_service.dart';
-import '../../services/rewards_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_header.dart';
 import '../../widgets/app_loader.dart';
-import '../../widgets/hex_badge.dart';
 import '../../widgets/locale_aware.dart';
 import '../../widgets/tour_step.dart';
 import '../health/record_screen.dart';
+import '../profile/profile_details_screen.dart';
 import '../help/help_screen.dart';
 import 'home_cards.dart';
 import 'home_shell.dart';
-import '../helpbook/topic_detail_screen.dart';
-import '../rewards/badges_screen.dart';
 
 /// Today's dashboard: where the participant is in the curriculum, what to
 /// read next, what's coming up, and how their badges stand — rather than a
@@ -48,31 +47,37 @@ class HomeTab extends StatefulWidget {
 }
 
 class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
-  List<Topic> _topics = [];
-  Set<String> _read = {};
   List<Reminder> _reminders = [];
   String _name = '';
-  String? _baseUrl;
-  bool _loading = true;
-  BadgeCollection _badges = BadgeCollection.empty;
 
-  /// Most recently opened topic's slug (any topic — read or not), from
-  /// `TopicProgress.lastOpenedAt`. Null for an account that hasn't opened
-  /// anything yet, in which case the "continue reading" card falls back to
-  /// [_nextTopic] instead of disappearing.
-  String? _lastOpenedSlug;
+  /// The latest `/api/users/me`, for the "complete your details" card.
+  Map<String, dynamic>? _me;
+  bool _loading = true;
+
+  /// The full-screen spinner is for the first load only. Every later refresh
+  /// (pull-to-refresh, language change, coming back from a topic) updates in
+  /// place — swapping the list for a spinner rebuilt it and threw the scroll
+  /// position back to the top.
+  bool _hasLoaded = false;
 
   /// Average glucose per day for the current week, keyed by day. A day with no
   /// readings is absent, never zero.
   Map<DateTime, double> _weekAverages = const {};
+
   double? _insulinToday;
-  int? _quizCount;
   int _unreadAnswers = 0;
 
   DateTime _selectedDay = DateTime.now();
-  List<GlucoseReading>? _dayReadings;
   bool _glucoseAvailable = true;
-  bool _loadingDay = false;
+
+  /// Bumped on every refresh so the progress graph reloads with the rest.
+  int _progressTick = 0;
+
+  /// Every day's average glucose, for the graph slide.
+  List<DailyGlucose> _dailyDays = const [];
+
+  /// The details notice was closed with its X today.
+  bool _noticeDismissed = false;
   HealthAccess _access = HealthAccess.all;
 
   @override
@@ -80,18 +85,23 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
     super.initState();
     _selectedDay = _dateOnly(DateTime.now());
     _load();
-    _loadDay(_selectedDay);
     _loadExtras();
+    DiaryDetails.noticeDismissedToday().then((closed) {
+      if (mounted) setState(() => _noticeDismissed = closed);
+    });
   }
 
-  /// The seven dates of the current week, Monday first — the same week the
-  /// strip at the top shows.
+  /// How many days the strip shows, today included.
+  static const _stripDays = 7;
+
+  /// The days the strip shows, oldest first, ending today. There are no future
+  /// days: nothing can be selected or recorded for a date that has not
+  /// happened.
   static List<DateTime> _weekDays() {
     final today = DateTime.now();
-    final monday = today.subtract(Duration(days: today.weekday - 1));
     return [
-      for (var i = 0; i < 7; i++)
-        DateTime(monday.year, monday.month, monday.day + i),
+      for (var i = _stripDays - 1; i >= 0; i--)
+        DateTime(today.year, today.month, today.day - i),
     ];
   }
 
@@ -105,34 +115,39 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
     final week = _weekDays();
 
     final results = await Future.wait<Object?>([
-      _guard<List<GlucoseReading>>(
-        GlucoseService.instance.recent(limit: 200),
-        const <GlucoseReading>[],
-      ),
-      _guard<List<InsulinDose>>(
-        InsulinService.instance.recent(limit: 30),
-        const <InsulinDose>[],
-      ),
-      _guard<int?>(
-        QuizService.instance
-            .getQuizzes(AppState.instance.locale)
-            .then((quizzes) => quizzes.length),
+      // Null (not empty) when the request fails — glucose entry is off for
+      // this study by default (ethics gate) or the server could not be
+      // reached; either way the glucose parts of Home simply stay hidden.
+      _guard<List<GlucoseReading>?>(
+        // The API caps a page at 100; asking for more is rejected outright.
+        GlucoseService.instance.recent(limit: 100),
         null,
       ),
+      _guard<List<InsulinDose>>(
+        InsulinService.instance.recent(limit: 100),
+        const <InsulinDose>[],
+      ),
       _guard<int>(SupportService.instance.unreadAnswers(), 0),
+      _guard<List<DailyGlucose>>(
+        GlucoseService.instance.dailyAverages(),
+        const <DailyGlucose>[],
+      ),
     ]);
     if (!mounted) return;
 
-    final readings = (results[0] as List<GlucoseReading>)
+    final allReadings = results[0] as List<GlucoseReading>?;
+    final readings = (allReadings ?? const <GlucoseReading>[])
         .where((r) => !r.measuredAt.isBefore(week.first))
         .toList();
     final doses = results[1] as List<InsulinDose>;
 
     setState(() {
+      _progressTick++;
+      _glucoseAvailable = allReadings != null;
       _weekAverages = dailyAverages(readings);
       _insulinToday = InsulinService.totalOn(DateTime.now(), doses);
-      _quizCount = results[2] as int?;
-      _unreadAnswers = results[3] as int;
+      _unreadAnswers = results[2] as int;
+      _dailyDays = results[3] as List<DailyGlucose>;
     });
   }
 
@@ -148,146 +163,79 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
       .catchError((Object _) => fallback);
 
   Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+    if (mounted && !_hasLoaded) setState(() => _loading = true);
 
-    // Each call is guarded on its own. They used to run inside one
-    // `Future.wait`, which throws as soon as *any* of them does — and since
-    // `_loading` was only ever cleared after it, one unreachable request left
-    // the whole screen on a spinner for good. Now a call that fails simply
-    // contributes its empty value, and the screen shows what it did get.
+    // Each call is guarded on its own: one that fails simply contributes its
+    // empty value, and the screen shows what it did get.
     final results = await Future.wait<Object?>([
-      _guard(
-        ContentService.instance.getTopics(AppState.instance.locale),
-        <Topic>[],
-      ),
-      _guard(ProgressService.instance.readTopicSlugs(), <String>{}),
       _guard(ReminderService.instance.upcoming(), <Reminder>[]),
       _guard<Map<String, dynamic>?>(ProfileService.instance.me(), null),
-      _guard(ApiConfig.getBaseUrl(), ''),
-      _guard<Map<String, dynamic>?>(
-        ProgressService.instance.fetchProgress(),
-        null,
-      ),
     ]);
     final access = await HealthAccess.load();
 
-    // Best-effort, separately: a rewards outage should never block the rest
-    // of the dashboard from loading.
-    final badges = await RewardsService.instance
-        .collection()
-        .timeout(const Duration(seconds: 12))
-        .catchError((_) => BadgeCollection.empty);
     if (!mounted) return;
 
-    final me = results[3] as Map<String, dynamic>?;
+    final me = results[1] as Map<String, dynamic>?;
+    // Keeps the daily reminder in step with whether the details are still due.
+    unawaited(LocalReminders.syncDetailsReminder(due: DiaryDetails.due(me)));
+    DiaryDetails.attention.value = DiaryDetails.due(me);
     final profile = me?['profile'] as Map<String, dynamic>?;
-    final progress = results[5] as Map<String, dynamic>?;
-    // Already ordered lastOpenedAt desc server-side — see
-    // listProgressForUser in api/lib/services/progress.ts.
-    final progressTopics = progress?['topics'] as List<dynamic>?;
 
     setState(() {
-      _topics = results[0] as List<Topic>;
-      _read = results[1] as Set<String>;
-      _reminders = results[2] as List<Reminder>;
+      _reminders = results[0] as List<Reminder>;
       _name = (profile?['name'] as String?)?.trim().isNotEmpty == true
           ? (profile!['name'] as String).split(' ').first
           : ((me?['name'] as String?)?.split(' ').first ?? '');
-      _baseUrl = results[4] as String;
-      // Off only when a coordinator has switched it off for this child.
-      _badges = badges;
       _access = access;
-      _lastOpenedSlug = (progressTopics != null && progressTopics.isNotEmpty)
-          ? progressTopics.first['topicSlug'] as String?
-          : null;
+      _me = me;
       _loading = false;
+      _hasLoaded = true;
     });
   }
 
-  Future<void> _loadDay(DateTime day) async {
-    setState(() => _loadingDay = true);
-    try {
-      final readings = await GlucoseService.instance.recent(onDate: day);
-      if (!mounted) return;
-      setState(() {
-        _dayReadings = readings;
-        _glucoseAvailable = true;
-        _loadingDay = false;
-      });
-    } catch (_) {
-      // Glucose entry is off for this study by default (ethics gate — see
-      // GlucoseCooldownPanel's own note) or the request failed; either way
-      // the day card just stays hidden rather than showing an error for
-      // something the family was never meant to see.
-      if (!mounted) return;
-      setState(() {
-        _dayReadings = null;
-        _glucoseAvailable = false;
-        _loadingDay = false;
-      });
-    }
+  /// Tapping a point on the graph moves the calendar to that day when it is
+  /// in the week the calendar shows.
+  void _selectDayIfInWeek(DateTime day) {
+    final d = _dateOnly(day);
+    if (_weekDays().contains(d)) _selectDay(d);
   }
 
   void _selectDay(DateTime day) {
     final normalised = _dateOnly(day);
     if (normalised == _selectedDay) return;
     setState(() => _selectedDay = normalised);
-    _loadDay(normalised);
-  }
-
-  void _openBadges() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const BadgesScreen()));
   }
 
   Future<void> _openRecord(RecordKind kind) async {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => RecordScreen(initial: kind)));
-    _loadDay(_selectedDay);
     _loadExtras();
   }
 
-  /// The doorways under "More for you" — each with something live on it — laid
-  /// out two to a row.
-  List<Widget> _tiles() {
+  /// The doorways under "More for you": plain tiles — a big heading and one line — two to a row.
+  /// An odd last tile (SOS, normally) takes the full width.
+  List<Widget> _rows() {
     String units(double v) =>
         v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
     final tiles = <Widget>[
-      HomeTile(
-        icon: Icons.quiz_outlined,
+      _FeatureTile(
+        icon: Icons.quiz_rounded,
+        colours: const [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
         title: S.quizzes,
-        line: (_quizCount ?? 0) > 0
-            ? S.quizzesReady(_quizCount!)
-            : S.testWhatYouLearn,
+        subtitle: S.testYourself,
         onTap: () => widget.onNavigateToTab(HomeShell.quizzesTabIndex),
       ),
-      // Insulin and carb recording sit behind the same switch as glucose (the
-      // study's overall health-logging flag), and further behind this
-      // child's own enrolment and the carbohydrate switch (see HealthAccess).
-      if (_glucoseAvailable && _access.insulin)
-        HomeTile(
-          icon: Icons.vaccines_outlined,
-          title: S.insulin,
-          line: (_insulinToday ?? 0) > 0
-              ? S.todayTotal(units(_insulinToday!))
-              : S.recordDose,
-          onTap: () => _openRecord(RecordKind.insulin),
-        ),
-      if (_glucoseAvailable && _access.carbs)
-        HomeTile(
-          icon: Icons.restaurant_outlined,
-          title: S.carbs,
-          line: S.logCarbs,
-          onTap: () => _openRecord(RecordKind.carbs),
-        ),
-      HomeTile(
-        icon: Icons.support_agent_outlined,
+      _FeatureTile(
+        icon: Icons.support_agent_rounded,
+        colours: const [Color(0xFFE8EAF6), Color(0xFFC5CAE9)],
         title: S.helpAndSupport,
-        line: _unreadAnswers > 0 ? S.newAnswerFromTeam : S.questionsAndAnswers,
-        highlight: _unreadAnswers > 0,
+        subtitle: _unreadAnswers > 0
+            ? S.newAnswerFromTeam
+            : S.questionsAndAnswers,
+        // The unread count sits on the tile's corner, as on a messaging app.
+        badge: _unreadAnswers,
         onTap: () async {
           await Navigator.of(
             context,
@@ -295,139 +243,254 @@ class _HomeTabState extends State<HomeTab> with LocaleAware<HomeTab> {
           _loadExtras();
         },
       ),
+      // Insulin and carb recording sit behind the same switch as glucose (the
+      // study's overall health-logging flag), and further behind this
+      // child's own enrolment and the carbohydrate switch (see HealthAccess).
+      if (_glucoseAvailable && _access.insulin)
+        _FeatureTile(
+          icon: Icons.vaccines_rounded,
+          colours: const [Color(0xFFE0F2F1), Color(0xFFB2DFDB)],
+          title: S.insulin,
+          subtitle: (_insulinToday ?? 0) > 0
+              ? S.todayTotal(units(_insulinToday!))
+              : S.recordDose,
+          onTap: () => _openRecord(RecordKind.insulin),
+        ),
+      // Carbs are entered on the record screen alongside insulin, so this slot
+      // goes to something Home had no way into: handing the readings to a
+      // teacher or relative while the parent is away.
+      if (_glucoseAvailable && _access.anything)
+        _FeatureTile(
+          icon: Icons.group_add_rounded,
+          colours: const [Color(0xFFFFF3E0), Color(0xFFFFE0B2)],
+          title: S.shareShort,
+          subtitle: S.shareShortLine,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const GuardianShareScreen()),
+          ),
+        ),
+      _FeatureTile(
+        icon: Icons.photo_library_rounded,
+        colours: const [Color(0xFFF3E5F5), Color(0xFFE1BEE7)],
+        title: S.gallery,
+        subtitle: S.extraInformation,
+        onTap: () => Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const GalleryScreen())),
+      ),
+      // Last, and in red, so it is never mistaken for another tile.
+      TourStep(
+        tourKey: AppTour.sos,
+        title: S.tourSosTitle,
+        description: S.tourSosBody,
+        child: _FeatureTile(
+          icon: Icons.sos_rounded,
+          colours: const [Color(0xFFFFEBEE), Color(0xFFFFCDD2)],
+          title: S.sosContacts,
+          danger: true,
+          subtitle: S.sosLine,
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const SosScreen())),
+        ),
+      ),
     ];
 
-    return [TileGrid(tiles: tiles)];
+    return [
+      for (var i = 0; i < tiles.length; i += 2) ...[
+        if (i > 0) const SizedBox(height: 12),
+        if (i + 1 < tiles.length)
+          Row(
+            children: [
+              Expanded(child: tiles[i]),
+              const SizedBox(width: 12),
+              Expanded(child: tiles[i + 1]),
+            ],
+          )
+        else
+          tiles[i],
+      ],
+    ];
   }
 
-  /// First unread topic in curriculum order — "continue where you left off".
-  Topic? get _nextTopic {
-    for (final t in _topics) {
-      if (!_read.contains(t.slug)) return t;
-    }
-    return null;
-  }
+  Future<void> _onRefresh() => Future.wait([_load(), _loadExtras()]);
 
-  /// The topic the "continue reading" card actually shows: whichever the
-  /// parent most recently opened, or — for an account that has never opened
-  /// one — the next unread topic, so the card is never simply absent.
-  Topic? get _featuredTopic {
-    final slug = _lastOpenedSlug;
-    if (slug != null) {
-      for (final t in _topics) {
-        if (t.slug == slug) return t;
-      }
-    }
-    return _nextTopic;
+  /// A small picture for the time of day, beside the greeting.
+  static IconData _dayIcon(int hour) {
+    if (hour >= 4 && hour < 12) return Icons.wb_sunny_rounded;
+    if (hour >= 12 && hour < 17) return Icons.wb_cloudy_rounded;
+    if (hour >= 17 && hour < 20) return Icons.wb_twilight_rounded;
+    return Icons.nights_stay_rounded;
   }
 
   @override
   Widget build(BuildContext context) {
-    final total = _topics.length;
-    final featured = _featuredTopic;
-    final isContinuing = _lastOpenedSlug != null && featured != null;
+    final hour = DateTime.now().hour;
+    final glucoseOn = _glucoseAvailable && _access.glucose;
+
+    Widget padded(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: child,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: Colors.white,
       appBar: AppHeader(title: S.home, showBadges: true, tour: true),
       body: _loading
           ? const Center(child: AppLoader())
-          : RefreshIndicator(
-              onRefresh: () =>
-                  Future.wait([_load(), _loadDay(_selectedDay), _loadExtras()]),
+          : PeekRefresh(
+              onRefresh: _onRefresh,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                // Bouncing on every platform, so the pull can reveal the
+                // character on Android as well.
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.only(bottom: 32),
                 children: [
-                  if (_name.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 18, left: 2),
-                      child: TourStep(
-                        tourKey: AppTour.home,
-                        title: S.tourHomeTitle,
-                        description: S.tourHomeBody,
-                        child: Text(
-                          S.greetingForHour(
-                            DateTime.now().hour,
-                            localName(_name),
+                  // The top of the page: greeting and the day strip on a soft
+                  // blue wash, so the screen has a clear starting point.
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFE3F2FD), Color(0xFFF4F9FE)],
+                      ),
+                      borderRadius: BorderRadius.vertical(
+                        bottom: Radius.circular(28),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_name.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: TourStep(
+                              tourKey: AppTour.home,
+                              title: S.tourHomeTitle,
+                              description: S.tourHomeBody,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      S.greetingForHour(hour, localName(_name)),
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.deep,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    width: 46,
+                                    height: 46,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: AppTheme.deep.withValues(
+                                            alpha: 0.10,
+                                          ),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      _dayIcon(hour),
+                                      color: const Color(0xFFFFA000),
+                                      size: 26,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          style: GoogleFonts.dancingScript(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.deep,
-                            height: 1.1,
+                        if (DiaryDetails.due(_me) && !_noticeDismissed) ...[
+                          _DetailsDueCard(
+                            onDismiss: () async {
+                              setState(() => _noticeDismissed = true);
+                              await DiaryDetails.dismissNoticeToday();
+                            },
+                            missing: DiaryDetails.missing(_me).length,
+                            onTap: () async {
+                              final me = _me;
+                              if (me == null) return;
+                              await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ProfileDetailsScreen(
+                                    me: me,
+                                    startEditing: true,
+                                  ),
+                                ),
+                              );
+                              _load();
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        TourStep(
+                          tourKey: AppTour.readings,
+                          title: S.tourReadingsTitle,
+                          description: S.tourReadingsBody,
+                          child: Column(
+                            children: [
+                              _WeekPillCalendar(
+                                days: _weekDays(),
+                                selected: _selectedDay,
+                                onSelect: _selectDay,
+                                averages: _weekAverages,
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  _WeekPillCalendar(
-                    selected: _selectedDay,
-                    onSelect: _selectDay,
-                    marked: _weekAverages.keys.toSet(),
                   ),
-                  const SizedBox(height: 14),
-                  if (_glucoseAvailable && _access.glucose)
-                    TourStep(
-                      tourKey: AppTour.readings,
-                      title: S.tourReadingsTitle,
-                      description: S.tourReadingsBody,
-                      child: _DayReadingsCard(
-                        day: _selectedDay,
-                        readings: _dayReadings,
-                        loading: _loadingDay,
-                        onTap: () => _openRecord(RecordKind.glucose),
+                  // The glucose graph: how the average has moved since the first
+                  // reading. Picking a day above shows that day on it.
+                  if (glucoseOn)
+                    padded(
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16),
+                        child: GlucoseGraph.isReady(_dailyDays)
+                            ? GlucoseGraph(
+                                key: ValueKey(_progressTick),
+                                days: _dailyDays,
+                                focusDay: _selectedDay,
+                                onDayTapped: _selectDayIfInWeek,
+                              )
+                            : const GlucoseGraphWaiting(),
                       ),
                     ),
-                  if (_glucoseAvailable &&
-                      _access.glucose &&
-                      _weekAverages.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    WeekTrendCard(
-                      days: _weekDays(),
-                      averages: _weekAverages,
-                      selected: _selectedDay,
-                      dayLabels: AppState.instance.isTamil
-                          ? S.weekdaysShortTa
-                          : S.weekdaysShort,
-                      onSelect: _selectDay,
+                  padded(
+                    Padding(
+                      padding: const EdgeInsets.only(top: 26),
+                      child: _SectionLabel(S.moreForYou),
                     ),
-                  ],
-                  if (featured != null) ...[
-                    const SizedBox(height: 20),
-                    _ContinueReadingCard(
-                      topic: featured,
-                      baseUrl: _baseUrl,
-                      badgeLabel: isContinuing
-                          ? S.continueReadingBadge
-                          : S.startLearning,
-                      isContinuing: isContinuing,
-                      read: _topics.where((t) => _read.contains(t.slug)).length,
-                      total: total,
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => TopicDetailScreen(topic: featured),
-                          ),
-                        );
-                        await _load();
-                      },
-                    ),
-                  ] else if (total > 0) ...[
-                    // Everything read: the progress ring in its finished state
-                    // stands in for the "continue reading" card.
-                    const SizedBox(height: 20),
-                    LearningProgressCard(read: total, total: total),
-                  ],
-                  const SizedBox(height: 20),
-                  _RankBadgeStrip(badges: _badges, onTap: _openBadges),
-                  const SizedBox(height: 20),
-                  _SectionLabel(S.moreForYou),
-                  ..._tiles(),
+                  ),
+                  padded(Column(children: _rows())),
                   if (_reminders.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    _SectionLabel(S.reminders),
-                    ..._reminders
-                        .take(3)
-                        .map((r) => _ReminderTile(reminder: r)),
+                    padded(
+                      Padding(
+                        padding: const EdgeInsets.only(top: 26),
+                        child: _SectionLabel(S.reminders),
+                      ),
+                    ),
+                    padded(
+                      _RowGroup(
+                        children: [
+                          for (final r in _reminders.take(3))
+                            _ReminderRow(reminder: r),
+                        ],
+                      ),
+                    ),
                   ],
                 ],
               ),
@@ -443,48 +506,47 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 12.5,
+        style: const TextStyle(
+          fontSize: 15.5,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0.5,
-          color: AppTheme.deep.withValues(alpha: 0.7),
+          color: AppTheme.ink,
         ),
       ),
     );
   }
 }
 
-/// The week strip: seven days, Monday first, the selected one filled as a
-/// pill. Always shows the calendar week containing today — there is no
-/// paging, matching how small and single-purpose this is meant to feel.
+/// The day strip: the last seven days with today at the end, the selected one
+/// filled as a pill. Future dates are never shown, so they cannot be tapped.
 class _WeekPillCalendar extends StatelessWidget {
+  final List<DateTime> days;
   final DateTime selected;
   final ValueChanged<DateTime> onSelect;
 
-  /// Days that have at least one reading; each gets a small dot beneath it, so
-  /// the week shows at a glance which days have something to look at.
-  final Set<DateTime> marked;
+  /// Each day's average glucose, shown as a small number under its date — green
+  /// inside the usual range, amber outside it. A day without readings is absent.
+  final Map<DateTime, double> averages;
 
   const _WeekPillCalendar({
+    required this.days,
     required this.selected,
     required this.onSelect,
-    this.marked = const {},
+    this.averages = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final monday = today.subtract(Duration(days: today.weekday - 1));
     final labels = AppState.instance.isTamil
         ? S.weekdaysShortTa
         : S.weekdaysShort;
 
     return Row(
-      children: List.generate(7, (i) {
-        final day = DateTime(monday.year, monday.month, monday.day + i);
+      children: List.generate(days.length, (i) {
+        final day = days[i];
         final isSelected =
             day.year == selected.year &&
             day.month == selected.month &&
@@ -501,7 +563,7 @@ class _WeekPillCalendar extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  labels[i],
+                  labels[day.weekday - 1],
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -535,15 +597,21 @@ class _WeekPillCalendar extends StatelessWidget {
                 const SizedBox(height: 6),
                 // Always occupies its space, so the strip does not change
                 // height as readings come in.
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: marked.contains(day)
-                        ? AppTheme.primary
-                        : Colors.transparent,
-                  ),
+                SizedBox(
+                  height: 15,
+                  child: averages[day] == null
+                      ? null
+                      : Text(
+                          averages[day]!.round().toString(),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            height: 1.3,
+                            fontWeight: FontWeight.w800,
+                            color: (averages[day]! < 70 || averages[day]! > 180)
+                                ? const Color(0xFFEF6C00)
+                                : const Color(0xFF2E7D32),
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -554,41 +622,33 @@ class _WeekPillCalendar extends StatelessWidget {
   }
 }
 
-/// Average glucose for whichever day is selected above — the "attach the
-/// readings" card. Absent (not an error state) when glucose entry isn't
-/// enabled for this study, or shows an honest "no readings" rather than a
-/// fabricated number when the day has none.
-class _DayReadingsCard extends StatelessWidget {
-  final DateTime day;
-  final List<GlucoseReading>? readings;
-  final bool loading;
+/// Asks the family to complete the patient-diary details. Shown from a few
+/// days after sign-up until nothing required is blank.
+class _DetailsDueCard extends StatelessWidget {
+  final int missing;
   final VoidCallback onTap;
 
-  const _DayReadingsCard({
-    required this.day,
-    required this.readings,
-    required this.loading,
+  /// Closes the notice for today (it returns tomorrow while details are missing).
+  final VoidCallback onDismiss;
+  const _DetailsDueCard({
+    required this.missing,
     required this.onTap,
+    required this.onDismiss,
   });
 
   @override
   Widget build(BuildContext context) {
-    final list = readings;
-    final average = (list != null && list.isNotEmpty)
-        ? list.map((r) => r.value).reduce((a, b) => a + b) / list.length
-        : null;
-
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      color: const Color(0xFFFFF4E5),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFFFB74D)),
           ),
           child: Row(
             children: [
@@ -596,13 +656,12 @@ class _DayReadingsCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: AppTheme.lightest,
+                  color: const Color(0xFFFFB74D).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.water_drop_outlined,
-                  size: 19,
-                  color: AppTheme.primary,
+                  Icons.assignment_ind_outlined,
+                  color: Color(0xFFEF6C00),
                 ),
               ),
               const SizedBox(width: 12),
@@ -611,55 +670,56 @@ class _DayReadingsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      S.averageGlucose,
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.inkSoft,
+                      S.detailsDueTitle,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.ink,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    if (loading)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      Text(
-                        average != null
-                            ? '${average.toStringAsFixed(0)} mg/dL'
-                            : S.noReadingsThatDay,
-                        style: TextStyle(
-                          fontSize: average != null ? 18 : 13,
-                          fontWeight: FontWeight.w700,
-                          color: average != null
-                              ? AppTheme.deep
-                              : AppTheme.inkSoft,
-                        ),
+                    Text(
+                      S.detailsDueBody(missing),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppTheme.inkSoft,
                       ),
+                    ),
                   ],
                 ),
               ),
-              if (list != null && list.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightest,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    '${list.length}',
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.deep,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF6C00),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  S.detailsDueButton,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
+              ),
+              const SizedBox(width: 2),
+              // Closes the notice for today.
+              InkResponse(
+                onTap: onDismiss,
+                radius: 18,
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 20,
+                    color: AppTheme.inkSoft,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -668,233 +728,36 @@ class _DayReadingsCard extends StatelessWidget {
   }
 }
 
-/// "Continue reading": the topic, how far through the Help Book the family
-/// is, and one clear button — on a deep-blue card with the topic's picture
-/// set into it, so it stands apart from the white cards around it.
-class _ContinueReadingCard extends StatelessWidget {
-  final Topic topic;
-  final String? baseUrl;
-  final String badgeLabel;
-  final bool isContinuing;
-  final int read;
-  final int total;
-  final VoidCallback onTap;
+const _hairline = Color(0xFFE6EAF0);
 
-  const _ContinueReadingCard({
-    required this.topic,
-    required this.baseUrl,
-    required this.badgeLabel,
-    required this.isContinuing,
-    required this.read,
-    required this.total,
-    required this.onTap,
-  });
-
-  String? get _imageUrl {
-    final raw = topic.thumbnailUrl;
-    if (raw == null) return null;
-    final base = baseUrl;
-    if (base == null || raw.startsWith('http')) return raw;
-    return raw.startsWith('/') ? '$base$raw' : raw;
-  }
+/// One quiet container holding several rows, divided by hairlines — instead of
+/// a separate card for each.
+class _RowGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _RowGroup({required this.children});
 
   @override
   Widget build(BuildContext context) {
-    final image = _imageUrl;
-    final fraction = total == 0 ? 0.0 : (read / total).clamp(0.0, 1.0);
-
-    return Material(
-      borderRadius: BorderRadius.circular(24),
-      clipBehavior: Clip.antiAlias,
-      color: AppTheme.deep,
-      child: InkWell(
-        onTap: onTap,
-        child: Stack(
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFD),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _hairline),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
           children: [
-            // Soft light blobs so the card has depth rather than a flat fill.
-            Positioned(
-              right: -40,
-              top: -50,
-              child: Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primary.withValues(alpha: 0.45),
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0)
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  indent: 62,
+                  color: _hairline,
                 ),
-              ),
-            ),
-            Positioned(
-              left: -30,
-              bottom: -60,
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.06),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.auto_stories_rounded,
-                                    size: 13,
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    badgeLabel,
-                                    style: const TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              topic.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                height: 1.25,
-                              ),
-                            ),
-                            if (topic.readingTimeMinutes != null) ...[
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.schedule_rounded,
-                                    size: 14,
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    S.minutesRead(topic.readingTimeMinutes!),
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white.withValues(
-                                        alpha: 0.9,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: SizedBox(
-                          width: 92,
-                          height: 92,
-                          child: image != null
-                              ? Image.network(
-                                  image,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const _TopicArtworkFallback(),
-                                )
-                              : const _TopicArtworkFallback(),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (total > 0) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0, end: fraction),
-                        duration: const Duration(milliseconds: 700),
-                        curve: Curves.easeOutCubic,
-                        builder: (context, value, _) => LinearProgressIndicator(
-                          value: value,
-                          minHeight: 7,
-                          backgroundColor: Colors.white.withValues(alpha: 0.18),
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          total > 0 ? S.topicOfTotal(read, total) : '',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              isContinuing ? S.resumeLabel : S.beginLabel,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.deep,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.arrow_forward_rounded,
-                              size: 16,
-                              color: AppTheme.deep,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+              children[i],
+            ],
           ],
         ),
       ),
@@ -902,36 +765,10 @@ class _ContinueReadingCard extends StatelessWidget {
   }
 }
 
-class _TopicArtworkFallback extends StatelessWidget {
-  const _TopicArtworkFallback();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.accent, AppTheme.deep],
-        ),
-      ),
-      child: Center(
-        child: Icon(Icons.menu_book_outlined, size: 40, color: Colors.white70),
-      ),
-    );
-  }
-}
-
-class _ReminderTile extends StatelessWidget {
+/// An upcoming reminder, as a row in the same grouped list.
+class _ReminderRow extends StatelessWidget {
   final Reminder reminder;
-  const _ReminderTile({required this.reminder});
-
-  static const _icons = {
-    'MEDICATION_REMINDER': Icons.vaccines_outlined,
-    'GLUCOSE_REMINDER': Icons.monitor_heart_outlined,
-    'APPOINTMENT_REMINDER': Icons.event_outlined,
-    'EDUCATION_NUDGE': Icons.menu_book_outlined,
-  };
+  const _ReminderRow({required this.reminder});
 
   String get _when {
     final t = reminder.nextTriggerAt;
@@ -945,64 +782,28 @@ class _ReminderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.accent.withValues(alpha: 0.55)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppTheme.lightest,
-              borderRadius: BorderRadius.circular(11),
-            ),
-            child: Icon(
-              _icons[reminder.type] ?? Icons.notifications_outlined,
-              size: 19,
-              color: AppTheme.primary,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  reminder.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (reminder.timeOfDay != null)
-                  Text(
-                    reminder.timeOfDay!,
-                    style: TextStyle(fontSize: 12, color: AppTheme.inkSoft),
-                  ),
-              ],
+            child: Text(
+              reminder.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.ink,
+              ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppTheme.lightest,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              _when,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.deep,
-              ),
+          Text(
+            _when,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.inkSoft,
             ),
           ),
         ],
@@ -1011,86 +812,133 @@ class _ReminderTile extends StatelessWidget {
   }
 }
 
-/// Standing + recent badges, tappable through to the full rewards screen —
-/// replaces the static rotating tip that used to sit here. The tip was the
-/// same piece of text for every family regardless of how they were actually
-/// doing; this is the opposite, built entirely from that child's own quiz
-/// results, and it does something when touched.
-class _RankBadgeStrip extends StatelessWidget {
-  final BadgeCollection badges;
+/// A soft pastel tile: a heading and one line beneath, with the section's icon
+/// as a large, faint picture in the corner (no small icon above the title).
+///
+/// Every tile is exactly the same height, whatever its words, so a long title
+/// ("Help and support") can never make its neighbour a different size. The
+/// text shrinks to fit rather than the tile growing. An optional unread count
+/// sits on the corner, and [danger] colours the heading red (SOS).
+class _FeatureTile extends StatelessWidget {
+  static const height = 112.0;
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> colours;
+  final int badge;
+  final bool danger;
   final VoidCallback onTap;
 
-  const _RankBadgeStrip({required this.badges, required this.onTap});
+  const _FeatureTile({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.colours,
+    required this.onTap,
+    this.badge = 0,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final rank = badges.rank;
-    final recent = badges.badges.take(5).toList();
+    final headingColour = danger ? const Color(0xFFB71C1C) : AppTheme.deep;
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: colours,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
             children: [
-              Row(
-                children: [
-                  HexBadge(
-                    tier: recent.isEmpty ? null : recent.first.tier,
-                    size: 40,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+              // The faint picture behind the words.
+              Positioned(
+                right: -12,
+                bottom: -16,
+                child: Icon(
+                  icon,
+                  size: 86,
+                  color: headingColour.withValues(alpha: 0.10),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          rank?.localTitle ?? S.myBadges,
-                          style: const TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.deep,
+                        Expanded(
+                          // One line that scales down, so the tile never grows.
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: headingColour,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          S.badgesEarnedCount(badges.totalBadges),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.inkSoft,
+                        if (badge > 0)
+                          Container(
+                            margin: const EdgeInsets.only(left: 8),
+                            constraints: const BoxConstraints(
+                              minWidth: 22,
+                              minHeight: 22,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE53935),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(11),
+                              ),
+                            ),
+                            child: Text(
+                              badge > 9 ? '9+' : '$badge',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                height: 1.1,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
                       ],
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right,
-                    color: AppTheme.deep.withValues(alpha: 0.4),
-                  ),
-                ],
-              ),
-              if (recent.length > 1) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 46,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: recent.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) =>
-                        HexBadge(tier: recent[i].tier, size: 46),
-                  ),
+                    const SizedBox(height: 4),
+                    Expanded(
+                      child: Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.3,
+                          color: headingColour.withValues(alpha: 0.72),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),

@@ -26,6 +26,7 @@ const INSULIN_SELECT = {
   mealAssociation: true,
   mealId: true,
   notes: true,
+  enteredBy: true,
   createdAt: true,
 } satisfies Prisma.InsulinLogSelect;
 

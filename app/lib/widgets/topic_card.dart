@@ -5,6 +5,10 @@ import '../providers/app_state.dart';
 import '../theme/app_theme.dart';
 import '../l10n/strings.dart';
 
+/// Bundled Help Book illustration shown whenever a topic or section picture
+/// has no URL or fails to download.
+const helpBookFallbackAsset = 'assets/images/helpbook_fallback.webp';
+
 /// Per-category artwork for topics whose source document has no figures
 /// (insulin-pump, exercise, school-travel), and as the loading/error
 /// placeholder behind every thumbnail.
@@ -188,11 +192,10 @@ class TopicCard extends StatelessWidget {
   static String _categoryLabel(String category) => categoryName(category);
 }
 
-/// A topic with no real thumbnail (or one that fails to load) renders
-/// nothing here at all — no gradient box, no category icon standing in for
-/// a picture. That placeholder used to appear for every image-less topic in
-/// the list, which read as a broken/dummy image rather than as a topic that
-/// simply doesn't have one.
+/// Every Help Book topic has a cover picture. While it downloads the slot
+/// stays empty and the picture fades in once a frame is ready; if there is
+/// no URL or the download fails, the bundled Help Book illustration stands
+/// in so a card never shows a broken or blank picture.
 class _Thumbnail extends StatefulWidget {
   final Topic topic;
   final String? baseUrl;
@@ -213,68 +216,59 @@ class _ThumbnailState extends State<_Thumbnail> {
 
   String? get _resolvedUrl {
     final thumb = widget.topic.thumbnailUrl;
+    if (thumb == null || thumb.isEmpty) return null;
+    if (thumb.startsWith('http')) return thumb;
     final base = widget.baseUrl;
-    if (thumb == null || base == null) return null;
-    return thumb.startsWith('http') ? thumb : '$base$thumb';
+    return base == null ? null : '$base$thumb';
   }
 
   @override
   Widget build(BuildContext context) {
+    final thumb = widget.topic.thumbnailUrl;
+    final showFallback = _failed || thumb == null || thumb.isEmpty;
+    // A site-relative URL can't load until the API base URL is known.
     final url = _resolvedUrl;
-    // No URL at all — there was never going to be a picture here, so there's
-    // nothing to wait for.
-    if (url == null) return const SizedBox.shrink();
 
-    // The Image.network below must stay mounted the whole time there's a
-    // URL to try — its own frameBuilder/errorBuilder is what decides
-    // whether a real picture ever arrives. Swapping it out of the tree
-    // whenever it isn't "ready" (an earlier version of this) meant it could
-    // never report back that it *had* become ready, and real thumbnails
-    // stayed permanently hidden. Only its visibility (via opacity) reacts
-    // to load state — the widget itself never disappears until we know for
-    // certain it failed.
-    final box = ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: SizedBox(
-        width: _Thumbnail._width,
-        height: _Thumbnail._height,
-        child: AnimatedOpacity(
-          opacity: _ready ? 1 : 0,
-          duration: const Duration(milliseconds: 200),
-          child: Image.network(
-            url,
-            key: ValueKey(url),
-            width: _Thumbnail._width,
-            height: _Thumbnail._height,
-            fit: BoxFit.cover,
-            frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-              if (frame != null && !_ready) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) setState(() => _ready = true);
-                });
-              }
-              return child;
-            },
-            errorBuilder: (_, _, _) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _failed = true);
-              });
-              return const SizedBox.shrink();
-            },
-          ),
+    return Padding(
+      padding: const EdgeInsets.only(right: 14),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: _Thumbnail._width,
+          height: _Thumbnail._height,
+          child: showFallback
+              ? Image.asset(helpBookFallbackAsset, fit: BoxFit.cover)
+              : url == null
+              ? const SizedBox.shrink()
+              // Stays mounted while loading — its own frameBuilder is what
+              // reports the picture ready; only opacity follows load state.
+              : AnimatedOpacity(
+                  opacity: _ready ? 1 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Image.network(
+                    url,
+                    key: ValueKey(url),
+                    width: _Thumbnail._width,
+                    height: _Thumbnail._height,
+                    fit: BoxFit.cover,
+                    frameBuilder: (context, child, frame, _) {
+                      if (frame != null && !_ready) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) setState(() => _ready = true);
+                        });
+                      }
+                      return child;
+                    },
+                    errorBuilder: (_, _, _) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) setState(() => _failed = true);
+                      });
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
         ),
       ),
-    );
-
-    // The trailing gap is part of the thumbnail, not a fixed SizedBox next
-    // to it in the card — collapses away only once the picture is
-    // confirmed broken, so a genuinely image-less topic doesn't leave a
-    // blank gap where a placeholder box used to sit.
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      child: _failed
-          ? const SizedBox.shrink()
-          : Padding(padding: const EdgeInsets.only(right: 14), child: box),
     );
   }
 }

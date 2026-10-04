@@ -102,7 +102,8 @@ function toEditableBlocks(stored: unknown): TopicBlock[] {
 function htmlToPlainText(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
+    .replace(/<\/li>\s*<li[^>]*>/gi, "\n")
+    .replace(/<\/(p|ol|ul|h\d)>\s*<(p|ol|ul|h\d)[^>]*>/gi, "\n\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")

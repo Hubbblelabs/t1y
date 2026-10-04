@@ -11,12 +11,16 @@ class InsulinDose {
   final double units;
   final DateTime administeredAt;
 
+  /// Set when a guardian entered this through a shared link.
+  final String? enteredBy;
+
   const InsulinDose({
     required this.id,
     required this.name,
     required this.type,
     required this.units,
     required this.administeredAt,
+    this.enteredBy,
   });
 
   factory InsulinDose.fromJson(Map<String, dynamic> json) => InsulinDose(
@@ -25,6 +29,7 @@ class InsulinDose {
     type: json['insulinType'] as String? ?? 'OTHER',
     units: (json['doseUnits'] as num).toDouble(),
     administeredAt: DateTime.parse(json['administeredAt'] as String).toLocal(),
+    enteredBy: json['enteredBy'] as String?,
   );
 }
 

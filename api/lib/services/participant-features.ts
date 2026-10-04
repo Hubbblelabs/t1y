@@ -33,3 +33,17 @@ export async function assertFeatureEnabled(userId: string, feature: ParticipantF
     );
   }
 }
+
+/**
+ * Throws unless a coordinator has asked this child to record exercise
+ * (`Profile.exerciseEnabled`, set under Health data configuration).
+ */
+export async function assertExerciseEnabled(userId: string): Promise<void> {
+  const profile = await prisma.profile.findUnique({
+    where: { userId },
+    select: { exerciseEnabled: true },
+  });
+  if (profile && !profile.exerciseEnabled) {
+    throw new ForbiddenError("Exercise logging is not turned on for this account. Ask your study coordinator.");
+  }
+}

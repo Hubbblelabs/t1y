@@ -117,14 +117,14 @@ class _PinGateState extends State<PinGate> {
       final result = await MpinService.instance.verify(pin);
       if (!mounted) return;
       if (result.ok) return _open();
-      _pin.clear();
+      // What was typed stays in the box so a slipped digit can be fixed,
+      // not retyped from scratch.
       setState(() {
         _busy = false;
         _error = S.pinIncorrect;
       });
     } catch (e) {
       if (!mounted) return;
-      _pin.clear();
       setState(() {
         _busy = false;
         _error = e is ApiException ? e.message : S.couldNotLoad;

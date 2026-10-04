@@ -33,6 +33,7 @@ export default async function MealsPage(props: PageProps<"/admin/health/meals">)
           { label: "Carbohydrate", align: "right" },
           { label: "Energy", align: "right" },
           { label: "Source" },
+          { label: "Entered by" },
         ]}
         rows={items.map((item) => ({
           id: item.id,
@@ -59,6 +60,7 @@ export default async function MealsPage(props: PageProps<"/admin/health/meals">)
                 <span className="text-ink-subtle text-xs">Self-reported</span>
               ),
             },
+            { label: "Entered by", value: enteredByLabel(item.enteredBy) },
           ],
         }))}
         emptyTitle="No meals logged"
@@ -66,4 +68,9 @@ export default async function MealsPage(props: PageProps<"/admin/health/meals">)
       />
     </HealthPage>
   );
+}
+
+/** Who recorded a row: the parent in the app, or a guardian through a shared link. */
+function enteredByLabel(name: string | null): string {
+  return name ? `Guardian: ${name}` : "Parent";
 }

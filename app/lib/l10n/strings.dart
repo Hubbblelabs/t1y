@@ -1,3 +1,4 @@
+import '../models/health_config.dart';
 import '../providers/app_state.dart';
 
 /// UI chrome strings in English and Tamil.
@@ -37,7 +38,6 @@ class S {
   /// switch. Reusing the existing strings keeps a single source for the Tamil.
   static ({String en, String ta}) both(String Function() read) =>
       (en: inLocale('en', read), ta: inLocale('ta', read));
-
 
   static String _t(String en, String ta) => _l == 'ta' ? ta : en;
 
@@ -336,7 +336,6 @@ class S {
 
   // ── Calculations ─────────────────────────────────────────────────────────
 
-
   // ── Sign in / sign up (always shown in both languages) ───────────────────
   static String get getStarted => _t('Get Started', 'தொடங்குங்கள்');
   static String get createAccount => _t('Create Account', 'கணக்கை உருவாக்கு');
@@ -356,7 +355,7 @@ class S {
 
   // ── Home ─────────────────────────────────────────────────────────────────
   static String get thisWeek => _t('This week', 'இந்த வாரம்');
-  static String get moreForYou => _t('More for you', 'உங்களுக்காக மேலும்');
+  static String get moreForYou => _t('Explore', 'ஆராயுங்கள்');
   static String learningProgress(int read, int total) => _t(
     '$read of $total topics read',
     '$total-ல் $read தலைப்புகள் படிக்கப்பட்டன',
@@ -686,11 +685,13 @@ class S {
 
   /// Time-of-day greeting, cursive on screen — see [HomeTab]'s hero text.
   static String greetingForHour(int hour, String name) {
-    final part = hour < 12
+    // 4 AM–noon morning, noon–5 PM afternoon, 5–8 PM evening, then night
+    // (8 PM until 4 AM).
+    final part = (hour >= 4 && hour < 12)
         ? _t('Good morning', 'காலை வணக்கம்')
-        : hour < 17
+        : (hour >= 12 && hour < 17)
         ? _t('Good afternoon', 'மதிய வணக்கம்')
-        : hour < 21
+        : (hour >= 17 && hour < 20)
         ? _t('Good evening', 'மாலை வணக்கம்')
         : _t('Good night', 'இரவு வணக்கம்');
     return '$part, $name';
@@ -738,10 +739,8 @@ class S {
   static String get nowLabel => _t('Now', 'இப்போது');
   static String get chooseTime => _t('Choose a time', 'நேரத்தைத் தேர்வுசெய்');
   static String get recentEntries => _t('Recent', 'சமீபத்தியவை');
-  static String get nothingRecorded => _t(
-    'Nothing recorded yet.',
-    'இதுவரை எதுவும் பதிவு செய்யப்படவில்லை.',
-  );
+  static String get nothingRecorded =>
+      _t('Nothing recorded yet.', 'இதுவரை எதுவும் பதிவு செய்யப்படவில்லை.');
   static String get recordGlucoseHint => _t(
     'Read the number on the meter and enter it.',
     'மீட்டரில் உள்ள எண்ணைப் படித்து உள்ளிடவும்.',
@@ -750,6 +749,283 @@ class S {
     'Enter the units given. This records what was given — it does not tell you how much to give.',
     'கொடுத்த யூனிட்களை உள்ளிடவும். இது கொடுக்கப்பட்டதைப் பதிவு செய்கிறது — எவ்வளவு கொடுக்க வேண்டும் என்று சொல்லாது.',
   );
+  // ── Progress graph ────────────────────────────────────────────────────────
+  static String get rangeIn => _t('In the usual range', 'வழக்கமான வரம்பில்');
+  static String get rangeAbove =>
+      _t('Above the usual range', 'வழக்கமான வரம்புக்கு மேல்');
+  static String get rangeBelow =>
+      _t('Below the usual range', 'வழக்கமான வரம்புக்குக் கீழ்');
+  static String get sameAsBefore =>
+      _t('Same as the day before', 'முந்தைய நாளைப் போலவே');
+  static String lowerThanBefore(int n) =>
+      _t('$n lower than before', 'முன்பை விட $n குறைவு');
+  static String higherThanBefore(int n) =>
+      _t('$n higher than before', 'முன்பை விட $n அதிகம்');
+  static String readingsCount(int n) =>
+      _t(n == 1 ? '1 reading' : '$n readings', '$n அளவீடுகள்');
+  static List<String> get monthsShort => _l == 'ta'
+      ? const [
+          'ஜன',
+          'பிப்',
+          'மார்',
+          'ஏப்',
+          'மே',
+          'ஜூன்',
+          'ஜூலை',
+          'ஆக',
+          'செப்',
+          'அக்',
+          'நவ',
+          'டிச',
+        ]
+      : const [
+          'Jan',
+          'Feb',
+          'Mar',
+          'Apr',
+          'May',
+          'Jun',
+          'Jul',
+          'Aug',
+          'Sep',
+          'Oct',
+          'Nov',
+          'Dec',
+        ];
+
+  // ── Gallery ───────────────────────────────────────────────────────────────
+  static String get gallery => _t('Gallery', 'படத்தொகுப்பு');
+  static String get galleryLine =>
+      _t('Pictures and videos', 'படங்களும் வீடியோக்களும்');
+  static String get galleryEmpty => _t(
+    'Nothing here yet. Pictures and videos from the study team will appear here.',
+    'இன்னும் எதுவும் இல்லை. ஆய்வுக் குழுவின் படங்களும் வீடியோக்களும் இங்கே தோன்றும்.',
+  );
+  static String get couldNotLoadMedia =>
+      _t('This could not be loaded.', 'இதை ஏற்ற முடியவில்லை.');
+
+  // ── SOS contacts ──────────────────────────────────────────────────────────
+  static String get sosContacts => _t('SOS contacts', 'அவசர தொடர்புகள்');
+  static String get sosLine => _t('Call for help', 'உதவிக்கு அழைக்கவும்');
+  static String get sosHint => _t(
+    'Tap the phone button to call. Your phone’s dialler opens with the number ready.',
+    'அழைக்க தொலைபேசி பொத்தானைத் தட்டவும். எண் நிரப்பப்பட்ட நிலையில் உங்கள் தொலைபேசியின் டயலர் திறக்கும்.',
+  );
+  static String get noSosContacts => _t(
+    'No SOS contacts have been added for you yet. Ask your study coordinator.',
+    'உங்களுக்கு இன்னும் அவசர தொடர்புகள் சேர்க்கப்படவில்லை. உங்கள் ஆய்வு ஒருங்கிணைப்பாளரிடம் கேளுங்கள்.',
+  );
+  static String callName(String name) => _t('Call $name', '$name-ஐ அழை');
+  static String cannotCall(String phone) => _t(
+    'This phone cannot place calls. The number is $phone.',
+    'இந்த தொலைபேசியில் அழைக்க முடியவில்லை. எண்: $phone.',
+  );
+
+  static String get graphWaiting => _t(
+    'Your glucose graph appears here once readings are recorded on two different days.',
+    'இரண்டு வெவ்வேறு நாட்களில் அளவீடுகள் பதிவான பிறகு உங்கள் குளுக்கோஸ் வரைபடம் இங்கே தோன்றும்.',
+  );
+  static String get testYourself => _t('Test yourself', 'உங்களை சோதியுங்கள்');
+  static String get extraInformation =>
+      _t('Extra information', 'கூடுதல் தகவல்கள்');
+  static String get shareShort => _t('Share', 'பகிர்');
+  static String get shareShortLine =>
+      _t('Guardian data entry', 'பாதுகாவலர் தரவு பதிவு');
+  static String get today => _t('Today', 'இன்று');
+  static String get yesterday => _t('Yesterday', 'நேற்று');
+  static const _weekdaysFullEn = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  static const _weekdaysFullTa = [
+    'திங்கள்',
+    'செவ்வாய்',
+    'புதன்',
+    'வியாழன்',
+    'வெள்ளி',
+    'சனி',
+    'ஞாயிறு',
+  ];
+  static List<String> get weekdaysFull =>
+      _l == 'ta' ? _weekdaysFullTa : _weekdaysFullEn;
+  static String get nothingThisDay =>
+      _t('Nothing recorded this day', 'இந்த நாளில் எதுவும் பதிவாகவில்லை');
+  static String entriesCount(int n) =>
+      _t(n == 1 ? '1 entry' : '$n entries', '$n பதிவுகள்');
+  static String get addReading => _t('Add reading', 'அளவீட்டைச் சேர்');
+  static String get recentActivity =>
+      _t('Recent activity', 'சமீபத்திய பதிவுகள்');
+
+  // ── Patient-diary details ─────────────────────────────────────────────────
+  static String get detailsDueTitle => _t(
+    "Complete your child's details",
+    'உங்கள் குழந்தையின் விவரங்களை நிறைவு செய்யுங்கள்',
+  );
+  static String detailsDueBody(int n) => _t(
+    n == 1 ? '1 detail is still missing.' : '$n details are still missing.',
+    n == 1 ? '1 விவரம் இன்னும் இல்லை.' : '$n விவரங்கள் இன்னும் இல்லை.',
+  );
+  static String get detailsDueButton =>
+      _t('Fill in now', 'இப்போது நிரப்புங்கள்');
+  static String get detailsReminderTitle => _t(
+    "Your child's details are incomplete",
+    'குழந்தையின் விவரங்கள் முழுமையடையவில்லை',
+  );
+  static String get detailsReminderBody => _t(
+    'Please fill in the missing details — it takes a minute.',
+    'விடுபட்ட விவரங்களை நிரப்புங்கள் — ஒரு நிமிடம் ஆகும்.',
+  );
+
+  // ── Guardian links ────────────────────────────────────────────────────────
+  static String get shareWithGuardian =>
+      _t('Share with a guardian', 'பாதுகாவலருடன் பகிரவும்');
+  static String get shareWithGuardianSubtitle => _t(
+    'Away from your child? Let a teacher or relative record their readings.',
+    'குழந்தையுடன் இல்லையா? ஆசிரியர் அல்லது உறவினர் அவர்களின் அளவீடுகளைப் பதிவு செய்யட்டும்.',
+  );
+  static String get shareIntro => _t(
+    'Away from your child? Let a teacher or relative enter their readings.',
+    'குழந்தையுடன் இல்லையா? ஆசிரியர் அல்லது உறவினர் அவர்களின் அளவீடுகளை உள்ளிடட்டும்.',
+  );
+  static String get shareStep1 => _t(
+    'Choose what they should record',
+    'அவர்கள் எதைப் பதிவு செய்ய வேண்டும் என்பதைத் தேர்வுசெய்யுங்கள்',
+  );
+  static String get shareStep2 =>
+      _t('Send them the link', 'இணைப்பை அவர்களுக்கு அனுப்புங்கள்');
+  static String get shareStep3 => _t(
+    'Send the code in a separate message',
+    'குறியீட்டைத் தனிச் செய்தியில் அனுப்புங்கள்',
+  );
+  static String get whatToRecord =>
+      _t('What should they record?', 'அவர்கள் எதைப் பதிவு செய்ய வேண்டும்?');
+  static String get noteForThem =>
+      _t('Note for them (optional)', 'அவர்களுக்கான குறிப்பு (விருப்பம்)');
+  static String get noteForThemHint => _t(
+    'e.g. Lunchtime readings, please',
+    'எ.கா. மதிய உணவு நேர அளவீடுகளை உள்ளிடவும்',
+  );
+  static String get chooseSomething => _t(
+    'Choose at least one thing for them to record.',
+    'அவர்கள் பதிவு செய்ய குறைந்தது ஒன்றைத் தேர்வுசெய்யுங்கள்.',
+  );
+  static String get linkValidFor => _t(
+    'How long should the link work?',
+    'இணைப்பு எவ்வளவு நேரம் செயல்பட வேண்டும்?',
+  );
+  static String durationLabel(int minutes) {
+    if (minutes < 60) return _t('$minutes minutes', '$minutes நிமிடங்கள்');
+    final h = minutes ~/ 60;
+    return h == 1
+        ? _t('1 hour', '1 மணி நேரம்')
+        : _t('$h hours', '$h மணி நேரம்');
+  }
+
+  static String get createLink => _t('Create link', 'இணைப்பை உருவாக்கு');
+  static String get shareLinkAction => _t('Share link', 'இணைப்பைப் பகிர்');
+  static String get shareCodeAction => _t('Share code', 'குறியீட்டைப் பகிர்');
+  static String get codeLabelShort => _t('Code', 'குறியீடு');
+  static String get shareCodeSeparately => _t(
+    'Send this code in a separate message from the link.',
+    'இந்தக் குறியீட்டை இணைப்பிலிருந்து தனி செய்தியில் அனுப்புங்கள்.',
+  );
+  static String linkExpiresAt(String when) =>
+      _t('Link expires $when', 'இணைப்பு $when காலாவதியாகும்');
+  static String get cancelLink => _t('Cancel link', 'இணைப்பை ரத்து செய்');
+  static String get recentLinks => _t('Recent links', 'சமீபத்திய இணைப்புகள்');
+  static String get noLinksYet =>
+      _t('No links yet.', 'இன்னும் இணைப்புகள் இல்லை.');
+  static String linkMessage(String url) => _t(
+    "Please record my child's readings using this link: $url",
+    'என் குழந்தையின் அளவீடுகளை இந்த இணைப்பில் பதிவு செய்யவும்: $url',
+  );
+  static String codeMessage(String code) => _t(
+    'The 6-digit code for the link is: $code',
+    'இணைப்புக்கான 6 இலக்க குறியீடு: $code',
+  );
+  static String linkStatus(String status) => switch (status) {
+    'ACTIVE' => _t('Waiting', 'காத்திருக்கிறது'),
+    'USED' => _t('Used', 'பயன்படுத்தப்பட்டது'),
+    'REVOKED' => _t('Cancelled', 'ரத்து செய்யப்பட்டது'),
+    'LOCKED' => _t('Locked', 'பூட்டப்பட்டது'),
+    _ => _t('Expired', 'காலாவதியானது'),
+  };
+  static String enteredByAt(String name, String when) =>
+      _t('Entered by $name · $when', '$name உள்ளிட்டார் · $when');
+  static String get guardianEnteredTitle =>
+      _t('Readings entered by a guardian', 'பாதுகாவலர் அளவீடுகளை உள்ளிட்டார்');
+  static String guardianEnteredBody(String name) => _t(
+    '$name entered readings through your link. The link has now expired.',
+    '$name உங்கள் இணைப்பு மூலம் அளவீடுகளை உள்ளிட்டார். இணைப்பு இப்போது காலாவதியாகிவிட்டது.',
+  );
+  static String get ok => _t('OK', 'சரி');
+  static String viaGuardian(String name) => _t('by $name', '$name மூலம்');
+
+  // ── Double-check before saving ────────────────────────────────────────────
+  static String get checkEntryTitle =>
+      _t('Please check this carefully', 'இதை கவனமாகச் சரிபார்க்கவும்');
+  static String get checkEntryBody => _t(
+    "These numbers are used to make decisions about your child's care. Make sure each one is exactly right.",
+    'இந்த எண்கள் உங்கள் குழந்தையின் பராமரிப்பு முடிவுகளுக்குப் பயன்படுத்தப்படுகின்றன. ஒவ்வொன்றும் சரியாக உள்ளதா என்பதை உறுதிசெய்யவும்.',
+  );
+  static String get goBackEdit =>
+      _t('Go back and edit', 'திரும்பிச் சென்று திருத்து');
+  static String get yesCorrectSave =>
+      _t("Yes, it's correct — save", 'ஆம், சரி — சேமி');
+
+  static String get showPin => _t('Show PIN', 'PIN-ஐக் காட்டு');
+  static String get hidePin => _t('Hide PIN', 'PIN-ஐ மறை');
+
+  // ── Health data configuration ─────────────────────────────────────────────
+  static String get whichReading =>
+      _t('Which reading is this?', 'இது எந்த அளவீடு?');
+  static String get chooseGlucoseSlot => _t(
+    'Please choose which reading this is.',
+    'இது எந்த அளவீடு என்பதைத் தேர்வுசெய்யவும்.',
+  );
+  static String glucoseSlot(GlucoseSlot slot) => switch (slot) {
+    GlucoseSlot.preBreakfast => _t('Pre-breakfast', 'காலை உணவுக்கு முன்'),
+    GlucoseSlot.postBreakfast => _t('Post-breakfast', 'காலை உணவுக்குப் பின்'),
+    GlucoseSlot.preLunch => _t('Pre-lunch', 'மதிய உணவுக்கு முன்'),
+    GlucoseSlot.postLunch => _t('Post-lunch', 'மதிய உணவுக்குப் பின்'),
+    GlucoseSlot.preDinner => _t('Pre-dinner', 'இரவு உணவுக்கு முன்'),
+    GlucoseSlot.postDinner => _t('Post-dinner', 'இரவு உணவுக்குப் பின்'),
+  };
+  static String get whatWasEaten =>
+      _t('What was eaten (optional)', 'என்ன சாப்பிட்டார் (விருப்பம்)');
+  static String get whatWasEatenHint => _t('e.g. 2 dosa', 'எ.கா. 2 தோசை');
+  static String get exercise => _t('Exercise', 'உடற்பயிற்சி');
+  static String get exerciseMinutes =>
+      _t('Exercise time (minutes)', 'உடற்பயிற்சி நேரம் (நிமிடங்கள்)');
+  static String get recordExerciseHint => _t(
+    'Whenever your child exercises, enter how long they did it.',
+    'உங்கள் குழந்தை உடற்பயிற்சி செய்யும்போதெல்லாம், எவ்வளவு நேரம் செய்தார் என்பதை உள்ளிடவும்.',
+  );
+  static String get badExercise => _t(
+    'Please check the time — it should be between 1 and 1440 minutes.',
+    'நேரத்தைச் சரிபார்க்கவும் — அது 1 முதல் 1440 நிமிடங்களுக்குள் இருக்க வேண்டும்.',
+  );
+  static String get exerciseSaved => _t('Recorded', 'பதிவு செய்யப்பட்டது');
+  static String minutesValue(int minutes) =>
+      _t('$minutes min', '$minutes நிமிடம்');
+  static String get insulinReminderTitle =>
+      _t('Time for insulin', 'இன்சுலின் போட வேண்டிய நேரம்');
+  static String get insulinReminderBody => _t(
+    'Remember to give the insulin dose and record it in the app.',
+    'இன்சுலின் அளவைக் கொடுத்து, செயலியில் பதிவு செய்ய நினைவில் கொள்ளவும்.',
+  );
+  static String get exerciseReminderTitle =>
+      _t('Time for exercise', 'உடற்பயிற்சி செய்ய வேண்டிய நேரம்');
+  static String get exerciseReminderBody => _t(
+    'Remember to exercise and record it in the app.',
+    'உடற்பயிற்சி செய்து, செயலியில் பதிவு செய்ய நினைவில் கொள்ளவும்.',
+  );
+
   static String get recordCarbsHint => _t(
     'Whenever your child eats, enter the carbohydrates in the food.',
     'உங்கள் குழந்தை சாப்பிடும்போதெல்லாம், உணவில் உள்ள கார்போஹைட்ரேட்டை உள்ளிடவும்.',
@@ -775,7 +1051,8 @@ class S {
     "You've reached the top rank!",
     'நீங்கள் உயர்ந்த நிலையை அடைந்துவிட்டீர்கள்!',
   );
-  static String get badgeCollection => _t('Badge collection', 'பதக்கத் தொகுப்பு');
+  static String get badgeCollection =>
+      _t('Badge collection', 'பதக்கத் தொகுப்பு');
   static String tierEarnedCount(int n) => _t('$n earned', '$n பெற்றது');
   static String scoreFrom(int percent) =>
       _t('$percent% and above', '$percent% மற்றும் அதற்கு மேல்');
@@ -813,13 +1090,16 @@ class S {
     'இந்தச் செயலிக்கு அறிவிப்புகள் அணைக்கப்பட்டுள்ளன. அவற்றை இயக்க உங்கள் தொலைபேசி அமைப்புகளைத் திறக்கவும்.',
   );
   static String get openSettings => _t('Open settings', 'அமைப்புகளைத் திற');
-  static String get reminderTitle =>
-      _t('Time to check blood glucose', 'இரத்த குளுக்கோஸைச் சரிபார்க்க வேண்டிய நேரம்');
+  static String get reminderTitle => _t(
+    'Time to check blood glucose',
+    'இரத்த குளுக்கோஸைச் சரிபார்க்க வேண்டிய நேரம்',
+  );
   static String get reminderBody => _t(
     'It has been a while since the last reading. Add a new one in the app.',
     'கடைசி அளவீட்டிற்குப் பிறகு சிறிது நேரம் ஆகிவிட்டது. செயலியில் புதிய ஒன்றைச் சேர்க்கவும்.',
   );
-  static String get remindersOn => _t('Reminders are on', 'நினைவூட்டல்கள் இயக்கத்தில் உள்ளன');
+  static String get remindersOn =>
+      _t('Reminders are on', 'நினைவூட்டல்கள் இயக்கத்தில் உள்ளன');
 
   // ── Privacy and your data ───────────────────────────────────────────────
   static String get howDataUsed =>
@@ -840,7 +1120,8 @@ class S {
     'Open your details and tap Edit.',
     'உங்கள் விவரங்களைத் திறந்து "திருத்து" என்பதைத் தட்டவும்.',
   );
-  static String get deleteAccount => _t('Delete my account', 'என் கணக்கை நீக்கு');
+  static String get deleteAccount =>
+      _t('Delete my account', 'என் கணக்கை நீக்கு');
   static String get deleteAccountBody => _t(
     "Deleting removes your child's name, date of birth, contact details, answers to extra questions and help messages, and you can no longer sign in. Readings, doses and quiz results are kept for the research study without any name attached, as agreed in the terms. This cannot be undone.",
     'நீக்கினால் உங்கள் குழந்தையின் பெயர், பிறந்த தேதி, தொடர்பு விவரங்கள், கூடுதல் கேள்விகளுக்கான பதில்கள் மற்றும் உதவிச் செய்திகள் அகற்றப்படும்; நீங்கள் இனி உள்நுழைய முடியாது. அளவீடுகள், மருந்தளவுகள் மற்றும் தேர்வு முடிவுகள் விதிமுறைகளில் ஒப்புக்கொண்டபடி பெயர் இல்லாமல் ஆய்வுக்காக வைக்கப்படும். இதைத் திரும்பப் பெற முடியாது.',
@@ -885,17 +1166,20 @@ class S {
     "Today's glucose, your learning and what to do next — all in one place.",
     'இன்றைய குளுக்கோஸ், உங்கள் கற்றல், அடுத்து செய்ய வேண்டியவை — அனைத்தும் ஒரே இடத்தில்.',
   );
-  static String get tourLanguageTitle => _t('English or Tamil', 'ஆங்கிலம் அல்லது தமிழ்');
+  static String get tourLanguageTitle =>
+      _t('English or Tamil', 'ஆங்கிலம் அல்லது தமிழ்');
   static String get tourLanguageBody => _t(
     'Switch the language at any time. The whole app changes with it.',
     'எப்போது வேண்டுமானாலும் மொழியை மாற்றலாம். முழுச் செயலியும் அதனுடன் மாறும்.',
   );
-  static String get tourProfileTitle => _t('Profile & settings', 'சுயவிவரம் & அமைப்புகள்');
+  static String get tourProfileTitle =>
+      _t('Profile & settings', 'சுயவிவரம் & அமைப்புகள்');
   static String get tourProfileBody => _t(
-    "Your child's details, reminders, parent PIN, help, and switching between children.",
-    'உங்கள் குழந்தையின் விவரங்கள், நினைவூட்டல்கள், பெற்றோர் பின், உதவி, குழந்தைகளுக்கு இடையே மாறுதல்.',
+    "Fill in your child's details here — we ask for them after a few days. Also reminders, parent PIN and help.",
+    'உங்கள் குழந்தையின் விவரங்களை இங்கே நிரப்புங்கள் — சில நாட்களுக்குப் பிறகு கேட்போம். நினைவூட்டல்கள், பெற்றோர் பின், உதவியும் இங்கே.',
   );
-  static String get tourReadingsTitle => _t('Glucose at a glance', 'குளுக்கோஸ் ஒரு பார்வையில்');
+  static String get tourReadingsTitle =>
+      _t('Glucose at a glance', 'குளுக்கோஸ் ஒரு பார்வையில்');
   static String get tourReadingsBody => _t(
     'Pick a day in the week above to see its average. Tap here to record a reading.',
     'சராசரியைப் பார்க்க மேலே உள்ள வாரத்தில் ஒரு நாளைத் தேர்ந்தெடுக்கவும். அளவீட்டைப் பதிவு செய்ய இங்கே தட்டவும்.',
@@ -909,6 +1193,17 @@ class S {
   static String get tourQuizzesBody => _t(
     'Test what you have learnt and earn badges.',
     'கற்றதைச் சோதித்து பதக்கங்களைப் பெறுங்கள்.',
+  );
+  static String get tourSosTitle => _t('SOS contacts', 'அவசர தொடர்புகள்');
+  static String get tourSosBody => _t(
+    'In an emergency, tap here to call your doctor or nurse.',
+    'அவசரத்தில், உங்கள் மருத்துவர் அல்லது செவிலியரை அழைக்க இங்கே தட்டவும்.',
+  );
+  static String get tourShareTitle =>
+      _t('Share with a guardian', 'பாதுகாவலருடன் பகிரவும்');
+  static String get tourShareBody => _t(
+    'Away from your child? Send a link so a teacher can enter their readings.',
+    'குழந்தையுடன் இல்லையா? ஆசிரியர் அவர்களின் அளவீடுகளை உள்ளிட ஒரு இணைப்பை அனுப்புங்கள்.',
   );
   static String get tourHealthTitle => _t('Health', 'சுகாதாரம்');
   static String get tourHealthBody => _t(

@@ -4,6 +4,11 @@ import { Prisma } from "@/generated/prisma/client";
 import type { GlucoseContext, GlucoseUnit } from "@/generated/prisma/enums";
 import { ForbiddenError, NotFoundError } from "@/lib/api/errors";
 import { prisma } from "@/lib/db/prisma";
+import {
+  GLUCOSE_SLOT_LABELS,
+  glucoseContextForSlot,
+  type GlucoseSlotKey,
+} from "@/lib/health-data-config";
 import { getSetting } from "@/lib/services/settings";
 import {
   daysBetween,
@@ -46,6 +51,8 @@ const READING_SELECT = {
   unit: true,
   context: true,
   measuredAt: true,
+  slot: true,
+  enteredBy: true,
   source: true,
   notes: true,
   createdAt: true,
@@ -86,6 +93,7 @@ export interface CreateGlucoseInput {
   unit: GlucoseUnit;
   context: GlucoseContext;
   measuredAt: Date;
+  slot?: GlucoseSlotKey;
   source: "MANUAL" | "DEVICE" | "IMPORT" | "CLINICIAN";
   deviceId?: string;
   notes?: string;
@@ -135,6 +143,42 @@ export async function getGlucoseEntryStatus(userId: string): Promise<GlucoseEntr
 }
 
 export async function createGlucoseReading(userId: string, input: CreateGlucoseInput) {
+  if (input.slot) {
+    // A reading for one of the day's scheduled checks: it must be one this
+    // child was asked for, and it is the same-slot repeat — not any other
+    // reading — that the cooldown guards against, since breakfast, lunch and
+    // dinner checks legitimately sit close together.
+    const profile = await prisma.profile.findUnique({
+      where: { userId },
+      select: { glucoseSlots: true },
+    });
+    if (profile && !profile.glucoseSlots.includes(input.slot)) {
+      throw new ForbiddenError(
+        `${GLUCOSE_SLOT_LABELS[input.slot]} readings are not turned on for this account. Ask your study coordinator.`,
+      );
+    }
+    const cooldownHours = await getSetting("health.glucoseEntryCooldownHours");
+    const repeat = await prisma.glucoseReading.findFirst({
+      where: {
+        userId,
+        slot: input.slot,
+        measuredAt: { gt: new Date(Date.now() - cooldownHours * 3_600_000) },
+      },
+      select: { id: true },
+    });
+    if (repeat) {
+      throw new ForbiddenError(
+        `A ${GLUCOSE_SLOT_LABELS[input.slot].toLowerCase()} reading was just recorded.`,
+      );
+    }
+    const reading = await prisma.glucoseReading.create({
+      data: { userId, ...input, context: glucoseContextForSlot(input.slot) },
+      select: READING_SELECT,
+    });
+    await touchParticipantActivity(userId);
+    return reading;
+  }
+
   const status = await getGlucoseEntryStatus(userId);
   if (!status.canEnterNow) {
     // The client is expected to hide the entry form entirely once it has

@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/glucose_reading.dart';
+import '../../models/health_config.dart';
 import '../../providers/app_state.dart';
 import '../../services/api_client.dart';
 import '../../services/carb_service.dart';
+import '../../services/exercise_service.dart';
 import '../../services/glucose_service.dart';
 import '../../services/health_access.dart';
 import '../../services/insulin_service.dart';
@@ -17,7 +19,7 @@ import '../../widgets/error_banner.dart';
 import '../../widgets/pin_gate.dart';
 
 /// What a family can record.
-enum RecordKind { glucose, insulin, carbs }
+enum RecordKind { glucose, insulin, carbs, exercise }
 
 /// Recording glucose, insulin and carbohydrates — every one of them behind the
 /// parent's PIN.
@@ -32,8 +34,10 @@ class RecordScreen extends StatelessWidget {
   const RecordScreen({super.key, this.initial = RecordKind.glucose});
 
   @override
-  Widget build(BuildContext context) =>
-      PinGate(title: S.recordTitle, child: _RecordBody(initial: initial));
+  Widget build(BuildContext context) => PinGate(
+    title: S.recordTitle,
+    child: _RecordBody(initial: initial),
+  );
 }
 
 class _RecordBody extends StatefulWidget {
@@ -65,6 +69,7 @@ class _RecordBodyState extends State<_RecordBody> {
     if (access.glucose) RecordKind.glucose,
     if (access.insulin) RecordKind.insulin,
     if (access.carbs) RecordKind.carbs,
+    if (access.exercise) RecordKind.exercise,
   ];
 
   @override
@@ -103,14 +108,18 @@ class _RecordBodyState extends State<_RecordBody> {
                       ),
                     ),
                     child: switch (_kind) {
-                      RecordKind.glucose => const _GlucoseForm(
-                        key: ValueKey('glucose'),
+                      RecordKind.glucose => _GlucoseForm(
+                        key: const ValueKey('glucose'),
+                        slots: access.config.glucoseSlots,
                       ),
                       RecordKind.insulin => const _InsulinForm(
                         key: ValueKey('insulin'),
                       ),
                       RecordKind.carbs => const _CarbForm(
                         key: ValueKey('carbs'),
+                      ),
+                      RecordKind.exercise => const _ExerciseForm(
+                        key: ValueKey('exercise'),
                       ),
                     },
                   ),
@@ -136,12 +145,14 @@ class _KindPicker extends StatelessWidget {
     RecordKind.glucose => Icons.water_drop_outlined,
     RecordKind.insulin => Icons.vaccines_outlined,
     RecordKind.carbs => Icons.restaurant_outlined,
+    RecordKind.exercise => Icons.directions_run_rounded,
   };
 
   static String label(RecordKind kind) => switch (kind) {
     RecordKind.glucose => S.glucose,
     RecordKind.insulin => S.insulin,
     RecordKind.carbs => S.carbs,
+    RecordKind.exercise => S.exercise,
   };
 
   @override
@@ -163,7 +174,9 @@ class _KindPicker extends StatelessWidget {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: kind == selected ? AppTheme.deep : Colors.transparent,
+                    color: kind == selected
+                        ? AppTheme.deep
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
@@ -199,11 +212,21 @@ class _KindPicker extends StatelessWidget {
   }
 }
 
+/// What an entry form collects besides the number and the time.
+class _Extras {
+  final GlucoseSlot? slot;
+  final String? text;
+  const _Extras({this.slot, this.text});
+}
+
 /// One row in a recent-entries list.
 class _Entry {
   final String value;
   final DateTime at;
-  const _Entry(this.value, this.at);
+
+  /// The guardian who entered it through a shared link, if it was not the parent.
+  final String? by;
+  const _Entry(this.value, this.at, {this.by});
 }
 
 String _plain(double v) =>
@@ -223,11 +246,24 @@ class _EntryForm extends StatefulWidget {
   final double min;
   final double max;
   final String rangeError;
-  final Future<void> Function(double value, DateTime when) onSave;
+  final Future<void> Function(double value, DateTime when, _Extras extras)
+  onSave;
   final String savedMessage;
   final Future<List<_Entry>> Function() loadRecent;
 
+  /// When set, the parent must say which of these glucose checks it is.
+  final List<GlucoseSlot>? slots;
+
+  /// When set, a free-text "what did they eat" field of at most this length.
+  final int? foodMaxLength;
+
+  /// Whole numbers only (exercise minutes).
+  final bool wholeNumber;
+
   const _EntryForm({
+    this.slots,
+    this.foodMaxLength,
+    this.wholeNumber = false,
     required this.hint,
     required this.fieldLabel,
     required this.icon,
@@ -246,6 +282,8 @@ class _EntryForm extends StatefulWidget {
 
 class _EntryFormState extends State<_EntryForm> {
   final _value = TextEditingController();
+  final _food = TextEditingController();
+  GlucoseSlot? _slot;
   DateTime? _when; // null means "now"
   bool _saving = false;
   String? _error;
@@ -260,6 +298,7 @@ class _EntryFormState extends State<_EntryForm> {
   @override
   void dispose() {
     _value.dispose();
+    _food.dispose();
     super.dispose();
   }
 
@@ -299,6 +338,60 @@ class _EntryFormState extends State<_EntryForm> {
     });
   }
 
+  Future<bool> _confirmEntry(double value) async {
+    final shown = widget.wholeNumber ? value.round().toString() : _plain(value);
+    final food = _food.text.trim();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(S.checkEntryTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              S.checkEntryBody,
+              style: const TextStyle(fontSize: 13.5, height: 1.4),
+            ),
+            const SizedBox(height: 14),
+            if (_slot != null)
+              Text(
+                S.glucoseSlot(_slot!),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.inkSoft,
+                ),
+              ),
+            Text(
+              '${widget.fieldLabel}: $shown',
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.deep,
+              ),
+            ),
+            if (food.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(food, style: const TextStyle(fontSize: 14)),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(S.goBackEdit),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(S.yesCorrectSave),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
     final value = double.tryParse(_value.text.trim().replaceAll(',', '.'));
@@ -307,17 +400,34 @@ class _EntryFormState extends State<_EntryForm> {
       return;
     }
 
+    if (widget.slots != null && _slot == null) {
+      setState(() => _error = S.chooseGlucoseSlot);
+      return;
+    }
+
+    // Every number is double-checked before it is saved: these values feed
+    // decisions about the child's care, so a slip of the finger is worth one
+    // more tap.
+    if (!await _confirmEntry(value)) return;
+    if (!mounted) return;
+
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await widget.onSave(value, _when ?? DateTime.now());
+      await widget.onSave(
+        widget.wholeNumber ? value.roundToDouble() : value,
+        _when ?? DateTime.now(),
+        _Extras(slot: _slot, text: _food.text),
+      );
       if (!mounted) return;
       _value.clear();
+      _food.clear();
       setState(() {
         _saving = false;
         _when = null;
+        _slot = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -379,13 +489,39 @@ class _EntryFormState extends State<_EntryForm> {
                 ErrorBanner(message: _error!),
                 const SizedBox(height: 12),
               ],
+              if (widget.slots != null) ...[
+                Text(
+                  S.whichReading,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final slot in widget.slots!)
+                      ChoiceChip(
+                        label: Text(S.glucoseSlot(slot)),
+                        selected: _slot == slot,
+                        onSelected: (_) => setState(() => _slot = slot),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
               TextField(
                 controller: _value,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                keyboardType: TextInputType.numberWithOptions(
+                  decimal: !widget.wholeNumber,
                 ),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  FilteringTextInputFormatter.allow(
+                    RegExp(widget.wholeNumber ? r'[0-9]' : r'[0-9.,]'),
+                  ),
                 ],
                 style: const TextStyle(
                   fontSize: 24,
@@ -398,6 +534,24 @@ class _EntryFormState extends State<_EntryForm> {
                 ),
                 onSubmitted: (_) => _save(),
               ),
+              if (widget.foodMaxLength != null) ...[
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _food,
+                  maxLength: widget.foodMaxLength,
+                  maxLines: 2,
+                  minLines: 1,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: S.whatWasEaten,
+                    hintText: S.whatWasEatenHint,
+                    prefixIcon: const Icon(
+                      Icons.edit_note_rounded,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                ),
+              ],
               if (widget.askWhen) ...[
                 const SizedBox(height: 16),
                 Text(
@@ -493,13 +647,26 @@ class _EntryFormState extends State<_EntryForm> {
                       ),
                     ),
                   ),
-                  Text(
-                    entry.value,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.deep,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        entry.value,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.deep,
+                        ),
+                      ),
+                      if (entry.by != null)
+                        Text(
+                          S.viaGuardian(entry.by!),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppTheme.inkSoft,
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -590,11 +757,13 @@ class _SinceChip extends StatelessWidget {
 }
 
 class _GlucoseForm extends StatelessWidget {
-  const _GlucoseForm({super.key});
+  final List<GlucoseSlot> slots;
+  const _GlucoseForm({super.key, required this.slots});
 
   @override
   Widget build(BuildContext context) {
     return _EntryForm(
+      slots: slots,
       hint: S.recordGlucoseHint,
       fieldLabel: S.glucoseReadingLabel,
       icon: Icons.water_drop_outlined,
@@ -604,8 +773,8 @@ class _GlucoseForm extends StatelessWidget {
       max: 1000,
       rangeError: S.glucoseOutOfRange,
       savedMessage: S.readingSaved,
-      onSave: (value, _) async {
-        await GlucoseService.instance.create(value);
+      onSave: (value, _, extras) async {
+        await GlucoseService.instance.create(value, slot: extras.slot);
         // The next reminder moves to six hours after this reading.
         await LocalReminders.scheduleAfter(DateTime.now());
       },
@@ -613,7 +782,7 @@ class _GlucoseForm extends StatelessWidget {
         final readings = await GlucoseService.instance.recent(limit: 6);
         return [
           for (final GlucoseReading r in readings)
-            _Entry('${_plain(r.value)} mg/dL', r.measuredAt),
+            _Entry('${_plain(r.value)} mg/dL', r.measuredAt, by: r.enteredBy),
         ];
       },
     );
@@ -634,13 +803,17 @@ class _InsulinForm extends StatelessWidget {
       max: 300,
       rangeError: S.badDose,
       savedMessage: S.doseSaved,
-      onSave: (value, when) =>
+      onSave: (value, when, _) =>
           InsulinService.instance.record(units: value, administeredAt: when),
       loadRecent: () async {
         final doses = await InsulinService.instance.recent(limit: 6);
         return [
           for (final d in doses)
-            _Entry(S.unitsValue(_plain(d.units)), d.administeredAt),
+            _Entry(
+              S.unitsValue(_plain(d.units)),
+              d.administeredAt,
+              by: d.enteredBy,
+            ),
         ];
       },
     );
@@ -653,6 +826,7 @@ class _CarbForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _EntryForm(
+      foodMaxLength: CarbService.maxFoodLength,
       hint: S.recordCarbsHint,
       fieldLabel: S.carbsEaten,
       icon: Icons.restaurant_outlined,
@@ -661,13 +835,54 @@ class _CarbForm extends StatelessWidget {
       max: 500,
       rangeError: S.badCarbs,
       savedMessage: S.carbsSaved,
-      onSave: (value, when) =>
-          CarbService.instance.record(carbsGrams: value, consumedAt: when),
+      onSave: (value, when, extras) => CarbService.instance.record(
+        carbsGrams: value,
+        consumedAt: when,
+        food: extras.text,
+      ),
       loadRecent: () async {
         final entries = await CarbService.instance.recent(limit: 6);
         return [
           for (final e in entries)
-            _Entry(S.gramsValue(_plain(e.carbsGrams ?? 0)), e.consumedAt),
+            _Entry(
+              S.gramsValue(_plain(e.carbsGrams ?? 0)),
+              e.consumedAt,
+              by: e.enteredBy,
+            ),
+        ];
+      },
+    );
+  }
+}
+
+class _ExerciseForm extends StatelessWidget {
+  const _ExerciseForm({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _EntryForm(
+      hint: S.recordExerciseHint,
+      fieldLabel: S.exerciseMinutes,
+      icon: Icons.directions_run_rounded,
+      askWhen: true,
+      wholeNumber: true,
+      min: 1,
+      max: 1440,
+      rangeError: S.badExercise,
+      savedMessage: S.exerciseSaved,
+      onSave: (value, when, _) => ExerciseService.instance.record(
+        minutes: value.round(),
+        performedAt: when,
+      ),
+      loadRecent: () async {
+        final entries = await ExerciseService.instance.recent(limit: 6);
+        return [
+          for (final e in entries)
+            _Entry(
+              S.minutesValue(e.durationMinutes),
+              e.performedAt,
+              by: e.enteredBy,
+            ),
         ];
       },
     );
@@ -685,7 +900,11 @@ class _Empty extends StatelessWidget {
       child: Text(
         message,
         textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 14.5, height: 1.45, color: AppTheme.inkSoft),
+        style: const TextStyle(
+          fontSize: 14.5,
+          height: 1.45,
+          color: AppTheme.inkSoft,
+        ),
       ),
     ),
   );

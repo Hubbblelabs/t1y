@@ -95,6 +95,27 @@ enum GlucoseContext {
   RANDOM
 }
 
+/// Which of the day's six glucose checks a reading belongs to. Which of these
+/// a child is asked for is Profile.glucoseSlots.
+enum GlucoseSlot {
+  PRE_BREAKFAST
+  POST_BREAKFAST
+  PRE_LUNCH
+  POST_LUNCH
+  PRE_DINNER
+  POST_DINNER
+}
+
+enum GuardianShareStatus {
+  ACTIVE
+  /// The guardian submitted — the link is spent.
+  USED
+  /// The parent cancelled it before it was used.
+  REVOKED
+  /// Too many wrong codes.
+  LOCKED
+}
+
 enum DataSource {
   MANUAL
   DEVICE
@@ -376,6 +397,8 @@ model User {
   healthMetrics   HealthMetric[]
   reminders       Reminder[]
   notifications   Notification[]
+  guardianShares  GuardianShare[]
+  sosContacts     SosContactAssignment[]
   deviceTokens    DeviceToken[]
 
   studyEnrollments StudyParticipant[]
@@ -582,6 +605,22 @@ model Profile {
   /// request for a feature that is not.
   enabledFeatures String[] @default(["GLUCOSE_LOGGING", "INSULIN_LOGGING", "CARB_LOGGING", "HELP_BOOK", "QUIZZES", "HELP_SUPPORT"])
 
+  /// Which of the six daily glucose checks this child is asked to record
+  /// (see GlucoseSlot). Defaults to all six, which is what every account
+  /// did before this was configurable. Empty means none — the app then has
+  /// nothing to ask for, same as GLUCOSE_LOGGING being off.
+  glucoseSlots GlucoseSlot[] @default([PRE_BREAKFAST, POST_BREAKFAST, PRE_LUNCH, POST_LUNCH, PRE_DINNER, POST_DINNER])
+
+  /// Hours between insulin doses — 24 = once a day, 12 = twice a day, 4 = every
+  /// four hours. The app turns this into a repeating reminder on the phone;
+  /// null means no insulin reminder.
+  insulinIntervalHours Int?
+
+  /// Whether this child is asked to record exercise, and how often (in hours)
+  /// the phone reminds them. A null interval is "no reminder".
+  exerciseEnabled       Boolean @default(false)
+  exerciseReminderHours Int?
+
   /// Maintained on every health-data write so participant lists stay cheap to query.
   lastActivityAt DateTime?
   onboardedAt    DateTime?
@@ -727,6 +766,108 @@ model AdminUser {
 // Glucose
 // ---------------------------------------------------------------------------
 
+enum GalleryKind {
+  IMAGE
+  VIDEO
+}
+
+/// A picture or video the study team adds for every family to browse in the
+/// app's Gallery. `url` points at already-uploaded media; this table does not
+/// store files.
+model GalleryItem {
+  id    String      @id @default(cuid())
+  kind  GalleryKind
+  url   String
+  /// A still shown in the grid for a video (optional); images use `url`.
+  thumbnailUrl String?
+
+  title     String
+  titleTa   String?
+  caption   String?
+  captionTa String?
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active, sortOrder])
+}
+
+/// An emergency contact shown in the app's SOS screen — a doctor, nurse,
+/// ambulance, anyone. `label` is free text, not a fixed list. A contact is
+/// shown to every child when `visibleToAll`, otherwise only to those listed in
+/// `assignments`.
+model SosContact {
+  id    String @id @default(cuid())
+  name  String
+  phone String
+  /// "Doctor", "Nurse", "Neighbour" … whatever the coordinator types.
+  label String
+
+  visibleToAll Boolean @default(false)
+  active       Boolean @default(true)
+  sortOrder    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments SosContactAssignment[]
+
+  @@index([active, sortOrder])
+}
+
+model SosContactAssignment {
+  contactId String
+  userId    String
+
+  contact SosContact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, userId])
+  @@index([userId])
+}
+
+/// A one-time link a parent gives a guardian (a teacher, say) so they can record
+/// the child's readings while the parent is away. Opening it needs a 6-digit
+/// code the parent shares separately; submitting spends the link.
+///
+/// Neither secret is stored in the clear: the URL token only as a SHA-256
+/// hash, and the code encrypted (AES-256-GCM, server key) so the owning
+/// parent can see it again in the app. See lib/services/guardian-crypto.ts.
+model GuardianShare {
+  id     String @id @default(cuid())
+  userId String
+
+  tokenHash String @unique
+  /// Per-link salt for deriving the keys the page and server both compute
+  /// from the code.
+  salt      String
+  codeEnc   String
+
+  status         GuardianShareStatus @default(ACTIVE)
+  expiresAt      DateTime
+  failedAttempts Int                 @default(0)
+
+  /// What the parent asked the guardian to record (GLUCOSE, INSULIN, CARBS,
+  /// EXERCISE) — always a subset of what the child is enrolled for — and an
+  /// optional short note shown to the guardian ("Lunchtime readings, please").
+  collect String[] @default(["GLUCOSE", "INSULIN", "CARBS", "EXERCISE"])
+  purpose String?
+
+  /// Who the guardian said they were, and when they submitted.
+  guardianName String?
+  usedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
 model GlucoseReading {
   id     String @id @default(cuid())
   userId String
@@ -735,6 +876,11 @@ model GlucoseReading {
   unit       GlucoseUnit    @default(MG_DL)
   context    GlucoseContext @default(RANDOM)
   measuredAt DateTime
+  /// Which scheduled check this was, when the app asked for a specific one.
+  slot       GlucoseSlot?
+  /// Name of the guardian who entered this through a shared link (see
+  /// GuardianShare) rather than the parent in the app. Null = the parent.
+  enteredBy  String?
   source     DataSource     @default(MANUAL)
   deviceId   String?
   notes      String?
@@ -826,6 +972,8 @@ model InsulinLog {
   mealAssociation MealAssociation @default(NONE)
   mealId          String?
   notes           String?
+  /// Guardian who entered this through a shared link; null = the parent.
+  enteredBy       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -859,6 +1007,8 @@ model Meal {
   nutritionSource String?
   photoUrl        String?
   notes           String?
+  /// Guardian who entered this through a shared link; null = the parent.
+  enteredBy       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -933,6 +1083,8 @@ model ExerciseLog {
   steps           Int?
   performedAt     DateTime
   notes           String?
+  /// Guardian who entered this through a shared link; null = the parent.
+  enteredBy       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

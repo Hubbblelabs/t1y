@@ -125,6 +125,18 @@ export const NAVIGATION: NavSection[] = [
         matchPrefix: true,
       },
       {
+        label: "Gallery",
+        href: "/admin/content/gallery",
+        capability: Capability.EDUCATION_MANAGE,
+        matchPrefix: true,
+      },
+      {
+        label: "SOS contacts",
+        href: "/admin/content/sos",
+        capability: Capability.EDUCATION_MANAGE,
+        matchPrefix: true,
+      },
+      {
         label: "Glucose",
         href: "/admin/health/glucose",
         capability: Capability.HEALTH_DATA_VIEW,

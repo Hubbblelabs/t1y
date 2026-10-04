@@ -28,6 +28,7 @@ const MEAL_SELECT = {
   nutritionSource: true,
   photoUrl: true,
   notes: true,
+  enteredBy: true,
   createdAt: true,
   items: {
     select: {

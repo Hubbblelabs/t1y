@@ -153,9 +153,7 @@ class _AddChildScreenState extends State<AddChildScreen> {
                               '${dob.month.toString().padLeft(2, '0')}-${dob.year}',
                     style: TextStyle(
                       fontSize: 14.5,
-                      color: dob == null
-                          ? AppTheme.inkSoft
-                          : AppTheme.deep,
+                      color: dob == null ? AppTheme.inkSoft : AppTheme.deep,
                     ),
                   ),
                   const Spacer(),

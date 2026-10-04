@@ -41,6 +41,14 @@ const serverSchema = z.object({
 
   CRON_SECRET: z.string().optional(),
 
+  /**
+   * Base64 of 32 random bytes — encrypts guardian-link codes at rest
+   * (`openssl rand -base64 32`). When absent a key is derived from
+   * BETTER_AUTH_SECRET, so set this in production to be able to rotate the
+   * two independently.
+   */
+  SHARE_ENCRYPTION_KEY: z.string().optional(),
+
   SEED_DEFAULT_PASSWORD: z.string().optional(),
 
   /** Disables the API rate limiter. Intended for automated tests only. */

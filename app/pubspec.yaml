@@ -48,6 +48,8 @@ dependencies:
   flutter_timezone: ^5.1.0
   flutter_dotenv: ^5.2.1
   connectivity_plus: ^6.1.0
+  share_plus: ^12.0.2
+  url_launcher: ^6.3.2
 dependency_overrides:
   # permission_handler_android 14.x ships a build.gradle.kts using a newer
   # Kotlin Gradle Plugin DSL (`kotlin { compilerOptions { ... } }`) that this
@@ -88,6 +90,7 @@ flutter:
 
   assets:
     - assets/images/logo.png
+    - assets/images/helpbook_fallback.webp
     - assets/images/app_icon.png
     - assets/images/app_icon_foreground.png
     - assets/badges/

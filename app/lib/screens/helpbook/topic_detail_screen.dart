@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:video_player/video_player.dart';
@@ -11,7 +13,21 @@ import '../../theme/app_theme.dart';
 import '../../widgets/app_loader.dart';
 import '../../widgets/language_toggle.dart';
 import '../../widgets/locale_aware.dart';
-import '../../widgets/topic_card.dart' show categoryIcons, categoryName;
+import '../../widgets/topic_card.dart'
+    show categoryIcons, categoryName, helpBookFallbackAsset;
+
+/// Sections saved from the dashboard editor are plain text with blank-line
+/// paragraph breaks; imported ones are HTML. Plain text is turned into
+/// paragraphs here so its line breaks survive rendering.
+String _paragraphHtml(String paragraph) {
+  if (paragraph.contains('<')) return paragraph;
+  const escape = HtmlEscape(HtmlEscapeMode.element);
+  return paragraph
+      .split(RegExp(r'\n\s*\n'))
+      .where((p) => p.trim().isNotEmpty)
+      .map((p) => '<p>${escape.convert(p.trim()).replaceAll('\n', '<br>')}</p>')
+      .join();
+}
 
 final _paragraphStyle = {
   'p': Style(
@@ -68,10 +84,8 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
   late final ValueNotifier<double> _progress = ValueNotifier(0);
   late final ValueNotifier<String?> _headerImage = ValueNotifier(null);
 
-  /// Set the moment a header image URL fails to actually load. The image
-  /// row disappears rather than showing a broken-picture placeholder — a
-  /// topic with no picture (or a picture that can't be reached) reads as a
-  /// text-only topic, not as a topic missing something.
+  /// Set the moment a header image URL fails to actually load; the bundled
+  /// Help Book illustration is shown in its place.
   late final ValueNotifier<bool> _headerImageFailed = ValueNotifier(false);
 
   /// Set once the current header image has actually finished decoding a
@@ -371,248 +385,277 @@ class _TopicDetailScreenState extends State<TopicDetailScreen>
                   : Column(
                       key: const ValueKey('content'),
                       children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: _CategoryChip(category: _topic.category),
-                    ),
-                  ),
-                  if (hasBlocks)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: ValueListenableBuilder<double>(
-                          valueListenable: _progress,
-                          builder: (context, value, _) =>
-                              LinearProgressIndicator(
-                                value: value,
-                                minHeight: 4,
-                                backgroundColor: AppTheme.primary.withValues(
-                                  alpha: 0.12,
-                                ),
-                                valueColor: const AlwaysStoppedAnimation(
-                                  AppTheme.primary,
-                                ),
-                              ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: _CategoryChip(category: _topic.category),
+                          ),
                         ),
-                      ),
-                    ),
-                  ValueListenableBuilder<String?>(
-                    valueListenable: _headerImage,
-                    builder: (context, headerImage, _) {
-                      if (headerImage == null) return const SizedBox.shrink();
-                      return ValueListenableBuilder<bool>(
-                        valueListenable: _headerImageFailed,
-                        builder: (context, failed, _) {
-                          // No image URL, or one that didn't actually load —
-                          // either way the whole row goes away rather than
-                          // leaving a broken-picture placeholder in its place.
-                          if (failed) return const SizedBox.shrink();
-                          // Image.network itself must stay mounted the whole
-                          // time there's a URL to try — it's the only thing
-                          // that can ever report "a frame is ready". Gating
-                          // its existence on `ready` (an earlier version of
-                          // this) meant it could never become ready, and no
-                          // header image — real or not — ever showed again.
-                          // Only the frame's opacity reacts to load state.
-                          return ValueListenableBuilder<bool>(
-                            valueListenable: _headerImageReady,
-                            builder: (context, ready, _) {
-                              return Padding(
-                                padding: const EdgeInsets.fromLTRB(
-                                  16,
-                                  10,
-                                  16,
-                                  0,
-                                ),
-                                child: AnimatedOpacity(
-                                  opacity: ready ? 1 : 0,
-                                  duration: const Duration(milliseconds: 200),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: AppTheme.deep.withValues(
-                                          alpha: 0.08,
-                                        ),
+                        if (hasBlocks)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(3),
+                              child: ValueListenableBuilder<double>(
+                                valueListenable: _progress,
+                                builder: (context, value, _) =>
+                                    LinearProgressIndicator(
+                                      value: value,
+                                      minHeight: 4,
+                                      backgroundColor: AppTheme.primary
+                                          .withValues(alpha: 0.12),
+                                      valueColor: const AlwaysStoppedAnimation(
+                                        AppTheme.primary,
                                       ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: AppTheme.deep.withValues(
-                                            alpha: 0.08,
-                                          ),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                      ],
                                     ),
-                                    clipBehavior: Clip.antiAlias,
-                                    child: AspectRatio(
-                                      // 3:2 — the fixed image ratio used across the Help Book.
-                                      aspectRatio: 3 / 2,
-                                      child: Image.network(
-                                        headerImage,
-                                        key: ValueKey(headerImage),
-                                        fit: BoxFit.cover,
-                                        frameBuilder:
-                                            (
-                                              context,
-                                              child,
-                                              frame,
-                                              wasSynchronouslyLoaded,
-                                            ) {
-                                              if (frame != null) {
-                                                WidgetsBinding.instance
-                                                    .addPostFrameCallback((_) {
-                                                      if (mounted &&
-                                                          _headerImage
-                                                                  .value ==
-                                                              headerImage) {
-                                                        _headerImageReady
-                                                                .value =
-                                                            true;
-                                                      }
-                                                    });
-                                              }
-                                              return child;
-                                            },
-                                        errorBuilder: (context, error, stackTrace) {
-                                          // Reporting the failure belongs to
-                                          // the next frame, not to this build.
-                                          WidgetsBinding.instance
-                                              .addPostFrameCallback((_) {
-                                                if (mounted &&
-                                                    _headerImage.value ==
-                                                        headerImage) {
-                                                  _headerImageFailed.value =
-                                                      true;
-                                                }
-                                              });
-                                          return const SizedBox.shrink();
-                                        },
+                              ),
+                            ),
+                          ),
+                        ValueListenableBuilder<String?>(
+                          valueListenable: _headerImage,
+                          builder: (context, headerImage, _) {
+                            if (headerImage == null) {
+                              return const SizedBox.shrink();
+                            }
+                            return ValueListenableBuilder<bool>(
+                              valueListenable: _headerImageFailed,
+                              builder: (context, failed, _) {
+                                // A picture that fails to download is replaced by
+                                // the bundled Help Book illustration, never left as
+                                // a broken or empty frame.
+                                // Image.network itself must stay mounted the whole
+                                // time there's a URL to try — it's the only thing
+                                // that can ever report "a frame is ready". Gating
+                                // its existence on `ready` (an earlier version of
+                                // this) meant it could never become ready, and no
+                                // header image — real or not — ever showed again.
+                                // Only the frame's opacity reacts to load state.
+                                return ValueListenableBuilder<bool>(
+                                  valueListenable: _headerImageReady,
+                                  builder: (context, ready, _) {
+                                    return Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        10,
+                                        16,
+                                        0,
                                       ),
+                                      child: AnimatedOpacity(
+                                        opacity: ready || failed ? 1 : 0,
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
+                                            border: Border.all(
+                                              color: AppTheme.deep.withValues(
+                                                alpha: 0.08,
+                                              ),
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppTheme.deep.withValues(
+                                                  alpha: 0.08,
+                                                ),
+                                                blurRadius: 16,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                            ],
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: AspectRatio(
+                                            // 3:2 — the fixed image ratio used across the Help Book.
+                                            aspectRatio: 3 / 2,
+                                            child: failed
+                                                ? Image.asset(
+                                                    helpBookFallbackAsset,
+                                                    fit: BoxFit.cover,
+                                                  )
+                                                : Image.network(
+                                                    headerImage,
+                                                    key: ValueKey(headerImage),
+                                                    fit: BoxFit.cover,
+                                                    frameBuilder:
+                                                        (
+                                                          context,
+                                                          child,
+                                                          frame,
+                                                          wasSynchronouslyLoaded,
+                                                        ) {
+                                                          if (frame != null) {
+                                                            WidgetsBinding
+                                                                .instance
+                                                                .addPostFrameCallback((
+                                                                  _,
+                                                                ) {
+                                                                  if (mounted &&
+                                                                      _headerImage
+                                                                              .value ==
+                                                                          headerImage) {
+                                                                    _headerImageReady
+                                                                            .value =
+                                                                        true;
+                                                                  }
+                                                                });
+                                                          }
+                                                          return child;
+                                                        },
+                                                    errorBuilder: (context, error, stackTrace) {
+                                                      // Reporting the failure belongs to
+                                                      // the next frame, not to this build.
+                                                      WidgetsBinding.instance
+                                                          .addPostFrameCallback((
+                                                            _,
+                                                          ) {
+                                                            if (mounted &&
+                                                                _headerImage
+                                                                        .value ==
+                                                                    headerImage) {
+                                                              _headerImageFailed
+                                                                      .value =
+                                                                  true;
+                                                            }
+                                                          });
+                                                      return const SizedBox.shrink();
+                                                    },
+                                                  ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        if (_topic.isFallback)
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFFB26A00,
+                              ).withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.translate,
+                                  size: 16,
+                                  color: Color(0xFFB26A00),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    S.tamilNotPublished,
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      height: 1.35,
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                  if (_topic.isFallback)
-                    Container(
-                      width: double.infinity,
-                      margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFB26A00).withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.translate,
-                            size: 16,
-                            color: Color(0xFFB26A00),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              S.tamilNotPublished,
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                height: 1.35,
-                              ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (hasBlocks)
-                            for (var i = 0; i < blocks.length; i++)
-                              Container(
-                                key: _blockKeys[i],
-                                padding: const EdgeInsets.only(bottom: 14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (blocks[i].heading.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        child: Text(
-                                          blocks[i].heading,
-                                          style: const TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppTheme.deep,
-                                          ),
-                                        ),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (hasBlocks)
+                                  for (var i = 0; i < blocks.length; i++)
+                                    Container(
+                                      key: _blockKeys[i],
+                                      padding: const EdgeInsets.only(
+                                        bottom: 14,
                                       ),
-                                    if (blocks[i].hasVideo)
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 10,
-                                        ),
-                                        child: _VideoBlock(
-                                          url: _absolute(blocks[i].videoUrl),
-                                        ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (blocks[i].heading.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 6,
+                                              ),
+                                              child: Text(
+                                                blocks[i].heading,
+                                                style: const TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppTheme.deep,
+                                                ),
+                                              ),
+                                            ),
+                                          if (blocks[i].hasVideo)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 10,
+                                              ),
+                                              child: _VideoBlock(
+                                                url: _absolute(
+                                                  blocks[i].videoUrl,
+                                                ),
+                                              ),
+                                            ),
+                                          if (blocks[i].paragraph
+                                              .trim()
+                                              .isNotEmpty)
+                                            Html(
+                                              data: _paragraphHtml(
+                                                blocks[i].paragraph,
+                                              ),
+                                              style: _paragraphStyle,
+                                            ),
+                                        ],
                                       ),
-                                    if (blocks[i].paragraph.trim().isNotEmpty)
-                                      Html(
-                                        data: blocks[i].paragraph,
-                                        style: _paragraphStyle,
+                                    )
+                                else
+                                  Html(
+                                    data: _topic.body.replaceAll(
+                                      'src="/content/',
+                                      'src="${_baseUrl ?? ''}/content/',
+                                    ),
+                                    style: {
+                                      ..._paragraphStyle,
+                                      'img': Style(
+                                        width: Width(100, Unit.percent),
                                       ),
-                                  ],
+                                    },
+                                  ),
+                                const SizedBox(height: 14),
+                                // Inline, at the end of the content — not a
+                                // floating button and not pinned to the bottom of
+                                // the screen throughout the read.
+                                _MarkReadButton(
+                                  isRead: _markedRead,
+                                  onPressed: _toggleRead,
                                 ),
-                              )
-                          else
-                            Html(
-                              data: _topic.body.replaceAll(
-                                'src="/content/',
-                                'src="${_baseUrl ?? ''}/content/',
-                              ),
-                              style: {
-                                ..._paragraphStyle,
-                                'img': Style(width: Width(100, Unit.percent)),
-                              },
+                                if (_siblings.length > 1) ...[
+                                  const SizedBox(height: 12),
+                                  _TopicNavRow(
+                                    onPrevious: () => _goToSibling(-1),
+                                    onNext: () => _goToSibling(1),
+                                  ),
+                                ],
+                              ],
                             ),
-                          const SizedBox(height: 14),
-                          // Inline, at the end of the content — not a
-                          // floating button and not pinned to the bottom of
-                          // the screen throughout the read.
-                          _MarkReadButton(
-                            isRead: _markedRead,
-                            onPressed: _toggleRead,
                           ),
-                          if (_siblings.length > 1) ...[
-                            const SizedBox(height: 12),
-                            _TopicNavRow(
-                              onPrevious: () => _goToSibling(-1),
-                              onNext: () => _goToSibling(1),
-                            ),
-                          ],
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
             ),
             if (_switching)
               Positioned.fill(

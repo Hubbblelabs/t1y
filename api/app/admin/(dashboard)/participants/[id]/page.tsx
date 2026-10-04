@@ -9,6 +9,7 @@ import { ParticipantDeleteControl } from "@/components/admin/participants/partic
 import { ParticipantEngagement } from "@/components/admin/participants/participant-engagement";
 import { ParticipantProfileCard } from "@/components/admin/participants/participant-profile";
 import { ParticipantStatusControl } from "@/components/admin/participants/participant-status-control";
+import { ParticipantHealthConfigControl } from "@/components/admin/participants/participant-health-config-control";
 import { ParticipantFeaturesControl } from "@/components/admin/participants/participant-features-control";
 import { ParticipantTimeline } from "@/components/admin/participants/participant-timeline";
 import { StatusBadge } from "@/components/admin/participants/participant-table";
@@ -114,6 +115,18 @@ export default async function ParticipantDetailPage(
             <ParticipantFeaturesControl
               participantId={id}
               enabledFeatures={participant.profile?.enabledFeatures ?? []}
+            />
+          ) : null}
+
+          {can(principal, Capability.PARTICIPANTS_EDIT) && participant.profile ? (
+            <ParticipantHealthConfigControl
+              participantId={id}
+              config={{
+                glucoseSlots: participant.profile.glucoseSlots,
+                insulinIntervalHours: participant.profile.insulinIntervalHours,
+                exerciseEnabled: participant.profile.exerciseEnabled,
+                exerciseReminderHours: participant.profile.exerciseReminderHours,
+              }}
             />
           ) : null}
 

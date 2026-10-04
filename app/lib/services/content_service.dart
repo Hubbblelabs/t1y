@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/topic.dart';
@@ -23,6 +24,16 @@ class ContentService {
   /// server ("query parameters are invalid") and was also a different cache
   /// from "en", so the same content was fetched and stored twice.
   static String normaliseLocale(String locale) => locale.trim().toLowerCase();
+
+  /// Bumped whenever a background refresh brings content that differs from what
+  /// was already on the phone (a topic reworded, a picture added). Screens that
+  /// showed the older copy listen to this and redraw — before, they kept
+  /// showing the stale copy until the family left and came back.
+  final ValueNotifier<int> updates = ValueNotifier<int>(0);
+
+  /// The saved copy only, with no network request.
+  Future<List<Topic>?> cachedTopics(String locale) =>
+      _readCache(normaliseLocale(locale));
 
   String _cacheKey(String locale) => 'content_bundle_$locale';
   String _syncedAtKey(String locale) => 'content_synced_at_$locale';
@@ -105,13 +116,15 @@ class ContentService {
 
   Future<void> _writeCache(String locale, List<Topic> topics) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _cacheKey(locale),
-      jsonEncode(topics.map((t) => t.toJson()).toList()),
-    );
+    final previous = prefs.getString(_cacheKey(locale));
+    final fresh = jsonEncode(topics.map((t) => t.toJson()).toList());
+    await prefs.setString(_cacheKey(locale), fresh);
     await prefs.setString(
       _syncedAtKey(locale),
       DateTime.now().toIso8601String(),
     );
+    // Only a change to something already shown counts — the first download has
+    // nothing stale on screen.
+    if (previous != null && previous != fresh) updates.value++;
   }
 }

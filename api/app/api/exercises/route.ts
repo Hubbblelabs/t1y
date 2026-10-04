@@ -7,6 +7,7 @@ import {
   listExerciseLogs,
 } from "@/lib/services/exercise";
 import { resolveDateRange, toSkipTake } from "@/lib/validation/common";
+import { assertExerciseEnabled } from "@/lib/services/participant-features";
 import { createExerciseLogSchema, exerciseQuerySchema } from "@/lib/validation/health";
 
 /**
@@ -47,6 +48,8 @@ export const POST = defineRoute({
   requiresFlag: "health_logging_enabled",
   rateLimit: RateLimits.write,
   body: createExerciseLogSchema,
-  handler: async ({ principal, body }) =>
-    created(await createExerciseLog(principal.userId, body)),
+  handler: async ({ principal, body }) => {
+    await assertExerciseEnabled(principal.userId);
+    return created(await createExerciseLog(principal.userId, body));
+  },
 });

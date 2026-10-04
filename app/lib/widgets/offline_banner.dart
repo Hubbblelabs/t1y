@@ -84,7 +84,8 @@ class _OfflineBannerState extends State<OfflineBanner> {
                               ),
                             ),
                             IconButton(
-                              onPressed: () => setState(() => _collapsed = true),
+                              onPressed: () =>
+                                  setState(() => _collapsed = true),
                               icon: const Icon(
                                 Icons.close_rounded,
                                 size: 18,

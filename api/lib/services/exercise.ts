@@ -20,6 +20,7 @@ const LOG_SELECT = {
   steps: true,
   performedAt: true,
   notes: true,
+  enteredBy: true,
   createdAt: true,
 } satisfies Prisma.ExerciseLogSelect;
 

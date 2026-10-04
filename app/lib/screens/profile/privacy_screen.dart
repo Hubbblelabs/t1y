@@ -17,10 +17,7 @@ class PrivacyScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(S.howDataUsed),
-        backgroundColor: Colors.white,
-      ),
+      appBar: AppBar(title: Text(S.howDataUsed), backgroundColor: Colors.white),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
@@ -131,12 +128,19 @@ class DataRightsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             S.deleteAccountBody,
-            style: const TextStyle(fontSize: 14, height: 1.5, color: AppTheme.ink),
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.5,
+              color: AppTheme.ink,
+            ),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () => _delete(context),
-            icon: const Icon(Icons.delete_forever_outlined, color: Color(0xFFC62828)),
+            icon: const Icon(
+              Icons.delete_forever_outlined,
+              color: Color(0xFFC62828),
+            ),
             label: Text(
               S.deleteAccount,
               style: const TextStyle(color: Color(0xFFC62828)),

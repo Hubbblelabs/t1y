@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Upload, UserPlus } from "lucide-react";
+import { Download, Upload, UserPlus } from "lucide-react";
 import { Suspense } from "react";
 
 import { PageContainer, PageHeader } from "@/components/admin/page-header";
@@ -42,6 +42,12 @@ export default async function ParticipantsPage(
         actions={
           can(principal, Capability.PARTICIPANTS_CREATE) ? (
             <div className="flex gap-2">
+              <Button asChild variant="secondary">
+                <a href="/api/admin/exports/patient-diary" download>
+                  <Download className="size-4" aria-hidden="true" />
+                  Export patient diary
+                </a>
+              </Button>
               <Button asChild variant="secondary">
                 <Link href="/admin/participants/bulk">
                   <Upload className="size-4" aria-hidden="true" />
